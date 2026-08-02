@@ -104,11 +104,18 @@ struct BuyDomainSheetView: View {
         case .needsAccountSetup(let hostname):
             VStack(alignment: .leading, spacing: 8) {
                 Text("Finish setting up billing for \(hostname) in the Cloudflare dashboard, then come back and try again.")
-                escapeHatch
+                // The dashboard, not the `cloudflareDomainsURL` marketing page the generic
+                // `escapeHatch` link points at — this is the one case where the copy explicitly
+                // promises "the Cloudflare dashboard".
+                Link("Open the Cloudflare dashboard", destination: BuyDomainModel.cloudflareDashboardURL)
+                    .font(.caption)
             }
 
         case .stillProcessing(let hostname):
-            Text("Still processing \(hostname). Once it finishes, come back and use \"I already own a domain\" with \(hostname) to connect it.")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Still processing \(hostname). Once it finishes, come back and use \"I already own a domain\" with \(hostname) to connect it.")
+                escapeHatch
+            }
 
         case .failed(let reason):
             VStack(alignment: .leading, spacing: 8) {
@@ -142,7 +149,7 @@ struct BuyDomainSheetView: View {
                 Text(candidate.name)
                 Spacer()
                 if candidate.registrable {
-                    Text(candidate.priceDisplay ?? "")
+                    Text(candidate.priceDisplay ?? "price unavailable")
                         .foregroundStyle(.secondary)
                 } else {
                     Text(candidate.reason ?? "unavailable")
@@ -153,12 +160,21 @@ struct BuyDomainSheetView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!candidate.registrable)
+        .disabled(!candidate.registrable || candidate.priceDisplay == nil)
     }
 
     private var footer: some View {
         HStack {
-            Button("Close") { model.dismissSheet() }
+            // Hidden while `.purchasing`: a `POST /registrar/registrations` may already be in
+            // flight at Cloudflare by this point, so closing here can't be allowed to look like
+            // cancelling it — see `BuyDomainModel.dismissSheet()`. The purchase keeps running in
+            // the background regardless; this only controls whether the user can walk away from
+            // watching it.
+            if case .purchasing = model.phase {
+                Text("Purchasing…").font(.caption).foregroundStyle(.secondary)
+            } else {
+                Button("Close") { model.dismissSheet() }
+            }
             Spacer()
         }
         .padding(16)

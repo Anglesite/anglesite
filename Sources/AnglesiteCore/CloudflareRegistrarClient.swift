@@ -1,7 +1,9 @@
 import Foundation
 
 /// One Check result — real-time availability + pricing, or the reason a candidate isn't
-/// registrable. `registrationCost`/`currency` are `nil` exactly when `registrable` is `false`.
+/// registrable. `registrationCost`/`currency` are `nil` when pricing wasn't returned — most
+/// commonly (but not exclusively) when `registrable` is `false`; the live API can also omit
+/// pricing for a registrable result, so callers must not assume the two always move together.
 public struct RegistrarDomainCheck: Sendable, Equatable {
     public let name: String
     public let registrable: Bool

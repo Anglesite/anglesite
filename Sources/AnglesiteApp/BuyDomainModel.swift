@@ -43,6 +43,11 @@ final class BuyDomainModel {
     private var pendingSearchQuery: String?
 
     static let cloudflareDomainsURL = ConnectDomainModel.cloudflareDomainsURL
+    /// The Cloudflare dashboard root — used specifically by `.needsAccountSetup`'s "finish setting
+    /// up billing" link, which needs to land the user in the dashboard rather than on the
+    /// `cloudflareDomainsURL` marketing page. No deeper deep-link path is guessed here since one
+    /// hasn't been verified against the live product.
+    static let cloudflareDashboardURL = URL(string: "https://dash.cloudflare.com/")!
 
     private let ops: any RegistrarOperationsService
     private let keychain: KeychainStore
@@ -71,22 +76,44 @@ final class BuyDomainModel {
         }
     }
 
+    /// Always presents the sheet — never a silent no-op, even while a purchase is still running
+    /// in the background after an earlier dismiss (see `dismissSheet()`). Only resets to a fresh
+    /// `.searching` state when nothing is running, so reopening during a backgrounded purchase
+    /// shows the live `.purchasing` state instead of discarding it.
     func openSheet() {
+        sheetPresented = true
         guard !isRunning else { return }
         phase = .searching(query: "")
         queryInput = ""
-        sheetPresented = true
     }
 
+    /// Closes the sheet. A `.purchasing` task is deliberately **not** cancelled: the
+    /// `POST /registrar/registrations` it's awaiting may already be in flight at Cloudflare, and
+    /// cancelling the local `Task` doesn't un-send it or refund a charge — it would only make the
+    /// app stop tracking a purchase that still completes (or fails) server-side. So a purchase
+    /// keeps running in the background after Close; `runPurchase` still writes `recordTransfer`
+    /// on a genuine `.succeeded` outcome, and reopening the sheet (`openSheet()`) shows the
+    /// in-progress state rather than losing it. Search's `.loadingResults` has no such stakes (a
+    /// GET has no side effects to protect) and keeps today's cancel-on-close behavior.
     func dismissSheet() {
-        inFlight?.cancel()
-        inFlight = nil
+        if case .purchasing = phase {
+            // Deliberately not cancelled — see doc comment above.
+        } else {
+            inFlight?.cancel()
+            inFlight = nil
+        }
         sheetPresented = false
+        pendingSearchQuery = nil
+        tokenPromptPresented = false
     }
 
     func submitSearch() {
         let query = queryInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty, !isRunning else { return }
+        // Set synchronously (not as the first line inside the spawned Task) so `isRunning`
+        // flips before this call returns — closing the window where a second activation in the
+        // same run-loop turn could pass the `!isRunning` guard above. See `confirmPurchase()`.
+        phase = .loadingResults(query: query)
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
             await self?.runSearch(query: query)
@@ -94,7 +121,10 @@ final class BuyDomainModel {
     }
 
     func selectCandidate(_ candidate: DomainCandidate) {
-        guard candidate.registrable, case .results = phase else { return }
+        // `priceDisplay` can be nil for a `registrable: true` result (`CFRegistrarCheckResult
+        // .pricing` decodes as optional) — require both so the confirm step never reads "Buy
+        // example.dev for an unknown price?" with an enabled Buy button on a real charge.
+        guard candidate.registrable, candidate.priceDisplay != nil, case .results = phase else { return }
         phase = .confirming(candidate: candidate)
     }
 
@@ -105,6 +135,13 @@ final class BuyDomainModel {
 
     func confirmPurchase() {
         guard case .confirming(let candidate) = phase, !isRunning else { return }
+        // Set synchronously, not inside the spawned Task — `Task { @MainActor ... }` is
+        // scheduled, not run inline, so a `phase` write on its first line leaves a window (until
+        // the task's first hop) where `phase` is still `.confirming` and `isRunning` is still
+        // `false`. A second activation in that window (e.g. a held/double-tapped Return, since
+        // the Buy button carries `.keyboardShortcut(.defaultAction)`) would pass the guard above
+        // and could fire a second `POST /registrar/registrations` for a real charge.
+        phase = .purchasing(candidate: candidate)
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
             await self?.runPurchase(candidate: candidate)
@@ -151,7 +188,7 @@ final class BuyDomainModel {
     // MARK: - Private
 
     private func runSearch(query: String) async {
-        phase = .loadingResults(query: query)
+        // `phase` is already `.loadingResults(query:)` — set synchronously by `submitSearch()`.
         switch await ops.searchDomains(query: query) {
         case .failure(.noToken):
             pendingSearchQuery = query
@@ -169,18 +206,29 @@ final class BuyDomainModel {
             case .failure(let error):
                 phase = .failed(reason: message(for: error))
             case .success(let checks):
-                let candidates = checks.map {
+                let unsorted = checks.map {
                     DomainCandidate(
                         name: $0.name, registrable: $0.registrable, reason: $0.reason,
                         priceDisplay: Self.priceDisplay(cost: $0.registrationCost, currency: $0.currency))
                 }
+                // Available-first per the spec, with the row order within each group otherwise
+                // matching the API's response — `sorted(by:)` alone isn't a guaranteed-stable
+                // sort, so tiebreak explicitly on original index rather than relying on that.
+                let candidates = unsorted.enumerated()
+                    .sorted { a, b in
+                        if a.element.registrable != b.element.registrable {
+                            return a.element.registrable && !b.element.registrable
+                        }
+                        return a.offset < b.offset
+                    }
+                    .map(\.element)
                 phase = .results(query: query, candidates: candidates)
             }
         }
     }
 
     private func runPurchase(candidate: DomainCandidate) async {
-        phase = .purchasing(candidate: candidate)
+        // `phase` is already `.purchasing(candidate:)` — set synchronously by `confirmPurchase()`.
         guard let site = currentSite else {
             phase = .failed(reason: "No site is open.")
             return
