@@ -1295,6 +1295,9 @@
     "Events" : {
 
     },
+    "Expires %@" : {
+
+    },
     "Explain" : {
 
     },
@@ -1749,6 +1752,9 @@
 
     },
     "Logs…" : {
+
+    },
+    "Looking up registrar info…" : {
 
     },
     "Lower numbers are preferred mail servers, e.g. 10." : {
@@ -2328,6 +2334,9 @@
 
     },
     "Regenerate…" : {
+
+    },
+    "Registrar: %@" : {
 
     },
     "Related Pages" : {
@@ -3196,6 +3205,9 @@
 
     },
     "Use Selection for Find" : {
+
+    },
+    "Use a different domain" : {
 
     },
     "Use a temporary Cloudflare Pages domain later, such as %@." : {

@@ -23,10 +23,12 @@ struct ConnectDomainCommandTests {
         #expect(!config.contains("DOMAIN="))
 
         let domainConfig = try DomainConfigStore(sourceDirectory: dir).load()
-        // hostname is an explicit "" rather than nil — see DomainIntentRecorder.recordBuyIntent's
-        // doc comment: a nil Optional is omitted by JSON encoding entirely, so it can't overwrite
-        // a hostname declared by a prior recordTransfer via DomainConfigStore's merge-save.
-        #expect(domainConfig.domain == DomainConfig.Domain(hostname: "", choice: "buy", attach: false))
+        // hostname/registrar/expiresAt are explicit "" rather than nil — see
+        // DomainIntentRecorder.recordBuyIntent's doc comment: a nil Optional is omitted by JSON
+        // encoding entirely, so it can't overwrite values declared by a prior recordTransfer via
+        // DomainConfigStore's merge-save.
+        #expect(domainConfig.domain == DomainConfig.Domain(
+            hostname: "", choice: "buy", attach: false, registrar: "", expiresAt: ""))
     }
 
     @Test("recordTransfer writes DOMAIN_CHOICE/DOMAIN to .site-config and a transfer intent to anglesite.json")
@@ -41,7 +43,8 @@ struct ConnectDomainCommandTests {
         #expect(config.contains("DOMAIN=example.com"))
 
         let domainConfig = try DomainConfigStore(sourceDirectory: dir).load()
-        #expect(domainConfig.domain == DomainConfig.Domain(hostname: "example.com", choice: "transfer", attach: true))
+        #expect(domainConfig.domain == DomainConfig.Domain(
+            hostname: "example.com", choice: "transfer", attach: true, registrar: "", expiresAt: ""))
     }
 
     @Test("recordTransfer overwrites a previous hostname rather than duplicating the DOMAIN line")
