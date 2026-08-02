@@ -181,4 +181,73 @@ struct HTTPCloudflareClientRegistrarTests {
         let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
         #expect(outcome == .stillProcessing)
     }
+
+    @Test("registerDomain maps failed on an immediate 201")
+    func registerImmediateFailed() async throws {
+        let registerJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"failed"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (201, registerJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        guard case .failed(let reason) = outcome else {
+            Issue.record("expected .failed, got \(outcome)"); return
+        }
+        #expect(!reason.isEmpty)
+    }
+
+    @Test("registerDomain maps an unrecognized state to stillProcessing on an immediate 201")
+    func registerImmediateUnknownStateFallsThroughToStillProcessing() async throws {
+        // `Self.outcome(forState:)`'s `default:` branch resolves any state it doesn't recognize
+        // (not just `in_progress`) to `.stillProcessing` — this pins that existing behavior
+        // without changing it, so a Cloudflare-side state string this client doesn't yet know
+        // about degrades to "come back later" instead of throwing.
+        let registerJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"some_future_state"}}"#
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (201, registerJSON),
+        ]))
+        let outcome = try await client.registerDomain(name: "example.dev", apiToken: "t")
+        #expect(outcome == .stillProcessing)
+    }
+
+    @Test("registerDomain surfaces a CloudflareError on a 401")
+    func registerSurfacesUnauthorizedError() async {
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/registrations": (401, "{\"success\":false}"),
+        ]))
+        await #expect(throws: CloudflareError.unauthorized) {
+            _ = try await client.registerDomain(name: "example.dev", apiToken: "bad")
+        }
+    }
+
+    @Test("registrar calls are scoped to the token's account id")
+    func registrarCallsAreAccountScoped() async throws {
+        // None of the tests above assert the `/accounts/{id}/` segment is actually present and
+        // correct — if `resolveAccountID` were ever dropped, or the account id interpolated
+        // wrong, every one of them would still pass while every live call 404'd. Assert directly
+        // on the sent request URL for all three registrar operations.
+        let searchJSON = #"{"success":true,"errors":[],"messages":[],"result":{"domains":[]}}"#
+        let checkJSON = #"{"success":true,"errors":[],"messages":[],"result":{"domains":[]}}"#
+        let registerJSON = #"{"success":true,"errors":[],"messages":[],"result":{"state":"succeeded"}}"#
+        let spy = TransportSpy()
+        let client = HTTPCloudflareClient(transport: spyTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/domain-search": (200, searchJSON),
+            "/registrar/domain-check": (200, checkJSON),
+            "/registrar/registrations": (201, registerJSON),
+        ], spy: spy))
+
+        _ = try await client.searchDomains(query: "example", apiToken: "t")
+        _ = try await client.checkDomainAvailability(domains: ["example.dev"], apiToken: "t")
+        _ = try await client.registerDomain(name: "example.dev", apiToken: "t")
+
+        let registrarRequests = spy.requests.filter { $0.url?.path.contains("/registrar/") == true }
+        #expect(registrarRequests.count == 3)
+        for request in registrarRequests {
+            let path = try #require(request.url?.path)
+            #expect(path.contains("/accounts/acct123/registrar/"))
+        }
+    }
 }

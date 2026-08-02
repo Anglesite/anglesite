@@ -182,7 +182,7 @@ public struct HTTPCloudflareClient: CloudflareReading {
     }
 
     /// GET `url` and return the decoded `result`, or throw `.api` when it is absent. See
-    /// ``getEnvelope(url:apiToken:as:)`` for why this pre-built-`URL` variant exists.
+    /// `getEnvelope(url:apiToken:as:)` for why this pre-built-`URL` variant exists.
     private func get<T: Decodable & Sendable>(url: URL, apiToken: String, as type: T.Type) async throws -> T {
         let env = try await getEnvelope(url: url, apiToken: apiToken, as: type)
         guard let result = env.result else {
@@ -358,7 +358,7 @@ public struct HTTPCloudflareClient: CloudflareReading {
 
     /// Builds and sends a `method` request to `path` with an encoded `body`, then maps
     /// 401/403 to ``CloudflareError/unauthorized`` and any other non-2xx status to
-    /// ``CloudflareError/http(status:)``. Shared by ``mutate(method:_:body:apiToken:)`` (which
+    /// ``CloudflareError/http(status:)``. Shared by `mutate(method:_:body:apiToken:)` (which
     /// only checks the envelope's `success` flag) and the Registrar `post` helper below (which
     /// also decodes and returns the envelope's `result`) — both need identical request
     /// construction and status handling and previously duplicated it verbatim.
@@ -614,7 +614,7 @@ extension HTTPCloudflareClient: CloudflareRegistrarReading {
 
     /// POST `path` with `body`, decode `CFEnvelope<T>`, return its `result` — like `get`, but for
     /// POST calls that need the decoded payload back (unlike `mutate`, which only checks success).
-    /// Shares request construction and status mapping with `mutate` via ``send(method:_:body:apiToken:)``.
+    /// Shares request construction and status mapping with `mutate` via `send(method:_:body:apiToken:)`.
     private func post<Body: Encodable & Sendable, T: Decodable & Sendable>(
         _ path: String, body: Body, apiToken: String, as type: T.Type
     ) async throws -> T {
@@ -688,7 +688,7 @@ extension HTTPCloudflareClient: CloudflareRegistrarWriting {
     /// `POST /accounts/{id}/registrar/registrations`. See
     /// ``CloudflareRegistrarWriting/registerDomain(name:apiToken:)``.
     ///
-    /// Reuses ``send(method:_:body:apiToken:)`` for request construction and 401/403/non-2xx
+    /// Reuses `send(method:_:body:apiToken:)` for request construction and 401/403/non-2xx
     /// mapping (201 and 202 both already fall inside `send`'s 200..<300 success range) rather
     /// than duplicating that logic a third time alongside `mutate`/`post` — the only thing this
     /// call needs beyond `send` is branching on which 2xx status came back.
