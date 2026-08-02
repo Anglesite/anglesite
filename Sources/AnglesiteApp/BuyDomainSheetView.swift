@@ -165,16 +165,13 @@ struct BuyDomainSheetView: View {
 
     private var footer: some View {
         HStack {
-            // Hidden while `.purchasing`: a `POST /registrar/registrations` may already be in
-            // flight at Cloudflare by this point, so closing here can't be allowed to look like
-            // cancelling it — see `BuyDomainModel.dismissSheet()`. The purchase keeps running in
-            // the background regardless; this only controls whether the user can walk away from
-            // watching it.
-            if case .purchasing = model.phase {
-                Text("Purchasing…").font(.caption).foregroundStyle(.secondary)
-            } else {
-                Button("Close") { model.dismissSheet() }
-            }
+            // Always reachable, even during `.purchasing`: a `POST /registrar/registrations` may
+            // already be in flight at Cloudflare by this point, so `dismissSheet()` deliberately
+            // does not cancel it — see `BuyDomainModel.dismissSheet()`. The purchase keeps running
+            // in the background regardless; this button just lets the user stop watching it. The
+            // `.purchasing` content area above already shows a spinner + "Purchasing…" caption, so
+            // no separate status text is duplicated here.
+            Button("Close") { model.dismissSheet() }
             Spacer()
         }
         .padding(16)

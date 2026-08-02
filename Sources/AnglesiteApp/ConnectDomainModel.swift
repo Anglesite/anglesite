@@ -29,10 +29,9 @@ final class ConnectDomainModel {
 
     private var currentSite: CurrentSite?
 
-    /// The Cloudflare Domains marketing page — opened by the view layer's "Buy a domain" button,
-    /// not by `chooseBuy()` itself, so this model stays free of `NSWorkspace`/AppKit side effects
-    /// and is fully testable (matches `WebsiteCommands`'s "View on GitHub" convention of keeping
-    /// `NSWorkspace.shared.open` out of the model layer).
+    /// The Cloudflare Domains marketing page — surfaced as the escape-hatch link inside
+    /// `BuyDomainSheetView` (via `BuyDomainModel.cloudflareDomainsURL`, which aliases this) for
+    /// owners who prefer registering directly on Cloudflare.
     static let cloudflareDomainsURL = URL(string: "https://www.cloudflare.com/products/registrar/")!
 
     /// Threaded from `SiteWindowModel.loadAndStart`, mirroring `DomainModel.configure(site:)`.
@@ -43,6 +42,7 @@ final class ConnectDomainModel {
     func openSheet() {
         phase = .choosing
         hostnameInput = ""
+        pendingBuyDomain = false
         sheetPresented = true
     }
 
