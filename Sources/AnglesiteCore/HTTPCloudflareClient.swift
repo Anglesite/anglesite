@@ -58,6 +58,31 @@ private struct CFFullDNSRecord: Decodable, Sendable {
     let comment: String?
 }
 private struct CFAccount: Decodable, Sendable { let id: String }
+private struct CFRegistrarSearchResult: Decodable, Sendable {
+    let name: String
+}
+/// The Registrar search/check `result` is an object wrapping a `domains` array (not a bare
+/// array like most other Cloudflare v4 list endpoints) — confirmed against the live API docs.
+private struct CFRegistrarSearchResponse: Decodable, Sendable {
+    let domains: [CFRegistrarSearchResult]
+}
+private struct CFRegistrarCheckResult: Decodable, Sendable {
+    let name: String
+    let registrable: Bool
+    let reason: String?
+    let pricing: Pricing?
+    struct Pricing: Decodable, Sendable {
+        let currency: String
+        let registration_cost: String
+        let renewal_cost: String
+    }
+}
+private struct CFRegistrarCheckResponse: Decodable, Sendable {
+    let domains: [CFRegistrarCheckResult]
+}
+private struct CFRegistrarCheckRequest: Encodable, Sendable {
+    let domains: [String]
+}
 private struct CFWorkerScript: Decodable, Sendable { let id: String }
 private struct CFWorkerDomain: Decodable, Sendable { let hostname: String; let service: String }
 
@@ -527,6 +552,73 @@ extension HTTPCloudflareClient: CloudflareWriting {
                                               kind: "zone", phase: "http_response_compression",
                                               rules: [rule]),
                              apiToken: apiToken)
+        }
+    }
+}
+
+// MARK: - CloudflareRegistrarReading conformance
+
+extension HTTPCloudflareClient: CloudflareRegistrarReading {
+    /// Resolves the token's first visible account id — every Registrar endpoint is
+    /// account-scoped. Mirrors `workerScriptNames`'s resolution exactly.
+    private func resolveAccountID(apiToken: String) async throws -> String {
+        let accounts = try await get("/accounts?per_page=1", apiToken: apiToken, as: [CFAccount].self)
+        guard let accountID = accounts.first?.id else {
+            throw CloudflareError.api(message: "no Cloudflare account visible to this token")
+        }
+        return accountID
+    }
+
+    /// POST `path` with `body`, decode `CFEnvelope<T>`, return its `result` — like `get`, but for
+    /// POST calls that need the decoded payload back (unlike `mutate`, which only checks success).
+    private func post<Body: Encodable & Sendable, T: Decodable & Sendable>(
+        _ path: String, body: Body, apiToken: String, as type: T.Type
+    ) async throws -> T {
+        guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        let (data, http) = try await transport(request)
+        if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        let env: CFEnvelope<T>
+        do {
+            env = try JSONDecoder().decode(CFEnvelope<T>.self, from: data)
+        } catch {
+            throw CloudflareError.malformedResponse
+        }
+        guard env.success else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "request failed")
+        }
+        guard let result = env.result else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "missing result")
+        }
+        return result
+    }
+
+    /// See ``CloudflareRegistrarReading/searchDomains(query:apiToken:)``.
+    public func searchDomains(query: String, apiToken: String) async throws -> [String] {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        let response = try await get(
+            "/accounts/\(accountID)/registrar/domain-search?q=\(escaped)&limit=20",
+            apiToken: apiToken, as: CFRegistrarSearchResponse.self)
+        return response.domains.map(\.name)
+    }
+
+    /// See ``CloudflareRegistrarReading/checkDomainAvailability(domains:apiToken:)``.
+    public func checkDomainAvailability(domains: [String], apiToken: String) async throws -> [RegistrarDomainCheck] {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        let response = try await post(
+            "/accounts/\(accountID)/registrar/domain-check",
+            body: CFRegistrarCheckRequest(domains: domains), apiToken: apiToken,
+            as: CFRegistrarCheckResponse.self)
+        return response.domains.map {
+            RegistrarDomainCheck(
+                name: $0.name, registrable: $0.registrable, reason: $0.reason,
+                registrationCost: $0.pricing?.registration_cost, currency: $0.pricing?.currency)
         }
     }
 }
