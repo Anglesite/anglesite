@@ -21,6 +21,30 @@ struct HTTPCloudflareClientRegistrarTests {
         #expect(names == ["example.dev", "example.app"])
     }
 
+    @Test("searchDomains correctly percent-encodes & = + in the query value")
+    func searchEncodesSpecialCharacters() async throws {
+        let searchJSON = """
+        {"success":true,"errors":[],"messages":[],"result":{"domains":[]}}
+        """
+        let spy = TransportSpy()
+        let client = HTTPCloudflareClient(transport: spyTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/registrar/domain-search": (200, searchJSON),
+        ], spy: spy))
+        _ = try await client.searchDomains(query: "Smith & Sons = 1+1", apiToken: "t")
+
+        let sent = try #require(spy.requests.first { $0.url?.path.contains("domain-search") == true })
+        let sentURL = try #require(sent.url)
+        let components = try #require(URLComponents(url: sentURL, resolvingAgainstBaseURL: false))
+        let items = components.queryItems ?? []
+        // Both `q` and `limit` must survive intact as separate query items — a naive
+        // `.urlQueryAllowed` escape leaves `&`/`=`/`+` unescaped, which splits `q`'s value at
+        // the `&` and corrupts/loses the `limit` parameter.
+        #expect(items.first(where: { $0.name == "q" })?.value == "Smith & Sons = 1+1")
+        #expect(items.first(where: { $0.name == "limit" })?.value == "20")
+        #expect(items.count == 2)
+    }
+
     @Test("searchDomains surfaces a CloudflareError")
     func searchSurfacesError() async {
         let client = HTTPCloudflareClient(transport: fakeTransport([

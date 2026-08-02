@@ -136,6 +136,14 @@ public struct HTTPCloudflareClient: CloudflareReading {
     /// GET `path`, decode `CFEnvelope<T>`, return the whole envelope or throw a mapped error.
     private func getEnvelope<T: Decodable & Sendable>(_ path: String, apiToken: String, as: T.Type) async throws -> CFEnvelope<T> {
         guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
+        return try await getEnvelope(url: url, apiToken: apiToken, as: T.self)
+    }
+
+    /// GET `url`, decode `CFEnvelope<T>`, return the whole envelope or throw a mapped error.
+    /// Takes a pre-built `URL` (rather than a path string) so callers with query values that need
+    /// real percent-encoding — e.g. free-text search keywords that may contain `&`/`=`/`+` — can
+    /// build the request with `URLComponents`/`URLQueryItem` instead of manual string interpolation.
+    private func getEnvelope<T: Decodable & Sendable>(url: URL, apiToken: String, as: T.Type) async throws -> CFEnvelope<T> {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
@@ -158,6 +166,16 @@ public struct HTTPCloudflareClient: CloudflareReading {
     /// GET `path` and return the decoded `result`, or throw `.api` when it is absent.
     private func get<T: Decodable & Sendable>(_ path: String, apiToken: String, as type: T.Type) async throws -> T {
         let env = try await getEnvelope(path, apiToken: apiToken, as: type)
+        guard let result = env.result else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "missing result")
+        }
+        return result
+    }
+
+    /// GET `url` and return the decoded `result`, or throw `.api` when it is absent. See
+    /// ``getEnvelope(url:apiToken:as:)`` for why this pre-built-`URL` variant exists.
+    private func get<T: Decodable & Sendable>(url: URL, apiToken: String, as type: T.Type) async throws -> T {
+        let env = try await getEnvelope(url: url, apiToken: apiToken, as: type)
         guard let result = env.result else {
             throw CloudflareError.api(message: env.errors?.first?.message ?? "missing result")
         }
@@ -329,12 +347,18 @@ public struct HTTPCloudflareClient: CloudflareReading {
 
     // MARK: - Write helpers
 
-    private func mutate<Body: Encodable & Sendable>(
+    /// Builds and sends a `method` request to `path` with an encoded `body`, then maps
+    /// 401/403 to ``CloudflareError/unauthorized`` and any other non-2xx status to
+    /// ``CloudflareError/http(status:)``. Shared by ``mutate(method:_:body:apiToken:)`` (which
+    /// only checks the envelope's `success` flag) and the Registrar `post` helper below (which
+    /// also decodes and returns the envelope's `result`) — both need identical request
+    /// construction and status handling and previously duplicated it verbatim.
+    private func send<Body: Encodable & Sendable>(
         method: String,
         _ path: String,
         body: Body,
         apiToken: String
-    ) async throws {
+    ) async throws -> (Data, HTTPURLResponse) {
         guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -344,6 +368,16 @@ public struct HTTPCloudflareClient: CloudflareReading {
         let (data, http) = try await transport(request)
         if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
         guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        return (data, http)
+    }
+
+    private func mutate<Body: Encodable & Sendable>(
+        method: String,
+        _ path: String,
+        body: Body,
+        apiToken: String
+    ) async throws {
+        let (data, _) = try await send(method: method, path, body: body, apiToken: apiToken)
         let env: CFEnvelope<CFEmpty>
         do {
             env = try JSONDecoder().decode(CFEnvelope<CFEmpty>.self, from: data)
@@ -571,18 +605,11 @@ extension HTTPCloudflareClient: CloudflareRegistrarReading {
 
     /// POST `path` with `body`, decode `CFEnvelope<T>`, return its `result` — like `get`, but for
     /// POST calls that need the decoded payload back (unlike `mutate`, which only checks success).
+    /// Shares request construction and status mapping with `mutate` via ``send(method:_:body:apiToken:)``.
     private func post<Body: Encodable & Sendable, T: Decodable & Sendable>(
         _ path: String, body: Body, apiToken: String, as type: T.Type
     ) async throws -> T {
-        guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-        let (data, http) = try await transport(request)
-        if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
-        guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        let (data, _) = try await send(method: "POST", path, body: body, apiToken: apiToken)
         let env: CFEnvelope<T>
         do {
             env = try JSONDecoder().decode(CFEnvelope<T>.self, from: data)
@@ -599,12 +626,23 @@ extension HTTPCloudflareClient: CloudflareRegistrarReading {
     }
 
     /// See ``CloudflareRegistrarReading/searchDomains(query:apiToken:)``.
+    ///
+    /// Builds the request with `URLComponents`/`URLQueryItem` rather than manual string
+    /// interpolation: `query` is free-text (e.g. a business name like "Smith & Sons"), and
+    /// `CharacterSet.urlQueryAllowed` — the encoding used elsewhere in this file for hostnames,
+    /// which never contain `&`/`=`/`+` — does not escape those characters. Left unescaped, they
+    /// would truncate the `q` value at the API and corrupt or drop the `limit` parameter.
     public func searchDomains(query: String, apiToken: String) async throws -> [String] {
         let accountID = try await resolveAccountID(apiToken: apiToken)
-        let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let response = try await get(
-            "/accounts/\(accountID)/registrar/domain-search?q=\(escaped)&limit=20",
-            apiToken: apiToken, as: CFRegistrarSearchResponse.self)
+        guard var components = URLComponents(string: Self.base + "/accounts/\(accountID)/registrar/domain-search") else {
+            throw CloudflareError.malformedResponse
+        }
+        components.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "limit", value: "20"),
+        ]
+        guard let url = components.url else { throw CloudflareError.malformedResponse }
+        let response = try await get(url: url, apiToken: apiToken, as: CFRegistrarSearchResponse.self)
         return response.domains.map(\.name)
     }
 
