@@ -653,7 +653,10 @@ struct SiteWindow: View {
             DomainSheetView(model: model.domain)
         }
         .sheet(isPresented: $bindableModel.connectDomain.sheetPresented) {
-            ConnectDomainSheetView(model: model.connectDomain)
+            ConnectDomainSheetView(model: model.connectDomain, onBuyDomain: { model.buyDomain.openSheet() })
+        }
+        .sheet(isPresented: $bindableModel.buyDomain.sheetPresented) {
+            BuyDomainSheetView(model: model.buyDomain)
         }
         .sheet(isPresented: $bindableModel.publish.sheetPresented) {
             PublishSheet(model: model.publish, siteName: site.name)
