@@ -640,7 +640,14 @@ always injects a custom `tokenSource:` closure). Instead, this task adds an inte
 against `KeychainStoreTests`' already-real (XCTSkip-guarded) `KeychainStore` instance, exercising
 the exact composition `keychainTokenSource` uses internally.
 
-- [ ] **Step 1: Write the failing tests**
+This task is the one exception to strict red-green TDD in this plan: the new tests below exercise
+`CloudflareOAuthCredential`/`CloudflareOAuthTokenSource` (already implemented in Tasks 3–4) against
+a *real* `KeychainStore`, so they pass immediately — Step 3's actual change
+(`keychainTokenSource`'s composition order) has no feasible unit test of its own, for the reason
+above. Steps 1–2 add regression coverage for the real-Keychain path *before* touching production
+code, in place of a true failing-test step; Step 4 then confirms nothing regressed.
+
+- [ ] **Step 1: Write the tests**
 
 Add to `Tests/AnglesiteCoreTests/KeychainStoreTests.swift`, inside `KeychainStoreTests`, a new
 `// MARK: OAuth credential` section (after the Cloudflare convenience section):
@@ -687,14 +694,12 @@ Also update `tearDown()` to clear the new slots:
     }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 2: Run the new tests to confirm they pass against Tasks 3–4's code**
 
 Run: `swift test --package-path . --filter KeychainStoreTests`
-Expected: FAIL to compile — `CloudflareOAuthTokenSource`/`CloudflareOAuthCredential` compile fine
-(Tasks 3–4 landed), but this is still a good checkpoint: run once before Step 3 to confirm the new
-tests at least run and pass already (they exercise only Tasks 3–4's code) — this task's actual new
-behavior is the production wiring in Step 3, which nothing here directly exercises but which must
-not regress `hostDeployEnvironment`/existing `DeployCommandTests`.
+Expected: PASS (these two new tests exercise only `CloudflareOAuthCredential`/
+`CloudflareOAuthTokenSource`, already implemented — this step is a checkpoint before the
+production wiring in Step 3, not a red-green TDD gate; see the note above).
 
 - [ ] **Step 3: Implement**
 
@@ -735,7 +740,7 @@ Expected: PASS.
 
 ```bash
 git add Sources/AnglesiteCore/DeployCommand.swift Tests/AnglesiteCoreTests/KeychainStoreTests.swift
-git commit -m "feat(#1204): resolve deploy's Cloudflare token from OAuth before the legacy slot"
+git commit -m "feat(#1204): resolve deploy tokens via OAuth, then the legacy slot"
 ```
 
 ---
