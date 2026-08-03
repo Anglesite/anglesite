@@ -106,15 +106,22 @@ public enum HTTPBridgeFrame: Sendable, Equatable {
             throw P2PFramingError.malformed
         }
 
-        let kind = data[0]
-        // Extract the 4-byte big-endian ID
-        let idData = UInt32(data[1]) << 24 | UInt32(data[2]) << 16 | UInt32(data[3]) << 8 | UInt32(data[4])
-        let payload = data.subdata(in: 5..<data.count)
+        let kind = data[data.startIndex]
+        // Extract the 4-byte big-endian ID, accounting for Data.startIndex offset
+        let idData = UInt32(data[data.startIndex + 1]) << 24
+                   | UInt32(data[data.startIndex + 2]) << 16
+                   | UInt32(data[data.startIndex + 3]) << 8
+                   | UInt32(data[data.startIndex + 4])
+        let payload = data.subdata(in: (data.startIndex + 5)..<data.endIndex)
 
         switch kind {
         case 0: // requestHead
-            let head = try JSONDecoder().decode(BridgeRequestHead.self, from: payload)
-            return .requestHead(id: idData, head)
+            do {
+                let head = try JSONDecoder().decode(BridgeRequestHead.self, from: payload)
+                return .requestHead(id: idData, head)
+            } catch {
+                throw P2PFramingError.malformed
+            }
 
         case 1: // requestBody
             return .requestBody(id: idData, payload)
@@ -123,8 +130,12 @@ public enum HTTPBridgeFrame: Sendable, Equatable {
             return .requestEnd(id: idData)
 
         case 3: // responseHead
-            let head = try JSONDecoder().decode(BridgeResponseHead.self, from: payload)
-            return .responseHead(id: idData, head)
+            do {
+                let head = try JSONDecoder().decode(BridgeResponseHead.self, from: payload)
+                return .responseHead(id: idData, head)
+            } catch {
+                throw P2PFramingError.malformed
+            }
 
         case 4: // responseBody
             return .responseBody(id: idData, payload)
@@ -133,11 +144,15 @@ public enum HTTPBridgeFrame: Sendable, Equatable {
             return .responseEnd(id: idData)
 
         case 6: // abort
-            struct AbortPayload: Codable {
-                let reason: String
+            do {
+                struct AbortPayload: Codable {
+                    let reason: String
+                }
+                let abort = try JSONDecoder().decode(AbortPayload.self, from: payload)
+                return .abort(id: idData, reason: abort.reason)
+            } catch {
+                throw P2PFramingError.malformed
             }
-            let abort = try JSONDecoder().decode(AbortPayload.self, from: payload)
-            return .abort(id: idData, reason: abort.reason)
 
         default:
             throw P2PFramingError.unknownKind(kind)
@@ -153,7 +168,7 @@ public enum HMRFrame: Sendable, Equatable {
     case text(String)
     /// Binary message.
     case binary(Data)
-    /// WebSocket closed frame.
+    /// WebSocket closed frame with an optional code (clamped to UInt16 range on encode).
     case closed(code: Int)
 
     /// Encode the frame to wire format: [kind byte][payload].
@@ -173,8 +188,9 @@ public enum HMRFrame: Sendable, Equatable {
 
         case .closed(let code):
             data.append(2)
-            let code16 = UInt16(code)
-            data.append(contentsOf: [UInt8((code16 >> 8) & 0xFF), UInt8(code16 & 0xFF)])
+            // Clamp code to UInt16 range for safe conversion
+            let clampedCode = UInt16(min(max(code, 0), Int(UInt16.max)))
+            data.append(contentsOf: [UInt8((clampedCode >> 8) & 0xFF), UInt8(clampedCode & 0xFF)])
         }
 
         return data
@@ -186,8 +202,8 @@ public enum HMRFrame: Sendable, Equatable {
             throw P2PFramingError.malformed
         }
 
-        let kind = data[0]
-        let payload = data.subdata(in: 1..<data.count)
+        let kind = data[data.startIndex]
+        let payload = data.subdata(in: (data.startIndex + 1)..<data.endIndex)
 
         switch kind {
         case 0: // text
@@ -203,7 +219,7 @@ public enum HMRFrame: Sendable, Equatable {
             guard payload.count >= 2 else {
                 throw P2PFramingError.malformed
             }
-            let codeBytes = UInt16(data: payload.subdata(in: 0..<2))
+            let codeBytes = UInt16(data: payload.subdata(in: payload.startIndex..<(payload.startIndex + 2)))
             return .closed(code: Int(codeBytes))
 
         default:

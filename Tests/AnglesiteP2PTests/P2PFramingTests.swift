@@ -38,4 +38,67 @@ import Foundation
         let data = try JSONEncoder().encode(msg)
         #expect(try JSONDecoder().decode(ControlMessage.self, from: data) == msg)
     }
+
+    @Test func httpFrameDecodeFromSlicedData() throws {
+        let frame = HTTPBridgeFrame.requestEnd(id: 42)
+        let encoded = try frame.encoded()
+
+        // Prefix the encoded data with junk to create a non-zero-based slice
+        let junk = Data([0xFF, 0xEE, 0xDD])
+        var buffer = junk
+        buffer.append(contentsOf: encoded)
+
+        // Slice the buffer to extract just the encoded frame (now with startIndex != 0)
+        let sliced = buffer.subdata(in: 3..<buffer.count)
+
+        // Should decode correctly despite non-zero startIndex
+        let decoded = try HTTPBridgeFrame.decode(sliced)
+        #expect(decoded == frame)
+    }
+
+    @Test func hmrFrameDecodeFromSlicedData() throws {
+        let frame = HMRFrame.text("hello")
+        let encoded = try frame.encoded()
+
+        // Create a sliced Data with non-zero startIndex
+        let junk = Data([0xAA, 0xBB])
+        var buffer = junk
+        buffer.append(contentsOf: encoded)
+
+        let sliced = buffer.subdata(in: 2..<buffer.count)
+
+        // Should decode correctly despite non-zero startIndex
+        let decoded = try HMRFrame.decode(sliced)
+        #expect(decoded == frame)
+    }
+
+    @Test func truncatedSliceThrowsMalformed() throws {
+        let frame = HTTPBridgeFrame.requestEnd(id: 7)
+        let encoded = try frame.encoded()
+
+        // Create a buffer and slice it to be shorter than needed
+        var buffer = Data([0xFF])
+        buffer.append(contentsOf: encoded)
+
+        let sliced = buffer.subdata(in: 1..<(buffer.startIndex + 3))  // Only 2 bytes after startIndex
+
+        #expect(throws: P2PFramingError.malformed) { _ = try HTTPBridgeFrame.decode(sliced) }
+    }
+
+    @Test func invalidJsonPayloadThrowsMalformed() throws {
+        // Create a requestHead frame with garbage JSON payload
+        var data = Data([0])  // kind = 0 (requestHead)
+        data.append(contentsOf: [0, 0, 0, 7])  // id = 7
+        data.append(contentsOf: [0x7B, 0x69, 0x6E, 0x76, 0x61, 0x6C, 0x69, 0x64])  // "invalid" (not JSON)
+
+        #expect(throws: P2PFramingError.malformed) { _ = try HTTPBridgeFrame.decode(data) }
+    }
+
+    @Test func hmrClosedFrameWithoutCodeThrowsMalformed() throws {
+        // Create a closed frame with only 1 byte of code (need 2)
+        var data = Data([2])  // kind = 2 (closed)
+        data.append(0x04)  // only 1 byte of code
+
+        #expect(throws: P2PFramingError.malformed) { _ = try HMRFrame.decode(data) }
+    }
 }
