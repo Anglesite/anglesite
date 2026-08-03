@@ -155,6 +155,7 @@ final class SiteWindowModel {
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
     var connectDomain = ConnectDomainModel()
+    var buyDomain = BuyDomainModel()
     var health = HealthModel(runner: DefaultHealthCheckRunner())
     /// Drives the determinate startup progress bar shown in `mainPane` while the dev server boots.
     var startup = StartupProgressModel()
@@ -1924,6 +1925,7 @@ final class SiteWindowModel {
         communities.configure(site: currentSite)
         domain.configure(site: currentSite)
         connectDomain.configure(site: currentSite)
+        buyDomain.configure(site: currentSite)
         harden.configure(site: currentSite)
         domainConfigAudit.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window

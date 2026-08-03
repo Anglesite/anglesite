@@ -26,7 +26,9 @@ struct DomainConfigStoreTests {
         let store = DomainConfigStore(sourceDirectory: dir)
         let config = DomainConfig(
             version: 1,
-            domain: .init(hostname: "example.com", choice: "transfer", attach: true),
+            domain: .init(
+                hostname: "example.com", choice: "transfer", attach: true,
+                registrar: "Example Registrar, LLC", expiresAt: "2027-08-13T04:00:00Z"),
             dns: .init(managedRecords: [
                 .init(type: "MX", name: "@", content: "mx01.mail.icloud.com", priority: 10, purpose: "email:icloud"),
             ]),

@@ -11,11 +11,20 @@ public enum DomainIntentRecorder {
     /// `CF_DOMAIN_ATTACHED`, written separately (`CustomDomainAttachCommand.persistAttached`) once
     /// attach actually succeeds. Best-effort — a write failure here must never surface as an
     /// error to the caller (matches `CustomDomainAttachCommand`'s existing posture).
+    ///
+    /// Writes `registrar`/`expiresAt` as explicit `""` rather than `nil` for the same reason
+    /// `recordBuyIntent` writes `hostname: ""` below: `DomainConfigStore.save`'s merge can't
+    /// express deletion, so a `nil` here would leave a *previous* domain's cached registrar/
+    /// expiration sitting under the *new* hostname (#1194 review round 3) — `ConnectDomainModel`
+    /// would then seed its display straight from that stale, now-mismatched value. An explicit
+    /// `""` does get encoded and so does overwrite the merge; `ConnectDomainModel.loadRegistrarInfo`
+    /// normalizes a blank string back to `nil` at the read boundary.
     public static func recordTransferIntent(hostname: String, siteDirectory: URL) {
         let store = DomainConfigStore(sourceDirectory: siteDirectory)
         var config = (try? store.load()) ?? DomainConfig()
         config.domain = DomainConfig.Domain(
-            hostname: hostname, choice: NewSiteDomainChoice.transfer.rawValue, attach: true)
+            hostname: hostname, choice: NewSiteDomainChoice.transfer.rawValue, attach: true,
+            registrar: "", expiresAt: "")
         try? store.save(config)
     }
 
@@ -30,12 +39,16 @@ public enum DomainIntentRecorder {
     /// a previously-declared hostname (from a prior `recordTransferIntent`, e.g. the owner
     /// reopening the sheet and switching from "I already own a domain" to "Buy a domain") would
     /// survive untouched in `anglesite.json`. An explicit `""` does get encoded and so does
-    /// overwrite the merge.
+    /// overwrite the merge. `registrar`/`expiresAt` get the same explicit-`""` treatment for the
+    /// same reason (see `recordTransferIntent`'s doc comment) — a buy declaration has no hostname
+    /// to look up a registrar for, so any registrar/expiration cached under a previous transfer
+    /// declaration must not survive into this one.
     public static func recordBuyIntent(siteDirectory: URL) {
         let store = DomainConfigStore(sourceDirectory: siteDirectory)
         var config = (try? store.load()) ?? DomainConfig()
         config.domain = DomainConfig.Domain(
-            hostname: "", choice: NewSiteDomainChoice.buy.rawValue, attach: false)
+            hostname: "", choice: NewSiteDomainChoice.buy.rawValue, attach: false,
+            registrar: "", expiresAt: "")
         try? store.save(config)
     }
 }

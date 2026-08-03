@@ -71,6 +71,28 @@ struct ThemeCatalogTests {
         #expect(catalog.defaultThemeID(for: .organization) == "community")
     }
 
+    @Test func testParseDecodesPackFields() throws {
+        let json = """
+        [{"id": "paper", "displayName": "Paper", "description": "A ported blog theme",
+          "bestFor": ["blog"], "category": "blog", "pack": "paper",
+          "thumbnail": "packs/paper/thumbnail.png",
+          "credit": {"name": "AstroPaper", "url": "https://example.com/astropaper", "license": "MIT"},
+          "vars": {"color-primary": "#111111", "color-accent": "#ff5500"}},
+         {"id": "classic", "displayName": "Classic", "description": "Built-in",
+          "bestFor": ["legal"], "vars": {"color-primary": "#1e3a5f"}}]
+        """
+        let themes = try ThemeCatalog.parse(themesJSON: Data(json.utf8))
+        #expect(themes[0].category == "blog")
+        #expect(themes[0].pack == "paper")
+        #expect(themes[0].thumbnail == "packs/paper/thumbnail.png")
+        #expect(themes[0].credit == Theme.Credit(name: "AstroPaper", url: "https://example.com/astropaper", license: "MIT"))
+        // Entries without the new fields (all 8 built-ins) decode with nils.
+        #expect(themes[1].category == nil)
+        #expect(themes[1].pack == nil)
+        #expect(themes[1].thumbnail == nil)
+        #expect(themes[1].credit == nil)
+    }
+
     // DRIFT GUARD: decode the REAL bundled themes.json from the in-repo template.
     @Test func realThemesFileParsesToEightCompleteThemes() throws {
         let themes = try ThemeCatalog.parse(themesJSON: Data(contentsOf: Self.realThemesURL()))

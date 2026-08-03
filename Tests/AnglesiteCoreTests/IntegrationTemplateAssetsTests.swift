@@ -197,7 +197,7 @@ import AnglesiteTestSupport
         // config.ts must ship to scaffolded sites — ensure it's not excluded.
         #expect(!s.contains("config.ts"), "scaffold.sh must not exclude config.ts")
         // The only excludes should be the known set.
-        let allowedExcludes = ["scaffold.sh", "themes.ts", "themes.json", "*.test.ts", "node_modules", ".DS_Store", "integrations"]
+        let allowedExcludes = ["scaffold.sh", "themes.ts", "themes.json", "packs/", "check-pack.ts", "build-packs.sh", "*.test.ts", "node_modules", ".DS_Store", "integrations"]
         let excludeLines = s.components(separatedBy: "\n").filter { $0.contains("--exclude=") }
         for line in excludeLines {
             #expect(allowedExcludes.contains { line.contains($0) }, "unexpected exclude in scaffold.sh: \(line)")

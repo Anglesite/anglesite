@@ -72,6 +72,16 @@
         }
       }
     },
+    "%@, version %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, version %2$@, %3$@"
+          }
+        }
+      }
+    },
     "%@. %@" : {
       "localizations" : {
         "en" : {
@@ -246,6 +256,9 @@
 
     },
     "Accessibility" : {
+
+    },
+    "Acknowledgments" : {
 
     },
     "Acknowledgments unavailable for this source." : {
@@ -627,7 +640,26 @@
     "Built-in themes" : {
 
     },
+    "Buy %@" : {
+
+    },
+    "Buy %@ for %@?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Buy %1$@ for %2$@?"
+          }
+        }
+      }
+    },
+    "Buy a Domain" : {
+
+    },
     "Buy a domain" : {
+
+    },
+    "Buy directly on the Cloudflare dashboard instead" : {
 
     },
     "By Content Type" : {
@@ -1263,6 +1295,9 @@
     "Events" : {
 
     },
+    "Expires %@" : {
+
+    },
     "Explain" : {
 
     },
@@ -1351,6 +1386,9 @@
 
     },
     "Find…" : {
+
+    },
+    "Finish setting up billing for %@ in the Cloudflare dashboard, then come back and try again." : {
 
     },
     "Finished" : {
@@ -1716,6 +1754,9 @@
     "Logs…" : {
 
     },
+    "Looking up registrar info…" : {
+
+    },
     "Lower numbers are preferred mail servers, e.g. 10." : {
 
     },
@@ -1896,6 +1937,9 @@
     "No redirects yet. Add one below." : {
 
     },
+    "No results. Try a different search." : {
+
+    },
     "No scoped styles" : {
 
     },
@@ -1990,6 +2034,9 @@
 
     },
     "Open in browser" : {
+
+    },
+    "Open the Cloudflare dashboard" : {
 
     },
     "Open the advisory form" : {
@@ -2223,6 +2270,9 @@
     "Publish…" : {
 
     },
+    "Purchasing…" : {
+
+    },
     "Purpose" : {
 
     },
@@ -2284,6 +2334,9 @@
 
     },
     "Regenerate…" : {
+
+    },
+    "Registrar: %@" : {
 
     },
     "Related Pages" : {
@@ -2582,10 +2635,16 @@
     "Search graph" : {
 
     },
+    "Search, price, and register a domain through Cloudflare." : {
+
+    },
     "Searches only the instance above. Anglesite doesn't run or query a directory of its own." : {
 
     },
     "Searching freedesignmd.com…" : {
+
+    },
+    "Searching…" : {
 
     },
     "Section" : {
@@ -2846,6 +2905,16 @@
     "Status of ${site}" : {
 
     },
+    "Still processing %@. Once it finishes, come back and use \"I already own a domain\" with %@ to connect it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Still processing %1$@. Once it finishes, come back and use \"I already own a domain\" with %2$@ to connect it."
+          }
+        }
+      }
+    },
     "Stop" : {
 
     },
@@ -2967,6 +3036,9 @@
 
     },
     "This changes a setting on the GitHub repository. Anglesite never turns it back off." : {
+
+    },
+    "This charges the payment method on file for your connected Cloudflare account." : {
 
     },
     "This component changed outside Anglesite — your edit wasn't applied, reloaded the latest version." : {
@@ -3135,6 +3207,9 @@
     "Use Selection for Find" : {
 
     },
+    "Use a different domain" : {
+
+    },
     "Use a temporary Cloudflare Pages domain later, such as %@." : {
 
     },
@@ -3169,6 +3244,9 @@
 
     },
     "View and manage this domain's DNS records" : {
+
+    },
+    "View homepage" : {
 
     },
     "View on GitHub" : {
@@ -3298,6 +3376,9 @@
 
     },
     "en" : {
+
+    },
+    "example" : {
 
     },
     "example.com" : {

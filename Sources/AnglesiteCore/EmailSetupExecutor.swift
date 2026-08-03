@@ -51,7 +51,7 @@ public struct EmailSetupExecutor: Sendable {
     ) async -> Result {
         var added = 0
         var failures: [RecordFailure] = []
-        let purpose = "email:\(plan.provider.rawValue)"
+        let purpose = DomainRecordPurpose.Email.provider(plan.provider)
 
         for record in plan.records {
             let result = await ops.addRecord(

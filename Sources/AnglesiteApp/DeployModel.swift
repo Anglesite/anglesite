@@ -104,16 +104,11 @@ final class DeployModel {
     /// sheet (#1171), not here, so there's no `pendingDeploy` retry to park.
     var domainConfigDriftPresented: Bool = false
 
-    /// Progress of verifying a pasted token, consumed by `CloudflareOAuthSignInView`'s status line
-    /// and button-enabled logic. A token is only written to the Keychain once verification reaches
-    /// `.connected`; a `.failed` state keeps the sheet open and leaves the Keychain untouched.
-    enum TokenVerification: Equatable {
-        case idle
-        case checking
-        case connected(accountName: String?)
-        case failed(message: String)
-    }
-    private(set) var tokenVerification: TokenVerification = .idle
+    /// Progress of the Cloudflare sign-in, consumed by `CloudflareOAuthSignInView`'s status line
+    /// and button-enabled logic. The credential is only persisted once verification reaches
+    /// `.connected`; a `.failed` state keeps the sheet open and leaves storage untouched. Shared
+    /// with `BuyDomainModel` (`CloudflareTokenPromptView.swift`) since the case shape is identical.
+    private(set) var tokenVerification: CloudflareTokenVerification = .idle
 
     /// Fires every time the deploy pipeline's preflight step resolves, with the
     /// `PreDeployCheck.Outcome` that was used to decide whether to continue.
