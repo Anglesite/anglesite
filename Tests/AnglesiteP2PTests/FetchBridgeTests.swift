@@ -53,6 +53,35 @@ import Foundation
         serverTask.cancel()
     }
 
+    @Test func encodedTraversalAttemptsAreRejected() async throws {
+        let pair = InProcessP2PPair.make()
+        let server = FetchBridgeServer(connection: pair.b, executor: DirectoryHTTPExecutor(root: try Self.makeSiteRoot()))
+        let serverTask = Task { await server.run() }
+        let client = FetchBridgeClient(connection: pair.a)
+        // "%2e%2e" decodes to "..": a fully percent-encoded traversal component.
+        let (dotDotEncoded, _) = try await client.perform(BridgeRequestHead(method: "GET", path: "/%2e%2e/secret", headers: [:]))
+        #expect(dotDotEncoded.status == 400)
+        // "..%2fsecret" decodes to "../secret": only the separator is encoded.
+        let (slashEncoded, _) = try await client.perform(BridgeRequestHead(method: "GET", path: "/..%2fsecret", headers: [:]))
+        #expect(slashEncoded.status == 400)
+        serverTask.cancel()
+    }
+
+    @Test func nonGETMethodIs405AndCompletesCleanly() async throws {
+        let pair = InProcessP2PPair.make()
+        let server = FetchBridgeServer(connection: pair.b, executor: DirectoryHTTPExecutor(root: try Self.makeSiteRoot()))
+        let serverTask = Task { await server.run() }
+        let client = FetchBridgeClient(connection: pair.a)
+        let (head, body) = try await client.perform(BridgeRequestHead(method: "POST", path: "/", headers: [:]))
+        #expect(head.status == 405)
+        // Faithfulness: even a rejected request completes the bridged exchange cleanly — the
+        // client's body stream must end (responseEnd), not hang.
+        var collected = Data()
+        for try await chunk in body { collected.append(chunk) }
+        #expect(collected.isEmpty)
+        serverTask.cancel()
+    }
+
     @Test func concurrentRequestsInterleaveCorrectly() async throws {
         let pair = InProcessP2PPair.make()
         let server = FetchBridgeServer(connection: pair.b, executor: DirectoryHTTPExecutor(root: try Self.makeSiteRoot()))

@@ -33,15 +33,24 @@ public struct DirectoryHTTPExecutor: HTTPExecutor {
     }
 
     /// Resolves `request.path` against `root` and streams the matching file. Rejects non-GET
-    /// methods (405) and any `".."` path component (400) before touching the filesystem; a
-    /// missing file is 404.
+    /// methods (405) and any `".."` path component (400) before touching the filesystem — the
+    /// path is percent-decoded first so an encoded traversal attempt (e.g. `/%2e%2e/secret` or
+    /// `/..%2fsecret`) can't slip past the literal-string check; a missing file is 404.
+    ///
+    /// Note: the returned stream's backing `AsyncThrowingStream` closure runs eagerly at
+    /// construction — the whole file is read (in `readChunkSize` pieces) into the stream's
+    /// buffer immediately, not lazily pulled as the consumer iterates. Fine at P0 fixture scale;
+    /// a production executor would want backpressure-aware, on-demand reads instead.
     public func execute(_ request: BridgeRequestHead, body: Data?) async throws
         -> (head: BridgeResponseHead, body: AsyncThrowingStream<Data, Error>) {
         guard request.method.uppercased() == "GET" else {
             return (BridgeResponseHead(status: 405, headers: [:]), Self.emptyBody())
         }
 
-        let path = request.path.components(separatedBy: "?").first ?? request.path
+        let rawPath = request.path.components(separatedBy: "?").first ?? request.path
+        guard let path = rawPath.removingPercentEncoding else {
+            return (BridgeResponseHead(status: 400, headers: [:]), Self.emptyBody())
+        }
         guard !path.components(separatedBy: "/").contains("..") else {
             return (BridgeResponseHead(status: 400, headers: [:]), Self.emptyBody())
         }
@@ -56,11 +65,11 @@ public struct DirectoryHTTPExecutor: HTTPExecutor {
         let contentType = Self.contentTypes[fileURL.pathExtension.lowercased()] ?? "application/octet-stream"
         let head = BridgeResponseHead(status: 200, headers: ["Content-Type": contentType])
         let stream = AsyncThrowingStream<Data, Error> { continuation in
+            defer { try? fileHandle.close() }
             do {
                 while let chunk = try fileHandle.read(upToCount: Self.readChunkSize), !chunk.isEmpty {
                     continuation.yield(chunk)
                 }
-                try fileHandle.close()
                 continuation.finish()
             } catch {
                 continuation.finish(throwing: error)
