@@ -33,4 +33,11 @@ struct AnglesiteTokenTemplateTests {
         #expect(permissions.contains(#""key":"workers_scripts""#))
         #expect(permissions.contains(#""key":"registrar""#))
     }
+
+    @Test("oauthScope space-joins every permission group key, one scope per group, no duplicates")
+    func oauthScopeMatchesPermissionGroups() {
+        let scopeKeys = AnglesiteTokenTemplate.oauthScope.split(separator: " ").map(String.init)
+        #expect(Set(scopeKeys) == Set(AnglesiteTokenTemplate.permissionGroups.map(\.key)))
+        #expect(scopeKeys.count == AnglesiteTokenTemplate.permissionGroups.count)
+    }
 }
