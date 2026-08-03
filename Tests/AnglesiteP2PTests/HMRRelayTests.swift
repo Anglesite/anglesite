@@ -107,7 +107,8 @@ import Foundation
     /// swallow `P2PConnectionError.closed` internally, so `sendPings()` never noticed the
     /// connection was gone and `run()` — which awaited both loops — never returned, firing
     /// `onMiss` on every subsequent interval into a dead connection.
-    @Test func closingConnectionStopsHeartbeatAndOnMissGrowth() async throws {
+    @Test(.timeLimit(.minutes(1)))
+    func closingConnectionStopsHeartbeatAndOnMissGrowth() async throws {
         let pair = InProcessP2PPair.make()
         let counter = MissCounter()
         let heartbeat = ControlHeartbeat(
@@ -138,7 +139,8 @@ import Foundation
         #expect(counter.latest == countAtClose)
     }
 
-    @Test func cancellingTaskStopsHeartbeat() async throws {
+    @Test(.timeLimit(.minutes(1)))
+    func cancellingTaskStopsHeartbeat() async throws {
         let pair = InProcessP2PPair.make()
         let heartbeat = ControlHeartbeat(connection: pair.a, interval: .milliseconds(20), missLimit: 1) { _ in }
         let heartbeatTask = Task { await heartbeat.run() }
