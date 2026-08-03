@@ -23,6 +23,7 @@ final class KeychainStoreTests: XCTestCase {
         try? store.delete(account: "alpha")
         try? store.delete(account: "beta")
         try? store.delete(account: KeychainStore.cloudflareTokenAccount)
+        try? store.clearCloudflareOAuthCredential()
     }
 
     /// Confirm the test process can talk to the keychain at all. Avoids opaque failures in CI by
@@ -98,6 +99,34 @@ final class KeychainStoreTests: XCTestCase {
         XCTAssertEqual(try store.readCloudflareToken(), "cf-token-xyz")
         try store.clearCloudflareToken()
         XCTAssertNil(try store.readCloudflareToken())
+    }
+
+    // MARK: OAuth credential
+
+    func testOAuthCredentialConvenienceRoundTrips() throws {
+        let endpoint = URL(string: "https://dash.cloudflare.com/oauth2/token")!
+        defer { try? store.clearCloudflareOAuthCredential() }
+        XCTAssertNil(try store.readCloudflareOAuthCredential())
+        let credential = CloudflareOAuthCredential(
+            accessToken: "tok", refreshToken: "refresh",
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_000), tokenEndpoint: endpoint)
+        try store.writeCloudflareOAuthCredential(credential)
+        XCTAssertEqual(try store.readCloudflareOAuthCredential(), credential)
+        try store.clearCloudflareOAuthCredential()
+        XCTAssertNil(try store.readCloudflareOAuthCredential())
+    }
+
+    func testOAuthTokenSourceResolvesAgainstRealKeychain() async throws {
+        let endpoint = URL(string: "https://dash.cloudflare.com/oauth2/token")!
+        defer { try? store.clearCloudflareOAuthCredential() }
+        try store.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+            accessToken: "real-keychain-tok", refreshToken: nil, expiresAt: nil, tokenEndpoint: endpoint))
+        let source = CloudflareOAuthTokenSource(secretStore: store, refresh: { _, _ in
+            XCTFail("refresh should not be called for a non-expiring credential")
+            throw CloudflareOAuthError.tokenExchangeFailed("unexpected")
+        })
+        let resolved = try await source.resolve()
+        XCTAssertEqual(resolved, "real-keychain-tok")
     }
 
     // MARK: ACP agent token convenience
