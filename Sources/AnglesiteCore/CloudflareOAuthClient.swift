@@ -48,11 +48,15 @@ public struct OAuthToken: Decodable, Sendable, Equatable {
     /// Lifetime in seconds, when the server reports one. Optional because `expires_in` is a
     /// recommended-not-required field of the token response.
     public let expiresIn: Int?
+    /// Present when the server issues one — lets the caller renew the access token without a
+    /// fresh interactive sign-in. Optional because not every grant is guaranteed to return one.
+    public let refreshToken: String?
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case tokenType = "token_type"
         case expiresIn = "expires_in"
+        case refreshToken = "refresh_token"
     }
 }
 
@@ -82,9 +86,10 @@ public struct CloudflareOAuthRequest: Sendable {
     public let authorizeURL: URL
     let state: String
     let codeVerifier: String
-    /// Resolved from the same discovery fetch that built `authorizeURL`, so `exchange(code:for:)`
-    /// doesn't need a second round trip to `.well-known/openid-configuration` for the same login.
-    let tokenEndpoint: URL
+    /// Resolved from the same discovery fetch that built `authorizeURL`. Public so a caller that
+    /// completes a sign-in can persist it alongside the refresh token — refreshing later reuses
+    /// this endpoint without re-running discovery.
+    public let tokenEndpoint: URL
 }
 
 /// Cloudflare's self-managed OAuth (opened to all developers 2026-06-03): Authorization Code +
@@ -187,6 +192,37 @@ public struct CloudflareOAuthClient: Sendable {
             URLQueryItem(name: "code_verifier", value: request.codeVerifier),
         ]
         var urlRequest = URLRequest(url: request.tokenEndpoint)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = Data((form.percentEncodedQuery ?? "").utf8)
+
+        let data: Data, http: HTTPURLResponse
+        do {
+            (data, http) = try await transport(urlRequest)
+        } catch {
+            throw CloudflareOAuthError.tokenExchangeFailed(error.localizedDescription)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw CloudflareOAuthError.tokenExchangeFailed("HTTP \(http.statusCode): \(String(data: data, encoding: .utf8) ?? "")")
+        }
+        do {
+            return try JSONDecoder().decode(OAuthToken.self, from: data)
+        } catch {
+            throw CloudflareOAuthError.tokenExchangeFailed("bad response: \(error)")
+        }
+    }
+
+    /// Exchanges a stored refresh token for a new access token — no discovery, no PKCE, since
+    /// those belong to the original interactive authorize/exchange already resolved once by
+    /// ``makeAuthorizationRequest()``/``exchange(code:for:)``. Same error mapping as `exchange`.
+    public func refresh(refreshToken: String, tokenEndpoint: URL) async throws -> OAuthToken {
+        var form = URLComponents()
+        form.queryItems = [
+            URLQueryItem(name: "grant_type", value: "refresh_token"),
+            URLQueryItem(name: "refresh_token", value: refreshToken),
+            URLQueryItem(name: "client_id", value: clientID),
+        ]
+        var urlRequest = URLRequest(url: tokenEndpoint)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = Data((form.percentEncodedQuery ?? "").utf8)

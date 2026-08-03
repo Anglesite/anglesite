@@ -173,4 +173,44 @@ struct CloudflareOAuthClientTests {
             _ = try await client.exchange(code: "auth-code", for: request)
         }
     }
+
+    // MARK: Refresh
+
+    @Test("refresh posts grant_type=refresh_token and decodes the new token")
+    func refreshPostsGrantType() async throws {
+        var capturedBody: String?
+        let client = CloudflareOAuthClient(
+            redirectURI: redirectURI, scope: "user.read", discoveryURL: discoveryURL,
+            transport: { req in
+                capturedBody = req.httpBody.flatMap { String(data: $0, encoding: .utf8) }
+                let body = #"{"access_token":"new-tok","token_type":"bearer","expires_in":3600,"refresh_token":"new-refresh"}"#
+                return (Data(body.utf8), self.response(200))
+            })
+        let token = try await client.refresh(
+            refreshToken: "old-refresh",
+            tokenEndpoint: URL(string: "https://dash.cloudflare.com/oauth2/token")!)
+
+        #expect(token.accessToken == "new-tok")
+        #expect(token.refreshToken == "new-refresh")
+        #expect(capturedBody?.contains("grant_type=refresh_token") == true)
+        #expect(capturedBody?.contains("refresh_token=old-refresh") == true)
+    }
+
+    @Test("a non-2xx refresh response throws .tokenExchangeFailed")
+    func refreshHTTPFailure() async {
+        let client = CloudflareOAuthClient(
+            redirectURI: redirectURI, scope: "user.read", discoveryURL: discoveryURL,
+            transport: { _ in (Data("bad".utf8), self.response(400)) })
+        await #expect(throws: CloudflareOAuthError.self) {
+            _ = try await client.refresh(
+                refreshToken: "old", tokenEndpoint: URL(string: "https://dash.cloudflare.com/oauth2/token")!)
+        }
+    }
+
+    @Test("OAuthToken decodes an absent refresh_token as nil")
+    func tokenWithoutRefreshTokenDecodesNil() throws {
+        let data = Data(#"{"access_token":"tok","token_type":"bearer"}"#.utf8)
+        let token = try JSONDecoder().decode(OAuthToken.self, from: data)
+        #expect(token.refreshToken == nil)
+    }
 }
