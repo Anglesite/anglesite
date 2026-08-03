@@ -26,9 +26,15 @@ public actor WebRTCTransport: MCPTransport {
         let continuation = self.continuation
         self.pumpTask = Task {
             for await frame in inboundFrames {
-                guard let raw = try? JSONSerialization.jsonObject(with: frame),
-                      let value = JSONValue.from(raw) else {
-                    Self.logger.error("dropping undecodable inbound mcp frame (\(frame.count, privacy: .public) bytes)")
+                let raw: Any
+                do {
+                    raw = try JSONSerialization.jsonObject(with: frame)
+                } catch {
+                    Self.logger.error("dropping undecodable inbound mcp frame (\(frame.count, privacy: .public) bytes): \(String(describing: error), privacy: .public)")
+                    continue
+                }
+                guard let value = JSONValue.from(raw) else {
+                    Self.logger.error("dropping inbound mcp frame with unsupported JSON shape (\(frame.count, privacy: .public) bytes)")
                     continue
                 }
                 continuation.yield(value)

@@ -31,9 +31,15 @@ public actor MCPChannelResponder {
     /// that fails to decode is logged and skipped — never silently dropped, never fatal.
     public func run() async {
         for await frame in connection.inbound(.mcp) {
-            guard let raw = try? JSONSerialization.jsonObject(with: frame),
-                  let message = JSONValue.from(raw) else {
-                Self.logger.error("dropping undecodable inbound mcp frame (\(frame.count, privacy: .public) bytes)")
+            let raw: Any
+            do {
+                raw = try JSONSerialization.jsonObject(with: frame)
+            } catch {
+                Self.logger.error("dropping undecodable inbound mcp frame (\(frame.count, privacy: .public) bytes): \(String(describing: error), privacy: .public)")
+                continue
+            }
+            guard let message = JSONValue.from(raw) else {
+                Self.logger.error("dropping inbound mcp frame with unsupported JSON shape (\(frame.count, privacy: .public) bytes)")
                 continue
             }
             guard let reply = await handler(message) else { continue }
