@@ -71,8 +71,24 @@ public actor WebRTCPeer: P2PConnection {
     private var dataChannelDelegates: [P2PChannelID: DataChannelDelegateBridge] = [:]
 
     private var openedChannels: Set<P2PChannelID> = []
-    private var channelOpenContinuations: [P2PChannelID: [CheckedContinuation<Void, Never>]] = [:]
-    private var backpressureContinuations: [P2PChannelID: [CheckedContinuation<Void, Never>]] = [:]
+    /// Waiters for a channel to open, keyed by a per-call token so `withTaskCancellationHandler`'s
+    /// `onCancel` can remove and resume *exactly* the one continuation belonging to a cancelled
+    /// call, even when multiple calls are waiting on the same channel concurrently — a plain array
+    /// can't be indexed precisely from the separate `onCancel` closure. `Error` (not `Never`) so a
+    /// cancelled wait can `resume(throwing: CancellationError())` instead of hanging past the
+    /// caller's own cancellation (see `waitForChannelOpen`).
+    private var channelOpenContinuations: [P2PChannelID: [UUID: CheckedContinuation<Void, Error>]] = [:]
+    /// Same shape/rationale as `channelOpenContinuations`, for `send(_:on:)`'s backpressure wait.
+    private var backpressureContinuations: [P2PChannelID: [UUID: CheckedContinuation<Void, Error>]] = [:]
+
+    /// Set once `setRemoteDescription` succeeds; gates `handleRemoteCandidate` (Finding: ICE
+    /// candidates that arrive before the SDP that describes them must not be handed to
+    /// `RTCPeerConnection.add(_:)`, which fails and silently discards them with no remote
+    /// description yet to attach to).
+    private var hasRemoteDescription = false
+    /// Remote candidates received before `hasRemoteDescription`, flushed by
+    /// `markRemoteDescriptionSet()` once it's safe to add them.
+    private var bufferedRemoteCandidates: [RTCIceCandidate] = []
 
     private var outboundSeq = 0
     private var signalingTask: Task<Void, Never>?
@@ -102,8 +118,12 @@ public actor WebRTCPeer: P2PConnection {
     /// - Throws: if the local `RTCPeerConnection` can't be constructed, or (offerer only) if
     ///   creating/setting the initial offer fails. A failure on the answerer's side of the
     ///   handshake (bad remote offer, failed answer) is logged rather than thrown here, since it
-    ///   happens on the background signaling-loop task, not this call stack — callers should
-    ///   bound their own wait (as the gated `WebRTCPeerTests` suite does with `.timeLimit`).
+    ///   happens on the background signaling-loop task, not this call stack. The final wait for
+    ///   all four channels to open *does* respond to the calling task's cancellation (including a
+    ///   `Test(.timeLimit(...))` firing) — a cancelled wait throws `CancellationError`, and
+    ///   `connect` tears the partially-built peer down (`close()`) before rethrowing, so a
+    ///   cancelled/failed handshake never leaks the underlying `RTCPeerConnection` or the
+    ///   signaling channel's background poll task.
     public static func connect(
         role: Role,
         signaling: any SignalingChannel,
@@ -129,23 +149,27 @@ public actor WebRTCPeer: P2PConnection {
             delegateBridge: delegateBridge
         )
         delegateBridge.peer = peer
-        try await peer.start()
+        do {
+            try await peer.start()
+        } catch {
+            await peer.close()
+            throw error
+        }
         return peer
     }
 
     // MARK: - P2PConnection
 
     /// - Throws: ``P2PConnectionError/closed`` if the connection (or this channel specifically)
-    ///   is closed.
+    ///   is closed, or `CancellationError` if the calling task is cancelled while suspended on
+    ///   backpressure.
     public func send(_ data: Data, on channel: P2PChannelID) async throws {
         guard !closed, let dataChannel = dataChannels[channel] else {
             throw P2PConnectionError.closed
         }
         while dataChannel.bufferedAmount > Self.backpressureThresholdBytes {
             if closed { throw P2PConnectionError.closed }
-            await withCheckedContinuation { continuation in
-                backpressureContinuations[channel, default: []].append(continuation)
-            }
+            try await waitForBufferedAmountDrop(channel)
         }
         guard !closed, dataChannel.readyState == .open else {
             throw P2PConnectionError.closed
@@ -179,13 +203,13 @@ public actor WebRTCPeer: P2PConnection {
 
         let stillWaitingToOpen = channelOpenContinuations
         channelOpenContinuations.removeAll()
-        for continuations in stillWaitingToOpen.values {
-            for continuation in continuations { continuation.resume() }
+        for byToken in stillWaitingToOpen.values {
+            for continuation in byToken.values { continuation.resume(throwing: P2PConnectionError.closed) }
         }
         let stillBlockedOnBackpressure = backpressureContinuations
         backpressureContinuations.removeAll()
-        for continuations in stillBlockedOnBackpressure.values {
-            for continuation in continuations { continuation.resume() }
+        for byToken in stillBlockedOnBackpressure.values {
+            for continuation in byToken.values { continuation.resume(throwing: P2PConnectionError.closed) }
         }
     }
 
@@ -195,11 +219,17 @@ public actor WebRTCPeer: P2PConnection {
         startSignalingLoop()
         if role == .offerer {
             createOutboundDataChannels()
+            // Reserve the offer's seq synchronously, before the `createOffer`/`setLocalDescription`
+            // await chain that triggers ICE gathering — a locally generated candidate's own
+            // `sendEnvelope` call (dispatched via `Task` from the delegate) could otherwise win the
+            // actor first and claim a lower seq than the offer it describes. Reserving up front
+            // guarantees the offer is always seq 1, ahead of any candidate for this role.
+            let offerSeq = reserveNextSeq()
             let offer = try await createOffer()
             try await setLocalDescription(offer)
-            try await sendEnvelope(kind: .offer, payload: offer.sdp)
+            try await sendEnvelope(seq: offerSeq, kind: .offer, payload: offer.sdp)
         }
-        await waitUntilAllChannelsOpen()
+        try await waitUntilAllChannelsOpen()
     }
 
     private func startSignalingLoop() {
@@ -228,9 +258,14 @@ public actor WebRTCPeer: P2PConnection {
     private func handleRemoteOffer(_ sdp: String) async {
         do {
             try await setRemoteDescription(RTCSessionDescription(type: .offer, sdp: sdp))
+            await markRemoteDescriptionSet()
+            // Same reservation-ordering reasoning as the offerer's own offer in `start()`: claim
+            // the answer's seq before starting the `createAnswer`/`setLocalDescription` chain that
+            // triggers this side's own ICE gathering.
+            let answerSeq = reserveNextSeq()
             let answer = try await createAnswer()
             try await setLocalDescription(answer)
-            try await sendEnvelope(kind: .answer, payload: answer.sdp)
+            try await sendEnvelope(seq: answerSeq, kind: .answer, payload: answer.sdp)
         } catch {
             Self.logger.error("failed to handle remote offer: \(String(describing: error), privacy: .public)")
         }
@@ -239,11 +274,34 @@ public actor WebRTCPeer: P2PConnection {
     private func handleRemoteAnswer(_ sdp: String) async {
         do {
             try await setRemoteDescription(RTCSessionDescription(type: .answer, sdp: sdp))
+            await markRemoteDescriptionSet()
         } catch {
             Self.logger.error("failed to handle remote answer: \(String(describing: error), privacy: .public)")
         }
     }
 
+    /// Records that the remote description is now set and flushes any candidates
+    /// `handleRemoteCandidate` buffered because they arrived first. Idempotent — a second call
+    /// (there shouldn't be one, but nothing here assumes it) just flushes nothing.
+    private func markRemoteDescriptionSet() async {
+        hasRemoteDescription = true
+        let queued = bufferedRemoteCandidates
+        bufferedRemoteCandidates.removeAll()
+        for candidate in queued {
+            do {
+                try await addIceCandidate(candidate)
+            } catch {
+                Self.logger.error("failed to add buffered remote ice candidate: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    /// Buffers the candidate until `markRemoteDescriptionSet()` runs if the remote description
+    /// isn't set yet — `RTCPeerConnection.add(_:)` fails (and the candidate is lost for good, no
+    /// retry) when called with no remote description to attach it to. This is defense in depth on
+    /// top of `start()`/`handleRemoteOffer`'s seq reservation: it keeps `WebRTCPeer` correct even
+    /// against a hypothetical `SignalingChannel` conformer that doesn't guarantee strict per-sender
+    /// delivery order the way `FileSignalingChannel` does.
     private func handleRemoteCandidate(_ payload: String) async {
         do {
             let decoded = try Self.decodeCandidatePayload(payload)
@@ -252,6 +310,10 @@ public actor WebRTCPeer: P2PConnection {
                 sdpMLineIndex: decoded.sdpMLineIndex,
                 sdpMid: decoded.sdpMid
             )
+            guard hasRemoteDescription else {
+                bufferedRemoteCandidates.append(candidate)
+                return
+            }
             try await addIceCandidate(candidate)
         } catch {
             Self.logger.error("failed to add remote ice candidate: \(String(describing: error), privacy: .public)")
@@ -282,6 +344,14 @@ public actor WebRTCPeer: P2PConnection {
     }
 
     private func registerDataChannel(_ dataChannel: RTCDataChannel, id: P2PChannelID) {
+        // A delegate callback's `Task { await peer... }` hop can land after `close()` already ran
+        // (the callback fired on a libwebrtc thread before teardown, but only reaches the actor
+        // afterward) — without this guard it would repopulate `dataChannels`/`dataChannelDelegates`
+        // on an otherwise fully torn-down peer.
+        guard !closed else {
+            dataChannel.close()
+            return
+        }
         let bridge = DataChannelDelegateBridge(channelID: id, peer: self, inboundBox: channelBox)
         dataChannel.delegate = bridge
         dataChannelDelegates[id] = bridge
@@ -301,17 +371,51 @@ public actor WebRTCPeer: P2PConnection {
 
     private func markChannelOpen(_ id: P2PChannelID) {
         guard openedChannels.insert(id).inserted else { return }
-        guard let continuations = channelOpenContinuations.removeValue(forKey: id) else { return }
-        for continuation in continuations { continuation.resume() }
+        guard let byToken = channelOpenContinuations.removeValue(forKey: id) else { return }
+        for continuation in byToken.values { continuation.resume() }
     }
 
-    private func waitUntilAllChannelsOpen() async {
+    private func waitUntilAllChannelsOpen() async throws {
         for id in P2PChannelID.allCases {
-            guard !openedChannels.contains(id) else { continue }
-            await withCheckedContinuation { continuation in
-                channelOpenContinuations[id, default: []].append(continuation)
-            }
+            try await waitForChannelOpen(id)
         }
+    }
+
+    /// Suspends until `id` opens, this peer closes (`CancellationError`/`P2PConnectionError.closed`
+    /// — see `close()`), or the calling task is cancelled (`CancellationError`).
+    ///
+    /// Wrapped in `withTaskCancellationHandler` so a `Test(.timeLimit(...))` firing — or any other
+    /// caller cancellation — actually interrupts the wait instead of hanging past it: a bare
+    /// `withCheckedContinuation` is *not* cancellation-aware on its own, so without this wrapper a
+    /// stalled handshake would suspend here forever regardless of the caller's own timeout.
+    private func waitForChannelOpen(_ id: P2PChannelID) async throws {
+        guard !openedChannels.contains(id) else { return }
+        let token = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                // `withTaskCancellationHandler` documents that `onCancel` can fire *before* this
+                // operation closure even runs, if the task was already cancelled at the call site
+                // above — in that case `onCancel`'s hop would find no token to resume (nothing's
+                // stored yet) and this continuation would then hang forever unless we also check
+                // here. Actor-isolated + no `await` before this check, so there's no window where
+                // a *later* cancellation could sneak in between this check and the store below.
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                channelOpenContinuations[id, default: [:]][token] = continuation
+            }
+        } onCancel: {
+            Task { await self.cancelChannelOpenWait(id, token: token) }
+        }
+    }
+
+    private func cancelChannelOpenWait(_ id: P2PChannelID, token: UUID) {
+        guard var byToken = channelOpenContinuations[id], let continuation = byToken.removeValue(forKey: token) else {
+            return
+        }
+        channelOpenContinuations[id] = byToken.isEmpty ? nil : byToken
+        continuation.resume(throwing: CancellationError())
     }
 
     /// Invoked (via ``DataChannelDelegateBridge``) whenever a data channel's `bufferedAmount`
@@ -321,11 +425,53 @@ public actor WebRTCPeer: P2PConnection {
         guard let dataChannel = dataChannels[id], dataChannel.bufferedAmount <= Self.backpressureThresholdBytes else {
             return
         }
-        guard let continuations = backpressureContinuations.removeValue(forKey: id) else { return }
-        for continuation in continuations { continuation.resume() }
+        guard let byToken = backpressureContinuations.removeValue(forKey: id) else { return }
+        for continuation in byToken.values { continuation.resume() }
+    }
+
+    /// Suspends `send(_:on:)` until `id`'s `bufferedAmount` drops back under the backpressure
+    /// threshold, this peer closes, or the calling task is cancelled — same cancellation-handling
+    /// shape and same "already cancelled before registering" guard as `waitForChannelOpen`; see
+    /// its doc comment for why both are necessary. Also: per SE-0420, whether the `Task { ... }` in
+    /// `onCancel` below implicitly inherits this actor's isolation depends on the active Swift
+    /// concurrency mode — this code doesn't rely on that either way, since it always explicitly
+    /// `await`s back onto the actor via `self.cancelBackpressureWait(...)` regardless.
+    private func waitForBufferedAmountDrop(_ channel: P2PChannelID) async throws {
+        let token = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                backpressureContinuations[channel, default: [:]][token] = continuation
+            }
+        } onCancel: {
+            Task { await self.cancelBackpressureWait(channel, token: token) }
+        }
+    }
+
+    private func cancelBackpressureWait(_ channel: P2PChannelID, token: UUID) {
+        guard var byToken = backpressureContinuations[channel], let continuation = byToken.removeValue(forKey: token) else {
+            return
+        }
+        backpressureContinuations[channel] = byToken.isEmpty ? nil : byToken
+        continuation.resume(throwing: CancellationError())
     }
 
     // MARK: - ICE
+
+    /// Invoked (via ``PeerConnectionDelegateBridge``) when ICE reports a terminal state (`.failed`
+    /// or `.closed`) — the remote is gone (crashed, network partition) and nothing will recover
+    /// this connection on its own. Runs the normal `close()` teardown so inbound streams finish
+    /// and further `send`s throw, per `P2PConnection`'s documented contract, even without a clean
+    /// `.bye` from the far end. `close()` already tolerates its own `.bye` send failing (`try?`),
+    /// which is the common case here since the signaling channel or remote may itself be gone.
+    fileprivate func handleTerminalIceState(_ state: RTCIceConnectionState) async {
+        guard !closed else { return }
+        Self.logger.error("ice connection state \(String(describing: state), privacy: .public) — closing")
+        await close()
+    }
 
     /// Invoked (via ``PeerConnectionDelegateBridge``) for every locally gathered ICE candidate;
     /// trickles it to the peer as a `.candidate` envelope.
@@ -342,10 +488,24 @@ public actor WebRTCPeer: P2PConnection {
 
     // MARK: - Signaling helpers
 
-    private func sendEnvelope(kind: SignalingEnvelope.Kind, payload: String) async throws {
+    /// Claims the next outbound seq synchronously (no `await`), so a caller that needs to
+    /// guarantee its envelope gets a *lower* seq than some other concurrently-triggered send
+    /// (e.g. the offer/answer vs. the ICE candidates gathering can fire once it's set as the local
+    /// description — see `start()`/`handleRemoteOffer`) can reserve it before starting any
+    /// suspending work, then pass it to `sendEnvelope(seq:kind:payload:)` once the payload is
+    /// ready.
+    private func reserveNextSeq() -> Int {
         outboundSeq += 1
+        return outboundSeq
+    }
+
+    private func sendEnvelope(kind: SignalingEnvelope.Kind, payload: String) async throws {
+        try await sendEnvelope(seq: reserveNextSeq(), kind: kind, payload: payload)
+    }
+
+    private func sendEnvelope(seq: Int, kind: SignalingEnvelope.Kind, payload: String) async throws {
         let sender = role == .offerer ? "offerer" : "answerer"
-        try await signaling.send(SignalingEnvelope(seq: outboundSeq, sender: sender, kind: kind, payload: payload))
+        try await signaling.send(SignalingEnvelope(seq: seq, sender: sender, kind: kind, payload: payload))
     }
 
     private struct ICECandidatePayload: Codable {
@@ -451,7 +611,17 @@ private final class PeerConnectionDelegateBridge: NSObject, RTCPeerConnectionDel
 
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
 
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
+        // `.disconnected` is often transient (a brief network blip that self-heals) and isn't
+        // treated as terminal here — only `.failed` (ICE gave up) and `.closed` (the connection is
+        // gone, including as an echo of our own `close()`) are. This is what makes
+        // `P2PConnection`'s documented contract ("`inbound`'s stream finishes when the connection
+        // closes") hold even when the remote crashes or the network partitions without ever
+        // sending a clean `.bye`.
+        guard newState == .failed || newState == .closed else { return }
+        guard let peer else { return }
+        Task { await peer.handleTerminalIceState(newState) }
+    }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
 

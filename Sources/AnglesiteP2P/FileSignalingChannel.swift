@@ -15,6 +15,10 @@ public actor FileSignalingChannel: SignalingChannel {
     private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "FileSignalingChannel")
     private static let pollInterval: Duration = .milliseconds(100)
     private static let fileSuffix = ".json"
+    /// If a sender's `pending` backlog grows past this while blocked on a single missing/corrupt
+    /// seq, `deliverContiguous()` logs at `.fault` — a signal that delivery is genuinely stuck, not
+    /// just normally out of order.
+    private static let pendingBacklogWarningThreshold = 32
 
     private let directory: URL
     private let sender: String
@@ -102,14 +106,21 @@ public actor FileSignalingChannel: SignalingChannel {
             let filename = url.lastPathComponent
             guard !seenFilenames.contains(filename) else { continue }
             guard let parsed = Self.parse(filename: filename) else { continue }
-            seenFilenames.insert(filename)
-            guard parsed.sender != sender else { continue } // never echo our own envelopes
+            guard parsed.sender != sender else {
+                seenFilenames.insert(filename) // our own file — never worth re-reading
+                continue
+            }
 
             guard let data = try? Data(contentsOf: url),
                   let envelope = try? JSONDecoder().decode(SignalingEnvelope.self, from: data) else {
-                Self.logger.error("dropping undecodable signaling file \(filename, privacy: .public)")
+                // Deliberately NOT marked `seen`: if this is a transient read/decode failure (e.g.
+                // a race with the writer, or a bug elsewhere), the next poll retries it rather than
+                // permanently skipping that seq and wedging this sender's contiguous-delivery
+                // cursor forever on a gap that will never fill.
+                Self.logger.error("failed to decode \(filename, privacy: .public); will retry next poll")
                 continue
             }
+            seenFilenames.insert(filename)
             pending[parsed.sender, default: [:]][parsed.seq] = envelope
         }
 
@@ -127,6 +138,9 @@ public actor FileSignalingChannel: SignalingChannel {
                 expected += 1
             }
             nextExpectedSeq[fileSender] = expected
+            if bucket.count > Self.pendingBacklogWarningThreshold {
+                Self.logger.fault("pending envelope backlog for sender \(fileSender, privacy: .public) exceeds \(Self.pendingBacklogWarningThreshold, privacy: .public) while waiting on seq \(expected, privacy: .public) — a missing/corrupt file may be wedging delivery")
+            }
             pending[fileSender] = bucket
         }
     }
