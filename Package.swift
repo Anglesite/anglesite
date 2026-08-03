@@ -376,8 +376,11 @@ packageDependencies.append(
 // Anywhere runtime (#1208): prebuilt libwebrtc for the P2P transport core.
 // Darwin-only binary xcframework — the target set below only includes
 // AnglesiteP2P on Darwin, so the dependency never enters the Linux graph.
+// Pinned by revision, matching the SwiftGit2/STTextView policy above (a mutable tag like
+// `exact: "150.0.0"` can be re-pointed upstream without review): this is the commit release tag
+// 150.0.0 resolves to.
 packageDependencies.append(
-    .package(url: "https://github.com/stasel/WebRTC.git", exact: "150.0.0")
+    .package(url: "https://github.com/stasel/WebRTC.git", revision: "6ed87f05368632f71dc95c89c14c051561710925")
 )
 
 // Component Editor slice 4 (spec §7, §4.3): STTextView-backed code panes ("Props & Data",

@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 import AnglesiteCore
 
-/// Client-side ``MCPTransport``: one JSON-RPC message per data-channel frame on the
+/// Client-side `MCPTransport` (from `AnglesiteCore`): one JSON-RPC message per data-channel frame on the
 /// ``P2PChannelID/mcp`` channel of a shared ``P2PConnection``.
 ///
 /// The connection is created once per session and shared across all four logical channels (spec

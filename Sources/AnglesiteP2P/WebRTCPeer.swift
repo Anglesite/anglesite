@@ -39,13 +39,19 @@ private nonisolated(unsafe) let sharedFactory: RTCPeerConnectionFactory = {
 ///
 /// - Important: every `RTCPeerConnectionDelegate`/`RTCDataChannelDelegate` callback below arrives
 ///   on a libwebrtc-owned thread, never this actor's executor. Callbacks that touch actor state
-///   hop via `Task { await self... }` (see ``PeerConnectionDelegateBridge`` /
-///   ``DataChannelDelegateBridge``); the one exception is routing already-received message bytes
-///   into a channel's inbound `AsyncStream`, which goes straight into ``InboundChannelBox`` — a
+///   hop via `Task { await self... }` (see `PeerConnectionDelegateBridge` /
+///   `DataChannelDelegateBridge`); the one exception is routing already-received message bytes
+///   into a channel's inbound `AsyncStream`, which goes straight into `InboundChannelBox` — a
 ///   lock-guarded, non-actor-isolated store — precisely so that hot path never needs the hop.
 public actor WebRTCPeer: P2PConnection {
     /// Which side of the offer/answer exchange this peer plays.
-    public enum Role: Sendable { case offerer, answerer }
+    public enum Role: Sendable {
+        /// Creates the four data channels, sends the initial SDP offer, and waits for an answer.
+        case offerer
+        /// Waits for the remote SDP offer, discovers the offerer's data channels as they open,
+        /// and sends back an answer.
+        case answerer
+    }
 
     private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "WebRTCPeer")
 
@@ -62,7 +68,7 @@ public actor WebRTCPeer: P2PConnection {
     private let delegateBridge: PeerConnectionDelegateBridge
 
     /// Inbound per-channel message storage, outside actor isolation — see the type doc comment
-    /// and ``InboundChannelBox``.
+    /// and `InboundChannelBox`.
     private nonisolated let channelBox = InboundChannelBox()
 
     private var dataChannels: [P2PChannelID: RTCDataChannel] = [:]
@@ -333,7 +339,7 @@ public actor WebRTCPeer: P2PConnection {
         }
     }
 
-    /// Invoked (via ``PeerConnectionDelegateBridge``) when the answerer's peer connection learns
+    /// Invoked (via `PeerConnectionDelegateBridge`) when the answerer's peer connection learns
     /// about a data channel the offerer created.
     fileprivate func handleRemoteDataChannel(_ dataChannel: RTCDataChannel) {
         guard let id = P2PChannelID(rawValue: dataChannel.label) else {
@@ -361,7 +367,7 @@ public actor WebRTCPeer: P2PConnection {
         }
     }
 
-    /// Invoked (via ``DataChannelDelegateBridge``) on every state change of one of this peer's
+    /// Invoked (via `DataChannelDelegateBridge`) on every state change of one of this peer's
     /// data channels.
     fileprivate func handleDataChannelStateChange(_ id: P2PChannelID, dataChannel: RTCDataChannel) {
         if dataChannel.readyState == .open {
@@ -418,7 +424,7 @@ public actor WebRTCPeer: P2PConnection {
         continuation.resume(throwing: CancellationError())
     }
 
-    /// Invoked (via ``DataChannelDelegateBridge``) whenever a data channel's `bufferedAmount`
+    /// Invoked (via `DataChannelDelegateBridge`) whenever a data channel's `bufferedAmount`
     /// changes; wakes any `send(_:on:)` call waiting for it to drop back under
     /// `backpressureThresholdBytes`.
     fileprivate func bufferedAmountChanged(_ id: P2PChannelID) {
@@ -461,7 +467,7 @@ public actor WebRTCPeer: P2PConnection {
 
     // MARK: - ICE
 
-    /// Invoked (via ``PeerConnectionDelegateBridge``) when ICE reports a terminal state (`.failed`
+    /// Invoked (via `PeerConnectionDelegateBridge`) when ICE reports a terminal state (`.failed`
     /// or `.closed`) — the remote is gone (crashed, network partition) and nothing will recover
     /// this connection on its own. Runs the normal `close()` teardown so inbound streams finish
     /// and further `send`s throw, per `P2PConnection`'s documented contract, even without a clean
@@ -473,7 +479,7 @@ public actor WebRTCPeer: P2PConnection {
         await close()
     }
 
-    /// Invoked (via ``PeerConnectionDelegateBridge``) for every locally gathered ICE candidate;
+    /// Invoked (via `PeerConnectionDelegateBridge`) for every locally gathered ICE candidate;
     /// trickles it to the peer as a `.candidate` envelope.
     fileprivate func handleLocalCandidate(_ candidate: RTCIceCandidate) async {
         do {
@@ -588,8 +594,14 @@ public actor WebRTCPeer: P2PConnection {
 
 /// Errors specific to ``WebRTCPeer``.
 public enum WebRTCPeerError: Error, Equatable {
+    /// `sharedFactory.peerConnection(with:constraints:delegate:)` returned `nil` — libwebrtc
+    /// failed to construct the underlying `RTCPeerConnection`.
     case peerConnectionCreationFailed
+    /// `RTCPeerConnection.offer(for:completionHandler:)`/`.answer(for:completionHandler:)`
+    /// completed with neither an `RTCSessionDescription` nor an `Error`.
     case missingSessionDescription
+    /// An ICE candidate payload could not be encoded to or decoded from UTF-8 JSON when
+    /// trickling it over the ``SignalingChannel``.
     case candidateEncodingFailed
 }
 
@@ -640,12 +652,12 @@ private final class PeerConnectionDelegateBridge: NSObject, RTCPeerConnectionDel
 
 /// Bridges `RTCDataChannelDelegate` callbacks for one data channel — delivered on a
 /// libwebrtc-owned thread — to ``WebRTCPeer``'s actor-isolated state, except for inbound message
-/// delivery, which goes straight into `inboundBox` (see ``InboundChannelBox``) without an actor
+/// delivery, which goes straight into `inboundBox` (see `InboundChannelBox`) without an actor
 /// hop.
 ///
 /// `@unchecked Sendable`: `channelID` and `inboundBox` are immutable `let`s; `peer` is a `weak
 /// var` written exactly once at construction, before this bridge is ever assigned as a channel's
-/// `delegate` — see ``PeerConnectionDelegateBridge``'s doc comment for the same argument.
+/// `delegate` — see `PeerConnectionDelegateBridge`'s doc comment for the same argument.
 private final class DataChannelDelegateBridge: NSObject, RTCDataChannelDelegate, @unchecked Sendable {
     let channelID: P2PChannelID
     weak var peer: WebRTCPeer?

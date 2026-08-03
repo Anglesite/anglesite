@@ -172,4 +172,119 @@ import Foundation
         }
         serverTask.cancel()
     }
+
+    /// Gates `send(_:on:)` until released, so a test can deterministically land inside the actor-
+    /// release window `perform()` opens between its awaited `connection.send` calls and installing
+    /// `headContinuation` — the race `stashedHeadResult` fixes (see `FetchBridge.swift`). Once
+    /// released, every `send` (past and future) returns immediately.
+    private actor SendGate: P2PConnection {
+        private var isReleased = false
+        private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+        private var hasEntered = false
+        private var enterWaiters: [CheckedContinuation<Void, Never>] = []
+
+        func send(_ data: Data, on channel: P2PChannelID) async throws {
+            hasEntered = true
+            for waiter in enterWaiters { waiter.resume() }
+            enterWaiters.removeAll()
+            guard !isReleased else { return }
+            await withCheckedContinuation { releaseWaiters.append($0) }
+        }
+
+        nonisolated func inbound(_ channel: P2PChannelID) -> AsyncStream<Data> {
+            // The pump task consumes this, but these tests drive `handle(_:)` directly rather than
+            // through the pump, so nothing needs to be yielded here.
+            AsyncStream { _ in }
+        }
+
+        func close() async {}
+
+        /// Suspends until `send` has been entered at least once (i.e. `perform()` has registered
+        /// its `pending[id]` entry and is now blocked on the gate).
+        func waitUntilEntered() async {
+            guard !hasEntered else { return }
+            await withCheckedContinuation { enterWaiters.append($0) }
+        }
+
+        /// Releases every current and future blocked `send` call.
+        func release() {
+            isReleased = true
+            for waiter in releaseWaiters { waiter.resume() }
+            releaseWaiters.removeAll()
+        }
+    }
+
+    /// Reproduces the lost-head race directly (self-review concern for Task 5/#1208 fix-wave: a
+    /// `.responseHead` frame `handle(_:)`d while `perform()` is still suspended inside its
+    /// outbound `send` calls — i.e. before `headContinuation` is installed — must not be silently
+    /// dropped. Drives `FetchBridgeClient.handle(_:)` directly (an `internal` seam added for this
+    /// purpose) rather than relying on real send/receive timing, since that race is not otherwise
+    /// reproducible deterministically.
+    @Test func responseHeadArrivingBeforeContinuationInstalledIsNotLost() async throws {
+        let gate = SendGate()
+        let client = FetchBridgeClient(connection: gate)
+
+        let performTask = Task {
+            try await client.perform(BridgeRequestHead(method: "GET", path: "/", headers: [:]))
+        }
+
+        await gate.waitUntilEntered() // perform() has registered pending[0] and is now blocked in send()
+
+        let head = BridgeResponseHead(status: 200, headers: ["X-Raced": "yes"])
+        let raw = try HTTPBridgeFrame.responseHead(id: 0, head).encoded()
+        await client.handle(raw) // races in before headContinuation exists — must be stashed, not dropped
+
+        await gate.release() // let perform()'s remaining sends complete
+
+        let (resolvedHead, body) = try await performTask.value
+        #expect(resolvedHead == head)
+
+        // No `responseBody`/`responseEnd` frame was ever sent for this id, so without this the
+        // body stream would suspend on `body`'s next element forever — finish it explicitly; this
+        // test only cares that the raced head wasn't lost, not about body framing.
+        await client.handle(try HTTPBridgeFrame.responseEnd(id: 0).encoded())
+        for try await _ in body { Issue.record("expected an empty body stream") }
+    }
+
+    /// Same race as above, but terminal: an `.abort` frame that arrives before `headContinuation`
+    /// is installed must still fail `perform()`'s caller, not leak the pending entry (removed from
+    /// `pending` with nothing left to resume the continuation `perform()` is about to install).
+    @Test func abortArrivingBeforeContinuationInstalledFailsRatherThanHangs() async throws {
+        let gate = SendGate()
+        let client = FetchBridgeClient(connection: gate)
+
+        let performTask = Task {
+            try await client.perform(BridgeRequestHead(method: "GET", path: "/", headers: [:]))
+        }
+
+        await gate.waitUntilEntered()
+
+        let raw = try HTTPBridgeFrame.abort(id: 0, reason: "raced abort").encoded()
+        await client.handle(raw)
+
+        await gate.release()
+
+        await #expect(throws: FetchBridgeError.self) {
+            _ = try await performTask.value
+        }
+    }
+
+    /// A cancelled `perform()` call must not hang, must resume with `CancellationError`, and must
+    /// discard (rather than leak) any head/abort result that raced in during cancellation.
+    @Test func cancellingPerformDuringSendResumesWithCancellationError() async throws {
+        let gate = SendGate()
+        let client = FetchBridgeClient(connection: gate)
+
+        let performTask = Task {
+            try await client.perform(BridgeRequestHead(method: "GET", path: "/", headers: [:]))
+        }
+
+        await gate.waitUntilEntered()
+        performTask.cancel()
+        await gate.release()
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await performTask.value
+        }
+    }
 }

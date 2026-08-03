@@ -9,15 +9,22 @@ public struct SignalingEnvelope: Codable, Sendable, Equatable {
     public var seq: Int
     /// Stable per-endpoint id, e.g. `"host"` / `"client"` or `"offerer"` / `"answerer"`.
     public var sender: String
+    /// Which handshake step this envelope carries; determines how `payload` is interpreted.
     public var kind: Kind
     /// SDP text (`.offer`/`.answer`), an ICE candidate encoded as JSON (`.candidate`), or empty
     /// (`.bye`).
     public var payload: String
 
+    /// One step of the offer/answer + trickle-ICE handshake ``WebRTCPeer`` drives over a
+    /// ``SignalingChannel``.
     public enum Kind: String, Codable, Sendable {
+        /// The offerer's initial SDP offer, carried in `payload`.
         case offer
+        /// The answerer's SDP answer to a received `.offer`, carried in `payload`.
         case answer
+        /// One trickled ICE candidate, JSON-encoded in `payload`.
         case candidate
+        /// Clean session teardown; `payload` is empty.
         case bye
     }
 

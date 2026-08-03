@@ -47,6 +47,16 @@ public actor FetchBridgeClient {
     private final class PendingRequest {
         var headContinuation: CheckedContinuation<(head: BridgeResponseHead, body: AsyncThrowingStream<Data, Error>), Error>?
         var bodyContinuation: AsyncThrowingStream<Data, Error>.Continuation?
+
+        /// Set by `handle(_:)` when a `.responseHead`/`.abort` frame arrives before `perform()`
+        /// has installed `headContinuation` — the actor-release window between the awaited
+        /// `connection.send` calls that frame the request and the `withCheckedThrowingContinuation`
+        /// below. Without this stash the frame would be dropped (`headContinuation` is nil, so
+        /// `.resume` is a no-op) or, for `.abort`, the entry would be removed from `pending`
+        /// entirely — either way `perform()` then installs a continuation nothing will ever
+        /// resume, hanging its caller forever. `perform()`'s continuation closure checks this
+        /// first and resumes immediately if present.
+        var stashedHeadResult: Result<(head: BridgeResponseHead, body: AsyncThrowingStream<Data, Error>), Error>?
     }
 
     /// Wraps an already-connected ``P2PConnection``. The pump task that demultiplexes inbound
@@ -80,9 +90,48 @@ public actor FetchBridgeClient {
             throw error
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            pendingRequest.headContinuation = continuation
+        // Wrapped in `withTaskCancellationHandler` so a cancelled caller doesn't hang past its own
+        // cancellation — same shape as `WebRTCPeer.waitForChannelOpen`. Only one call ever awaits
+        // a given `id` (ids aren't reused across calls), so — unlike `WebRTCPeer`, which fans out
+        // to a dictionary of per-token waiters — a single `headContinuation` slot on
+        // `PendingRequest` is enough; `cancelPerform(_:)` still follows the same
+        // remove-before-resume discipline to guarantee exactly-once resume.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(head: BridgeResponseHead, body: AsyncThrowingStream<Data, Error>), Error>) in
+                guard !Task.isCancelled else {
+                    // Cancelled during the sends above, before this closure could even install a
+                    // continuation. Discard any stash that raced in during that window too — a
+                    // cancelled call shouldn't surface a response nobody asked for anymore.
+                    pendingRequest.stashedHeadResult = nil
+                    pending.removeValue(forKey: id)
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                if let stashed = pendingRequest.stashedHeadResult {
+                    pendingRequest.stashedHeadResult = nil
+                    continuation.resume(with: stashed)
+                    return
+                }
+                pendingRequest.headContinuation = continuation
+            }
+        } onCancel: {
+            Task { await self.cancelPerform(id) }
         }
+    }
+
+    /// Cancellation hop for ``perform(_:body:)``'s `withTaskCancellationHandler`. Only acts if
+    /// `headContinuation` is still installed — i.e. `handle(_:)` hasn't already resolved (or
+    /// stashed a resolution for) this request — so a cancellation that arrives after the response
+    /// already landed never rips a live body stream out from under a caller that's still reading
+    /// it. Removes the entry before resuming so a concurrent `handle(_:)` call for the same id
+    /// (which would find it missing and log-and-skip) can never race a second resume.
+    private func cancelPerform(_ id: UInt32) {
+        guard let pendingRequest = pending[id], let headContinuation = pendingRequest.headContinuation else {
+            return
+        }
+        pending.removeValue(forKey: id)
+        pendingRequest.headContinuation = nil
+        headContinuation.resume(throwing: CancellationError())
     }
 
     /// Starts the demux pump exactly once per client instance.
@@ -102,7 +151,12 @@ public actor FetchBridgeClient {
 
     /// Decodes one inbound `http` frame and routes it to the matching pending request. Undecodable
     /// frames and frames for unknown ids are logged and skipped, never silently dropped or fatal.
-    private func handle(_ raw: Data) async {
+    ///
+    /// `internal` rather than `private`: the pump task (`startPumpIfNeeded`) is this method's only
+    /// production caller, but `FetchBridgeTests` (via `@testable import`) also drives it directly
+    /// to deterministically reproduce the race where a response/abort frame is handled before
+    /// `perform()` installs its `headContinuation` — see `PendingRequest.stashedHeadResult`.
+    func handle(_ raw: Data) async {
         let frame: HTTPBridgeFrame
         do {
             frame = try HTTPBridgeFrame.decode(raw)
@@ -131,8 +185,16 @@ public actor FetchBridgeClient {
         case .responseHead(_, let head):
             let (stream, continuation) = AsyncThrowingStream<Data, Error>.makeStream(of: Data.self)
             pendingRequest.bodyContinuation = continuation
-            pendingRequest.headContinuation?.resume(returning: (head, stream))
-            pendingRequest.headContinuation = nil
+            if let headContinuation = pendingRequest.headContinuation {
+                pendingRequest.headContinuation = nil
+                headContinuation.resume(returning: (head, stream))
+            } else {
+                // `perform()` hasn't installed its continuation yet (still awaiting its outbound
+                // `send`s) — stash instead of silently dropping the head. Left in `pending` so
+                // subsequent `responseBody`/`responseEnd`/`abort` frames keep routing to
+                // `bodyContinuation` regardless of when `perform()` picks up the stash.
+                pendingRequest.stashedHeadResult = .success((head, stream))
+            }
 
         case .responseBody(_, let chunk):
             pendingRequest.bodyContinuation?.yield(chunk)
@@ -143,10 +205,15 @@ public actor FetchBridgeClient {
 
         case .abort(_, let reason):
             let error = FetchBridgeError(reason: reason)
-            if pendingRequest.headContinuation != nil {
-                pendingRequest.headContinuation?.resume(throwing: error)
-            } else {
+            if let headContinuation = pendingRequest.headContinuation {
+                pendingRequest.headContinuation = nil
+                headContinuation.resume(throwing: error)
+            } else if pendingRequest.bodyContinuation != nil {
                 pendingRequest.bodyContinuation?.finish(throwing: error)
+            } else {
+                // Same race as the `.responseHead` case above, but terminal: nothing has resolved
+                // yet, so stash the error for `perform()`'s continuation closure to pick up.
+                pendingRequest.stashedHeadResult = .failure(error)
             }
             pending.removeValue(forKey: id)
 
