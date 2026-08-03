@@ -48,9 +48,9 @@ struct TwoProcessE2ETests {
         // polling `signalDirectory` forever, and its stdout/stderr would never make it into a
         // failure message.
         defer {
-            hostCapture.stop()
             if host.isRunning { host.terminate() }
-            host.waitUntilExit()
+            host.waitUntilExit() // reap first, so post-terminate output is captured before...
+            hostCapture.stop() // ...detaching the readability handlers that gather it.
         }
 
         let client = Self.makeProcess(binary: demoBinary, arguments: ["client", signalDirectory.path])
@@ -58,7 +58,7 @@ struct TwoProcessE2ETests {
         clientCapture.attach(to: client)
         try client.run()
 
-        let clientExitedInTime = await Self.waitForExit(client, timeoutSeconds: 55)
+        let clientExitedInTime = try await Self.waitForExit(client, timeoutSeconds: 55)
         if !clientExitedInTime, client.isRunning {
             client.terminate()
             client.waitUntilExit()
@@ -90,14 +90,20 @@ struct TwoProcessE2ETests {
     }
 
     /// Polls `process.isRunning` until it exits or `timeoutSeconds` elapses. Returns `true` if
-    /// the process exited on its own within the bound. Polling (rather than a
-    /// `terminationHandler` continuation) sidesteps any ordering race between registering a
-    /// handler and the process already having exited.
-    private static func waitForExit(_ process: Process, timeoutSeconds: Double) async -> Bool {
+    /// the process exited on its own within the bound, `false` if the bound was hit first.
+    /// Polling (rather than a `terminationHandler` continuation) sidesteps any ordering race
+    /// between registering a handler and the process already having exited.
+    ///
+    /// - Throws: `CancellationError` if the calling task is cancelled while waiting — checked
+    ///   explicitly each iteration (rather than swallowed via `try?`) so the enclosing test's
+    ///   `.timeLimit` trait firing actually interrupts this wait promptly instead of the poll
+    ///   loop silently continuing past its own cancellation.
+    private static func waitForExit(_ process: Process, timeoutSeconds: Double) async throws -> Bool {
         let deadline = Date().addingTimeInterval(timeoutSeconds)
         while process.isRunning {
+            try Task.checkCancellation()
             guard Date() < deadline else { return false }
-            try? await Task.sleep(for: .milliseconds(100))
+            try await Task.sleep(for: .milliseconds(100))
         }
         return true
     }

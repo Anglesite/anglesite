@@ -48,17 +48,29 @@ case "client":
     await transport.close()
 
     // Beyond the literal brief: don't just trust that closing tears down cleanly — prove it.
-    // Close the peer, then confirm a *new* bridge request over it fails promptly rather than
-    // hanging, racing it against a bounded timeout so a regression here fails the demo loudly
-    // instead of wedging the process.
+    // Close the peer, then confirm a *new* bridge request over it fails.
+    //
+    // The actual guarantee here is `WebRTCPeer.send(_:on:)`'s synchronous `!closed` check: once
+    // `peer.close()` above has run, any further `send` throws `P2PConnectionError.closed` as the
+    // very first thing it does, before any suspension that could hang — so `perform()` below is
+    // expected to throw almost immediately on its own, not because of the timeout race below it.
+    // That race against a 5s `Task.sleep` is a defensive backstop for a *future* regression, not
+    // the primary protection: Swift's cancellation is cooperative, `withTaskGroup`'s implicit
+    // teardown still has to await the `perform()` child task to actually finish before this whole
+    // block returns, and `cancelAll()` can't forcibly interrupt an `await` that never checks for
+    // it. `Task.checkCancellation()` below is the one point this code can genuinely observe
+    // cancellation before starting `perform()`, so `cancelAll()` does shorten that child task in
+    // the (rare) case where the timeout child is scheduled and wins before this one even begins.
     await peer.close()
     let closedRequestFailedPromptly = await withTaskGroup(of: Bool.self) { group -> Bool in
         group.addTask {
             do {
+                try Task.checkCancellation()
                 _ = try await client.perform(BridgeRequestHead(method: "GET", path: "/index.html", headers: [:]))
                 return false // unexpectedly succeeded against a closed connection
             } catch {
-                return true // failed, as expected
+                return true // failed — the expected closed-guard throw, or cancellation; either
+                // way this is not "succeeded", which is the only outcome the check below rejects
             }
         }
         group.addTask {
