@@ -1,5 +1,6 @@
 import SwiftUI
 import AnglesiteCore
+import AuthenticationServices
 
 /// SwiftUI-facing wrapper around `DeployCommand`. Drives one deploy at a time and exposes the
 /// live log stream, the terminal `Phase`, and the two presentation flags the views consume.
@@ -137,8 +138,9 @@ final class DeployModel {
     private let websubPing: WebSubPublishPing
     private let activityPubOutboxBackfill: ActivityPubOutboxBackfill
     private let logCenter: LogCenter
-    private let keychain: KeychainStore
+    private let keychain: any SecretStore
     private let onboarding: TokenOnboarding
+    private let oauthSignIn: CloudflareOAuthSignIn
     private let summarizer: any DeployFailureSummarizing
     private let contentGraph: SiteContentGraph
     /// Returns the current `@dwk/workers` catalog. Defaults to `{ [] }` (no network, no active
@@ -179,8 +181,11 @@ final class DeployModel {
         websubPing: WebSubPublishPing = WebSubPublishPing(),
         activityPubOutboxBackfill: ActivityPubOutboxBackfill = ActivityPubOutboxBackfill(),
         logCenter: LogCenter = .shared,
-        keychain: KeychainStore = KeychainStore(),
+        keychain: any SecretStore = KeychainStore(),
         verifier: TokenVerifying = CloudflareAPITokenVerifier(),
+        oauthSignIn: CloudflareOAuthSignIn = CloudflareOAuthSignIn(
+            client: CloudflareOAuthClient(scope: AnglesiteTokenTemplate.oauthScope),
+            present: CloudflareOAuthSignIn.defaultPresenter),
         summarizer: any DeployFailureSummarizing = DeploySummarizerFactory.makeDefault(),
         suddenTerminationController: SuddenTerminationController = .shared,
         tokenAvailabilityOverride: (() -> Bool)? = nil,
@@ -195,6 +200,7 @@ final class DeployModel {
         self.logCenter = logCenter
         self.keychain = keychain
         self.onboarding = TokenOnboarding(verifier: verifier)
+        self.oauthSignIn = oauthSignIn
         self.summarizer = summarizer
         self.suddenTerminationController = suddenTerminationController
         self.tokenAvailabilityOverride = tokenAvailabilityOverride
@@ -362,6 +368,68 @@ final class DeployModel {
         }
     }
 
+    /// Called by the sign-in sheet's "Sign in with Cloudflare" button. Runs the OAuth flow,
+    /// verifies the resulting access token against Cloudflare exactly as a pasted token was
+    /// verified — `TokenOnboarding` can't tell the two apart, since both are just Cloudflare API
+    /// bearer tokens — then persists the full credential (access + refresh + expiry) and dispatches
+    /// the parked deploy.
+    func signInWithCloudflare() async {
+        guard let pending = pendingDeploy else {
+            tokenVerification = .failed(message: "No deploy is waiting — close this and click Deploy again.")
+            return
+        }
+
+        tokenVerification = .checking
+        let signInResult: CloudflareOAuthSignIn.Result
+        do {
+            signInResult = try await oauthSignIn.run()
+        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            // The user dismissed the browser sheet — same "no error banner" treatment a dismissed
+            // paste sheet got.
+            tokenVerification = .idle
+            return
+        } catch CloudflareOAuthError.callbackDenied {
+            // The user declined on Cloudflare's own consent screen — same treatment as cancelling
+            // the sheet itself, not a connection failure.
+            tokenVerification = .idle
+            return
+        } catch {
+            // Includes `.stateMismatch` — a hard, generic failure, never silently accepted.
+            tokenVerification = .failed(message: "Couldn't sign in to Cloudflare: \(error)")
+            return
+        }
+
+        let outcome = await onboarding.run(
+            token: signInResult.token.accessToken,
+            siteDirectory: pending.siteDirectory,
+            persist: { _ in
+                try keychain.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+                    accessToken: signInResult.token.accessToken,
+                    refreshToken: signInResult.token.refreshToken,
+                    expiresAt: signInResult.token.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) },
+                    tokenEndpoint: signInResult.tokenEndpoint))
+            },
+            onConnected: { tokenVerification = .connected(accountName: $0.name) },
+            delay: { try? await Task.sleep(for: .milliseconds(700)) },
+            isCancelled: { Task.isCancelled || !tokenPromptPresented }
+        )
+
+        switch outcome {
+        case .proceed:
+            pendingDeploy = nil
+            tokenPromptPresented = false
+            tokenVerification = .idle
+            deploy(
+                siteID: pending.siteID, siteDirectory: pending.siteDirectory,
+                configDirectory: pending.configDirectory, currentRoutes: pending.currentRoutes,
+                containerControlProvider: pending.containerControlProvider, siteName: pending.siteName)
+        case .stay(let message):
+            tokenVerification = .failed(message: message)
+        case .abort:
+            tokenVerification = .idle
+        }
+    }
+
     func cancelTokenPrompt() {
         pendingDeploy = nil
         tokenPromptPresented = false
@@ -459,13 +527,19 @@ final class DeployModel {
         blockedPresented = false
     }
 
-    /// True if either the env var or the Keychain currently holds a non-empty Cloudflare token.
-    /// Keychain errors are treated as "no token" — the user can recover by pasting fresh.
+    /// True if the env var, a stored OAuth credential, or the legacy pasted-token slot currently
+    /// holds a non-empty Cloudflare credential. Keychain errors are treated as "no token" — the
+    /// user can recover by signing in again. This is a presence check only (no refresh attempted
+    /// here, since it's synchronous) — the actual refresh happens in
+    /// `DeployCommand.keychainTokenSource` at the moment a deploy resolves its token.
     private func hasUsableToken() -> Bool {
         if let tokenAvailabilityOverride {
             return tokenAvailabilityOverride()
         }
         if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
+            return true
+        }
+        if (try? keychain.readCloudflareOAuthCredential()) != nil {
             return true
         }
         if let stored = (try? keychain.readCloudflareToken()) ?? nil, !stored.isEmpty {

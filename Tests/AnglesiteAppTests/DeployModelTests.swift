@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import AnglesiteCore
+import AnglesiteTestSupport
 @testable import AnglesiteAppCore
 
 private actor GatedDeployExecutor: DeployExecutor {
@@ -67,6 +68,31 @@ private final class FakeDomainAttachWriter: CloudflareWriting, @unchecked Sendab
     func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+}
+
+private struct StubTokenVerifying: TokenVerifying {
+    let result: Result<CloudflareAccount, TokenVerifyError>
+    func verify(token: String, siteDirectory: URL) async -> Result<CloudflareAccount, TokenVerifyError> {
+        result
+    }
+}
+
+/// `hasUsableToken()` falls back to the real `CLOUDFLARE_API_TOKEN` process environment variable
+/// when no `tokenAvailabilityOverride` is supplied — which the three sign-in tests below
+/// deliberately don't supply, since they're exercising that fallback (and the keychain check)
+/// directly. `DomainConfigAuditModelTests`/`OnionRoutingModelTests` elsewhere in this target set
+/// that same process-wide env var via a bare `setenv` in their `init()` and never restore it, so
+/// whenever those suites happen to run first in the same test process, this var leaks into every
+/// later test — including these — and made them fail only when run as part of the full
+/// `AnglesiteAppTests` target, never in isolation. Call at the top of a test body (before any
+/// `await`, so no other test's `deploy()` check can interleave) to clear it for the duration and
+/// restore whatever was there afterwards.
+private func clearCloudflareAPITokenEnvForTest() -> () -> Void {
+    let previous = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
+    unsetenv("CLOUDFLARE_API_TOKEN")
+    return {
+        if let previous { setenv("CLOUDFLARE_API_TOKEN", previous, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
+    }
 }
 
 @Suite("DeployModel")
@@ -676,6 +702,104 @@ struct DeployModelTests {
             Issue.record("expected .succeeded on second deploy, got \(model.phase)"); return
         }
         #expect(!model.wasFirstDeploy)
+    }
+
+    @Test("an OAuth credential in the keychain lets a deploy proceed without the sign-in sheet")
+    func oauthCredentialSatisfiesHasUsableToken() async {
+        let restoreEnv = clearCloudflareAPITokenEnvForTest()
+        defer { restoreEnv() }
+        let executor = GatedDeployExecutor()
+        let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
+        let keychain = InMemorySecretStore()
+        try? keychain.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+            accessToken: "already-signed-in", refreshToken: nil, expiresAt: nil,
+            tokenEndpoint: URL(string: "https://dash.cloudflare.com/oauth2/token")!))
+        let model = DeployModel(command: command, logCenter: LogCenter(), keychain: keychain)
+        let directory = FileManager.default.temporaryDirectory
+
+        model.deploy(siteID: "s", siteDirectory: directory, configDirectory: directory, currentRoutes: [])
+        // `resumeBuild()` must come AFTER the build step is actually reached — calling it before
+        // `deploy()` starts is a no-op (`buildContinuation` is still nil at that point) and leaves
+        // the real gated continuation, set later inside `runDeploy`, waiting forever. Same fix
+        // applies below in `signInSuccessPersistsAndDispatches`.
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        #expect(!model.tokenPromptPresented)
+    }
+
+    @Test("signInWithCloudflare persists the credential and dispatches the parked deploy on success")
+    func signInSuccessPersistsAndDispatches() async throws {
+        let restoreEnv = clearCloudflareAPITokenEnvForTest()
+        defer { restoreEnv() }
+        let executor = GatedDeployExecutor()
+        let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
+        let keychain = InMemorySecretStore()
+        let client = CloudflareOAuthClient(
+            scope: "workers_scripts",
+            discoveryURL: URL(string: "https://dash.cloudflare.com/.well-known/openid-configuration")!,
+            transport: { req in
+                let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                if req.url?.path == "/.well-known/openid-configuration" {
+                    let json = #"{"authorization_endpoint":"https://dash.cloudflare.com/oauth2/auth","token_endpoint":"https://dash.cloudflare.com/oauth2/token"}"#
+                    return (Data(json.utf8), response)
+                }
+                let body = #"{"access_token":"new-oauth-tok","token_type":"bearer","expires_in":3600,"refresh_token":"new-refresh"}"#
+                return (Data(body.utf8), response)
+            })
+        let oauthSignIn = CloudflareOAuthSignIn(client: client, present: { authorizeURL in
+            let state = URLComponents(url: authorizeURL, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "state" }?.value ?? ""
+            return URL(string: "https://auth.anglesite.dwk.io/oauth-callback?code=auth-code&state=\(state)")!
+        })
+        let model = DeployModel(
+            command: command, logCenter: LogCenter(), keychain: keychain,
+            verifier: StubTokenVerifying(result: .success(CloudflareAccount(name: "Acme Co.", email: nil))),
+            oauthSignIn: oauthSignIn)
+        let directory = FileManager.default.temporaryDirectory
+
+        model.deploy(siteID: "s", siteDirectory: directory, configDirectory: directory, currentRoutes: [])
+        #expect(model.tokenPromptPresented)
+
+        // `signInWithCloudflare()` internally calls `deploy(...)` again once sign-in succeeds,
+        // which is what actually launches the (previously never-started) build step this time —
+        // `deploy()` doesn't await its own dispatched Task, so this `await` returns before the
+        // build step is reached. Wait for it to actually park before resuming it (see the note in
+        // `oauthCredentialSatisfiesHasUsableToken` above for why the ordering matters).
+        await model.signInWithCloudflare()
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
+        while model.isRunning { await Task.yield() }
+
+        #expect(!model.tokenPromptPresented)
+        #expect(try keychain.readCloudflareOAuthCredential()?.accessToken == "new-oauth-tok")
+        guard case .succeeded = model.phase else {
+            Issue.record("expected the parked deploy to run after sign-in, got \(model.phase)"); return
+        }
+    }
+
+    @Test("signInWithCloudflare keeps the sheet open with a message on failure")
+    func signInFailureStaysOnSheet() async {
+        let restoreEnv = clearCloudflareAPITokenEnvForTest()
+        defer { restoreEnv() }
+        let command = DeployCommand(tokenSource: { "test-token" }, executor: GatedDeployExecutor())
+        struct Boom: Error {}
+        let client = CloudflareOAuthClient(
+            scope: "workers_scripts",
+            discoveryURL: URL(string: "https://dash.cloudflare.com/.well-known/openid-configuration")!,
+            transport: { _ in throw Boom() })
+        let oauthSignIn = CloudflareOAuthSignIn(client: client, present: { _ in throw Boom() })
+        let model = DeployModel(command: command, logCenter: LogCenter(), oauthSignIn: oauthSignIn)
+        let directory = FileManager.default.temporaryDirectory
+
+        model.deploy(siteID: "s", siteDirectory: directory, configDirectory: directory, currentRoutes: [])
+        await model.signInWithCloudflare()
+
+        #expect(model.tokenPromptPresented)
+        guard case .failed = model.tokenVerification else {
+            Issue.record("expected .failed, got \(model.tokenVerification)"); return
+        }
     }
 
     private func temporaryDirectory() throws -> URL {
