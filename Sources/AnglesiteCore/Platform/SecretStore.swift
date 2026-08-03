@@ -77,6 +77,15 @@ public enum SecretAccounts {
         "solid-oidc:\(siteID):signing-key-jwk"
     }
 
+    /// Cloudflare OAuth credential slots (#1204) — four keys stored/cleared as one unit via
+    /// ``SecretStore/readCloudflareOAuthCredential()``/``SecretStore/writeCloudflareOAuthCredential(_:)``/
+    /// ``SecretStore/clearCloudflareOAuthCredential()``. Distinct from `cloudflareToken` (the legacy pasted
+    /// custom token, kept read-only for existing users — see the design doc's Migration section).
+    public static let cloudflareOAuthAccessToken = "cloudflare-oauth-access-token"
+    public static let cloudflareOAuthRefreshToken = "cloudflare-oauth-refresh-token"
+    public static let cloudflareOAuthExpiresAt = "cloudflare-oauth-expires-at"
+    public static let cloudflareOAuthTokenEndpoint = "cloudflare-oauth-token-endpoint"
+
     /// The pepper `@dwk/webdav` mixes into its app-password hashing (`WEBDAV_PEPPER`). App-
     /// generated random bytes; unlike the signing key above, rotating this only invalidates
     /// existing app passwords (the user re-mints them), not a federation-trust relationship, but
@@ -105,6 +114,23 @@ public enum SecretAccounts {
     /// `cloudflareToken`/`gitHubToken`.
     public static func acpAgentToken(id: UUID) -> String {
         "acp-agent-token-\(id.uuidString)"
+    }
+}
+
+/// A stored Cloudflare OAuth credential: the access token used as a Cloudflare API bearer token,
+/// its optional refresh token, expiry (when the server reported one), and the token endpoint URL
+/// needed to refresh later without re-running OIDC discovery.
+public struct CloudflareOAuthCredential: Sendable, Equatable {
+    public let accessToken: String
+    public let refreshToken: String?
+    public let expiresAt: Date?
+    public let tokenEndpoint: URL
+
+    public init(accessToken: String, refreshToken: String?, expiresAt: Date?, tokenEndpoint: URL) {
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+        self.expiresAt = expiresAt
+        self.tokenEndpoint = tokenEndpoint
     }
 }
 
@@ -186,6 +212,42 @@ public extension SecretStore {
     func clearIndieAuthSession(siteID: String) throws {
         try delete(account: SecretAccounts.indieAuthAccessToken(siteID: siteID))
         try delete(account: SecretAccounts.indieAuthDPoPKey(siteID: siteID))
+    }
+
+    /// Read the stored Cloudflare OAuth credential, or `nil` if none is stored (or the stored
+    /// token endpoint doesn't parse as a URL — a credential without one can never be refreshed).
+    func readCloudflareOAuthCredential() throws -> CloudflareOAuthCredential? {
+        guard let accessToken = try read(account: SecretAccounts.cloudflareOAuthAccessToken), !accessToken.isEmpty,
+              let tokenEndpointString = try read(account: SecretAccounts.cloudflareOAuthTokenEndpoint),
+              let tokenEndpoint = URL(string: tokenEndpointString)
+        else { return nil }
+        let refreshToken = try read(account: SecretAccounts.cloudflareOAuthRefreshToken)
+        let expiresAt = try read(account: SecretAccounts.cloudflareOAuthExpiresAt)
+            .flatMap(Double.init)
+            .map(Date.init(timeIntervalSince1970:))
+        return CloudflareOAuthCredential(
+            accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt,
+            tokenEndpoint: tokenEndpoint)
+    }
+
+    /// Store a Cloudflare OAuth credential, replacing any existing one.
+    func writeCloudflareOAuthCredential(_ credential: CloudflareOAuthCredential) throws {
+        try write(credential.accessToken, account: SecretAccounts.cloudflareOAuthAccessToken)
+        try write(credential.refreshToken ?? "", account: SecretAccounts.cloudflareOAuthRefreshToken)
+        try write(
+            credential.expiresAt.map { String($0.timeIntervalSince1970) } ?? "",
+            account: SecretAccounts.cloudflareOAuthExpiresAt)
+        try write(credential.tokenEndpoint.absoluteString, account: SecretAccounts.cloudflareOAuthTokenEndpoint)
+    }
+
+    /// Clear the stored Cloudflare OAuth credential's four slots together — a partial credential
+    /// (e.g. an access token with no matching endpoint) can never be resolved, so they're always
+    /// cleared as one unit, mirroring ``clearIndieAuthSession(siteID:)``.
+    func clearCloudflareOAuthCredential() throws {
+        try delete(account: SecretAccounts.cloudflareOAuthAccessToken)
+        try delete(account: SecretAccounts.cloudflareOAuthRefreshToken)
+        try delete(account: SecretAccounts.cloudflareOAuthExpiresAt)
+        try delete(account: SecretAccounts.cloudflareOAuthTokenEndpoint)
     }
 }
 

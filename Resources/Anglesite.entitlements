@@ -29,5 +29,14 @@
 	<array>
 		<string>CloudDocuments</string>
 	</array>
+
+	<!-- Cloudflare OAuth sign-in (#1204): matches the callback Worker's `webcredentials` entry at
+	     auth.anglesite.dwk.io, so the OS intercepts the OAuth redirect instead of opening Safari.
+	     Requires a real provisioning profile — same class of App-ID capability as the iCloud
+	     entitlement below (#1038), so it's absent from the default Debug entitlements file. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:auth.anglesite.dwk.io</string>
+	</array>
 </dict>
 </plist>
