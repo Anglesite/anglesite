@@ -979,7 +979,7 @@ git commit -m "feat(#1204): add CloudflareOAuthSignIn coordinator"
 
 **Interfaces:**
 - Consumes: `CloudflareOAuthSignIn` (Task 7), `CloudflareOAuthCredential`/`SecretStore` (Task 3), `AnglesiteTokenTemplate.oauthScope` (Task 2).
-- Produces: `DeployModel.signInWithCloudflare() async` (replaces `verifyAndSaveToken(_:)`, which is deleted — confirmed unused by any test or other call site beyond the deleted `CloudflareTokenPromptView`/`GitHubTokenPromptView`; `GitHubTokenPromptView` calls `PublishModel.verifyAndSaveToken`, a distinct method on a distinct type, untouched here).
+- Produces: `DeployModel.signInWithCloudflare() async`, added *alongside* `verifyAndSaveToken(_:)` — **not** deleting it yet. `verifyAndSaveToken(_:)` is still called by `CloudflareTokenPromptView.swift`, which `AnglesiteAppCore` compiles unconditionally (it isn't excluded from the target the way `AnglesiteApp.swift`/`LiveSiteRuntimeFactory.swift` are) and which isn't deleted until Task 9 — deleting the method here would break the whole target's build until Task 9 lands. Task 9 deletes `CloudflareTokenPromptView.swift` and `verifyAndSaveToken(_:)` together once the view has no other caller. (`GitHubTokenPromptView` calls `PublishModel.verifyAndSaveToken`, a distinct method on a distinct type — untouched by either task.)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1143,7 +1143,9 @@ Change the initializer signature and body:
     }
 ```
 
-Replace `verifyAndSaveToken(_:)` with `signInWithCloudflare()`:
+Add `signInWithCloudflare()` alongside the existing `verifyAndSaveToken(_:)` (do not delete
+`verifyAndSaveToken(_:)` in this task — see the note above; Task 9 removes it once
+`CloudflareTokenPromptView.swift`, its only caller, is also removed):
 
 ```swift
     /// Called by the sign-in sheet's "Sign in with Cloudflare" button. Runs the OAuth flow,
@@ -1252,21 +1254,43 @@ git commit -m "feat(#1204): drive DeployModel's Cloudflare sign-in through OAuth
 
 **Files:**
 - Delete: `Sources/AnglesiteApp/CloudflareTokenPromptView.swift`
+- Modify: `Sources/AnglesiteApp/DeployModel.swift` (delete `verifyAndSaveToken(_:)` — deferred from Task 8; see that task's note. Its only caller, `CloudflareTokenPromptView.swift`, is deleted in this same task, so removing both together keeps every commit in this plan independently buildable.)
 - Create: `Sources/AnglesiteApp/CloudflareOAuthSignInView.swift`
 - Modify: `Sources/AnglesiteApp/SiteWindow.swift:587-591`
 
 **Interfaces:**
 - Consumes: `DeployModel.signInWithCloudflare()`, `.tokenVerification`, `.cancelTokenPrompt()` (Task 8, all pre-existing state names unchanged).
 
-No new unit tests — this is a SwiftUI view, verified by `swift build`/`scripts/build-app.sh`
-compiling and a manual smoke test (Step 4), same as `CloudflareTokenPromptView` itself had no
-dedicated test (confirmed in Task 8: zero references to it in `Tests/`).
+No new unit tests for the view/wiring — this is a SwiftUI view, verified by
+`swift build`/`scripts/build-app.sh` compiling and a manual smoke test (Step 4), same as
+`CloudflareTokenPromptView` itself had no dedicated test (confirmed in Task 8: zero references to
+it in `Tests/`). Deleting `verifyAndSaveToken(_:)` needs no new test either — Task 8 already covers
+`signInWithCloudflare()`'s behavior, and removing an unused method changes no behavior; `swift test`
+passing after the deletion (Step 1b) is the check.
 
 - [ ] **Step 1: Delete the old view**
 
 ```bash
 git rm Sources/AnglesiteApp/CloudflareTokenPromptView.swift
 ```
+
+- [ ] **Step 1b: Delete the now-dead `verifyAndSaveToken(_:)` from `DeployModel`**
+
+In `Sources/AnglesiteApp/DeployModel.swift`, delete the entire `verifyAndSaveToken(_:)` method
+(the one Task 8 left in place, distinct from `signInWithCloudflare()` which stays). Confirm no
+other caller exists first:
+
+```bash
+grep -rn "verifyAndSaveToken" Sources/
+```
+
+Expected: only `Sources/AnglesiteApp/DeployModel.swift` (the definition, about to be deleted) and
+`Sources/AnglesiteApp/PublishModel.swift`/`GitHubTokenPromptView.swift` (the distinct, unrelated
+GitHub-token method — leave these untouched). If anything else calls
+`DeployModel.verifyAndSaveToken`, stop and report rather than deleting it.
+
+Run: `swift test --package-path . --filter DeployModelTests`
+Expected: PASS (Task 8's tests never called `verifyAndSaveToken`, only `signInWithCloudflare`).
 
 - [ ] **Step 2: Create the new view**
 
@@ -1396,7 +1420,7 @@ state (not a crash) is what to confirm here.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/AnglesiteApp/CloudflareOAuthSignInView.swift Sources/AnglesiteApp/SiteWindow.swift
+git add Sources/AnglesiteApp/CloudflareOAuthSignInView.swift Sources/AnglesiteApp/SiteWindow.swift Sources/AnglesiteApp/DeployModel.swift
 git commit -m "feat(#1204): replace CloudflareTokenPromptView with OAuth sign-in"
 ```
 
