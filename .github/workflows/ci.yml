@@ -425,7 +425,7 @@ jobs:
     # Xcode 27 (Swift 6.4), the target simply doesn't exist in the manifest — and
     # `generate-documentation --target AnglesiteAppCore` doesn't skip gracefully in that case,
     # it hard-errors ("no target named …"). So, same ARMED-but-skips-gracefully idiom as the
-    # appintents-schema job below: the 8 non-gated targets always build in one unconditional
+    # appintents-schema job below: the 9 non-gated targets always build in one unconditional
     # step, and AnglesiteAppCore gets its own step gated on the same `has27` detection, green
     # with a ::warning:: until a runner ships Xcode 27, at which point it auto-activates.
     needs: changes

@@ -228,8 +228,13 @@ public actor FetchBridgeClient {
         for (_, pendingRequest) in pending {
             if let headContinuation = pendingRequest.headContinuation {
                 headContinuation.resume(throwing: error)
-            } else {
+            } else if pendingRequest.bodyContinuation != nil {
                 pendingRequest.bodyContinuation?.finish(throwing: error)
+            } else {
+                // Same race as the `.responseHead`/`.abort` cases above: `perform()` hasn't
+                // installed its continuation yet, so stash the error for it to pick up rather
+                // than dropping this entry (which would orphan the later-installed continuation).
+                pendingRequest.stashedHeadResult = .failure(error)
             }
         }
         pending.removeAll()
