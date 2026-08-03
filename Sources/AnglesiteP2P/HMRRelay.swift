@@ -90,7 +90,18 @@ public struct HMRRelayClient: Sendable {
 /// Misses are consecutive: a pong for the outstanding ping — matched by `seq` — resets the streak
 /// to zero. `onMiss` fires once the streak reaches `missLimit`, and again on every miss beyond
 /// that (with the growing count), so the owner sees the link degrade rather than just a single
-/// crossing.
+/// crossing. `missLimit <= 1` fires on the very first miss.
+///
+/// - Important: `onMiss` is invoked from a detached `Task`, off this actor — never synchronously
+///   from the ping loop or the inbound handler. A slow or blocking `onMiss` therefore cannot stall
+///   heartbeat processing, but in exchange **invocation order across misses is not guaranteed**
+///   (two `Task`s racing to run `onMiss` can be scheduled out of order). If the owner needs strict
+///   ordering, serialize on its own side using the passed-in count.
+///
+/// - Important: `run()` returns once either loop ends — the connection closes (an outbound send
+///   throws ``P2PConnectionError/closed``, or the `control` inbound stream finishes) or the
+///   calling `Task` is cancelled — at which point the other loop is cancelled too, so `run()`
+///   never keeps firing `onMiss` into a dead connection.
 public actor ControlHeartbeat {
     private static let logger = Logger(subsystem: "io.dwk.anglesite", category: "ControlHeartbeat")
 
@@ -109,9 +120,11 @@ public actor ControlHeartbeat {
     ///   - connection: The shared connection; `run()` exchanges only ``ControlMessage`` JSON on
     ///     the ``P2PChannelID/control`` channel, leaving the other three untouched.
     ///   - interval: How often to send a ping and check for its pong.
-    ///   - missLimit: Consecutive misses required before `onMiss` starts firing.
-    ///   - onMiss: Invoked with the current consecutive-miss count, once it reaches `missLimit`
-    ///     and again on every miss thereafter until a pong arrives and resets the streak.
+    ///   - missLimit: Consecutive misses required before `onMiss` starts firing (`<= 1` fires on
+    ///     the first miss).
+    ///   - onMiss: Invoked off-actor (see the type doc comment — not synchronous, not ordered)
+    ///     with the current consecutive-miss count, once it reaches `missLimit` and again on
+    ///     every miss thereafter until a pong arrives and resets the streak.
     public init(
         connection: any P2PConnection,
         interval: Duration,
@@ -124,16 +137,25 @@ public actor ControlHeartbeat {
         self.onMiss = onMiss
     }
 
-    /// Runs the inbound-message loop and the outbound ping loop concurrently until `connection`'s
-    /// `control` stream finishes or this method's `Task` is cancelled.
+    /// Races the inbound-message loop against the outbound ping loop. The first one to end —
+    /// naturally (connection closed) or via cancellation — triggers `cancelAll()` on the other, so
+    /// `run()` always returns in bounded time instead of leaking a ping loop that keeps firing
+    /// `onMiss` into a connection nothing is listening on anymore.
     public func run() async {
-        async let inboundLoop: Void = consumeInbound()
-        async let pingLoop: Void = sendPings()
-        _ = await (inboundLoop, pingLoop)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.sendPings() }
+            group.addTask { await self.consumeInbound() }
+            await group.next()
+            group.cancelAll()
+            await group.waitForAll()
+        }
     }
 
     /// Consumes `connection.inbound(.control)`: answers inbound pings with pongs, and matches
-    /// inbound pongs against `pendingSeq` to reset the miss streak.
+    /// inbound pongs against `pendingSeq` to reset the miss streak. Returns when the stream
+    /// finishes (the connection closed) or this task is cancelled — `AsyncStream.next()` observes
+    /// cancellation of its calling task directly, so no extra `Task.isCancelled` check is needed
+    /// in the loop body.
     private func consumeInbound() async {
         for await data in connection.inbound(.control) {
             let message: ControlMessage
@@ -159,13 +181,21 @@ public actor ControlHeartbeat {
     }
 
     /// Sends `ping(seq:)` every `interval`, and after each sleep checks whether the previous ping
-    /// went unanswered.
+    /// went unanswered. Returns as soon as the connection reports itself closed (rather than
+    /// looping forever, still "sending" into the void and accumulating misses) or this task is
+    /// cancelled.
     private func sendPings() async {
         while !Task.isCancelled {
             let seq = nextSeq
             nextSeq += 1
             pendingSeq = seq
-            await send(.ping(seq: seq))
+            do {
+                try await sendControl(.ping(seq: seq))
+            } catch P2PConnectionError.closed {
+                return
+            } catch {
+                Self.logger.error("failed to send ping: \(String(describing: error), privacy: .public)")
+            }
 
             do {
                 try await Task.sleep(for: interval)
@@ -177,22 +207,32 @@ public actor ControlHeartbeat {
                 pendingSeq = nil
                 consecutiveMisses += 1
                 if consecutiveMisses >= missLimit {
-                    onMiss(consecutiveMisses)
+                    reportMiss(consecutiveMisses)
                 }
             }
         }
     }
 
     private func respond(to seq: Int) async {
-        await send(.pong(seq: seq))
+        do {
+            try await sendControl(.pong(seq: seq))
+        } catch P2PConnectionError.closed {
+            // The connection is gone; `consumeInbound`'s stream will finish on its own shortly.
+            return
+        } catch {
+            Self.logger.error("failed to send pong: \(String(describing: error), privacy: .public)")
+        }
     }
 
-    private func send(_ message: ControlMessage) async {
-        do {
-            let data = try JSONEncoder().encode(message)
-            try await connection.send(data, on: .control)
-        } catch {
-            Self.logger.error("failed to send control message: \(String(describing: error), privacy: .public)")
-        }
+    private func sendControl(_ message: ControlMessage) async throws {
+        let data = try JSONEncoder().encode(message)
+        try await connection.send(data, on: .control)
+    }
+
+    /// Hops off the actor before invoking `onMiss` — see the type doc comment's `- Important:` on
+    /// ordering/blocking.
+    private func reportMiss(_ count: Int) {
+        let onMiss = self.onMiss
+        Task { onMiss(count) }
     }
 }
