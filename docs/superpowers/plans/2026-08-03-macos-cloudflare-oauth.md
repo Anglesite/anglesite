@@ -993,7 +993,6 @@ Add to `Tests/AnglesiteAppTests/DeployModelTests.swift`, inside `DeployModelTest
     @Test("an OAuth credential in the keychain lets a deploy proceed without the sign-in sheet")
     func oauthCredentialSatisfiesHasUsableToken() async {
         let executor = GatedDeployExecutor()
-        await executor.resumeBuild()
         let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
         let keychain = InMemorySecretStore()
         try? keychain.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
@@ -1003,6 +1002,12 @@ Add to `Tests/AnglesiteAppTests/DeployModelTests.swift`, inside `DeployModelTest
         let directory = FileManager.default.temporaryDirectory
 
         model.deploy(siteID: "s", siteDirectory: directory, configDirectory: directory, currentRoutes: [])
+        // `resumeBuild()` must come AFTER the build step is actually reached — calling it before
+        // `deploy()` starts is a no-op (`buildContinuation` is still nil at that point) and leaves
+        // the real gated continuation, set later inside `runDeploy`, waiting forever. Same fix
+        // applies below in `signInSuccessPersistsAndDispatches`.
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
         while model.isRunning { await Task.yield() }
 
         #expect(!model.tokenPromptPresented)
@@ -1011,7 +1016,6 @@ Add to `Tests/AnglesiteAppTests/DeployModelTests.swift`, inside `DeployModelTest
     @Test("signInWithCloudflare persists the credential and dispatches the parked deploy on success")
     func signInSuccessPersistsAndDispatches() async {
         let executor = GatedDeployExecutor()
-        await executor.resumeBuild()
         let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
         let keychain = InMemorySecretStore()
         let client = CloudflareOAuthClient(
@@ -1040,7 +1044,14 @@ Add to `Tests/AnglesiteAppTests/DeployModelTests.swift`, inside `DeployModelTest
         model.deploy(siteID: "s", siteDirectory: directory, configDirectory: directory, currentRoutes: [])
         #expect(model.tokenPromptPresented)
 
+        // `signInWithCloudflare()` internally calls `deploy(...)` again once sign-in succeeds,
+        // which is what actually launches the (previously never-started) build step this time —
+        // `deploy()` doesn't await its own dispatched Task, so this `await` returns before the
+        // build step is reached. Wait for it to actually park before resuming it (see the note in
+        // `oauthCredentialSatisfiesHasUsableToken` above for why the ordering matters).
         await model.signInWithCloudflare()
+        await executor.waitUntilBuildIsParked()
+        await executor.resumeBuild()
         while model.isRunning { await Task.yield() }
 
         #expect(!model.tokenPromptPresented)
