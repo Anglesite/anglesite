@@ -78,8 +78,8 @@ public enum SecretAccounts {
     }
 
     /// Cloudflare OAuth credential slots (#1204) — four keys stored/cleared as one unit via
-    /// ``SecretStore/readCloudflareOAuthCredential()``/``writeCloudflareOAuthCredential(_:)``/
-    /// ``clearCloudflareOAuthCredential()``. Distinct from `cloudflareToken` (the legacy pasted
+    /// ``SecretStore/readCloudflareOAuthCredential()``/``SecretStore/writeCloudflareOAuthCredential(_:)``/
+    /// ``SecretStore/clearCloudflareOAuthCredential()``. Distinct from `cloudflareToken` (the legacy pasted
     /// custom token, kept read-only for existing users — see the design doc's Migration section).
     public static let cloudflareOAuthAccessToken = "cloudflare-oauth-access-token"
     public static let cloudflareOAuthRefreshToken = "cloudflare-oauth-refresh-token"
