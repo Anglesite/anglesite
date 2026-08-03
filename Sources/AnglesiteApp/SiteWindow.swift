@@ -585,7 +585,7 @@ struct SiteWindow: View {
             }
         }
         .sheet(isPresented: $bindableModel.deploy.tokenPromptPresented) {
-            CloudflareTokenPromptView(model: model.deploy) {
+            CloudflareOAuthSignInView(model: model.deploy) {
                 model.deploy.cancelTokenPrompt()
             }
         }

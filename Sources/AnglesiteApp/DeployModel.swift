@@ -325,49 +325,6 @@ final class DeployModel {
         }
     }
 
-    /// Called by the token-prompt sheet's "Connect & deploy" button. Verifies the token against
-    /// Cloudflare (via `wrangler whoami`) *before* persisting it — so a bad token is caught here
-    /// rather than failing later inside the deploy, and never reaches the Keychain. On success the
-    /// token is stored, the connected account is surfaced briefly, and the parked deploy is
-    /// dispatched. On failure the sheet stays open with a specific message.
-    func verifyAndSaveToken(_ token: String) async {
-        guard let pending = pendingDeploy else {
-            // The prompt is only shown with a parked deploy; guard defensively.
-            tokenVerification = .failed(message: "No deploy is waiting — close this and click Deploy again.")
-            return
-        }
-
-        tokenVerification = .checking
-        // `TokenOnboarding` owns the verify → persist → flash → re-check-cancel ordering; this method
-        // just maps its outcome onto observable state and the parked deploy. `isCancelled` covers
-        // both the user hitting Cancel (which clears `tokenPromptPresented` via `cancelTokenPrompt`)
-        // and the view tearing down (which cancels this Task).
-        let outcome = await onboarding.run(
-            token: token,
-            siteDirectory: pending.siteDirectory,
-            persist: { try keychain.writeCloudflareToken($0) },
-            onConnected: { tokenVerification = .connected(accountName: $0.name) },
-            delay: { try? await Task.sleep(for: .milliseconds(700)) },
-            isCancelled: { Task.isCancelled || !tokenPromptPresented }
-        )
-
-        switch outcome {
-        case .proceed:
-            pendingDeploy = nil
-            tokenPromptPresented = false
-            tokenVerification = .idle
-            deploy(
-                siteID: pending.siteID, siteDirectory: pending.siteDirectory,
-                configDirectory: pending.configDirectory, currentRoutes: pending.currentRoutes,
-                containerControlProvider: pending.containerControlProvider, siteName: pending.siteName)
-        case .stay(let message):
-            tokenVerification = .failed(message: message)
-        case .abort:
-            // The user cancelled mid-flow; `cancelTokenPrompt` already cleared the parked deploy.
-            tokenVerification = .idle
-        }
-    }
-
     /// Called by the sign-in sheet's "Sign in with Cloudflare" button. Runs the OAuth flow,
     /// verifies the resulting access token against Cloudflare exactly as a pasted token was
     /// verified — `TokenOnboarding` can't tell the two apart, since both are just Cloudflare API
