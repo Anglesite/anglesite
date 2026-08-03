@@ -1124,6 +1124,9 @@
     "Deploying needs a one-time API token. It takes about a minute." : {
 
     },
+    "Deploying needs a one-time sign-in to your Cloudflare account." : {
+
+    },
     "Describe what you're going for…" : {
 
     },
@@ -2794,7 +2797,16 @@
     "Sign in to read your feeds" : {
 
     },
+    "Sign in with Cloudflare" : {
+
+    },
+    "Signed in" : {
+
+    },
     "Signed in as %@" : {
+
+    },
+    "Signing in…" : {
 
     },
     "Single File" : {
