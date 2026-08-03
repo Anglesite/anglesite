@@ -477,6 +477,7 @@ jobs:
             --target AnglesiteIOS \
             --target AnglesiteIntents \
             --target AnglesiteTestSupport \
+            --target AnglesiteP2P \
             --warnings-as-errors
 
       - name: Build documentation for AnglesiteAppCore (Swift 6.4+ only)
