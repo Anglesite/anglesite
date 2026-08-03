@@ -79,6 +79,34 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
         #expect(config.contains("DOMAIN_CHOICE=buy"))
     }
 
+    /// `chooseBuy()` flags the sheet-to-sheet handoff so `SiteWindow`'s `onDismiss` can open
+    /// `BuyDomainSheetView` after this sheet's dismissal completes, instead of both sheets'
+    /// `sheetPresented` bindings flipping synchronously in one button action (#1195 fix wave).
+    @Test func chooseBuySetsPendingBuyDomainFlag() throws {
+        let model = ConnectDomainModel()
+        let (site, dir) = try makeSite()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        model.configure(site: site)
+        model.openSheet()
+
+        #expect(!model.pendingBuyDomain)
+        model.chooseBuy()
+
+        #expect(model.pendingBuyDomain)
+    }
+
+    @Test func notNowDoesNotSetPendingBuyDomainFlag() throws {
+        let model = ConnectDomainModel()
+        let (site, dir) = try makeSite()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        model.configure(site: site)
+        model.openSheet()
+
+        model.notNow()
+
+        #expect(!model.pendingBuyDomain)
+    }
+
     @Test func beginTransferThenSubmitRecordsHostnameAndTransitionsToConnected() throws {
         let model = ConnectDomainModel(rdap: FakeRDAPLookupService(result: nil))
         let (site, dir) = try makeSite()

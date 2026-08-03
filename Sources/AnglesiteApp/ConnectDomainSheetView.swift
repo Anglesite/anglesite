@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 import Foundation
 
 /// The "Connect a Domain" sheet (#1180) — buy/transfer/later, reachable from the first-publish
@@ -43,7 +42,6 @@ struct ConnectDomainSheetView: View {
         case .choosing:
             VStack(alignment: .leading, spacing: 12) {
                 Button {
-                    NSWorkspace.shared.open(ConnectDomainModel.cloudflareDomainsURL)
                     model.chooseBuy()
                 } label: {
                     Label("Buy a domain", systemImage: "cart")

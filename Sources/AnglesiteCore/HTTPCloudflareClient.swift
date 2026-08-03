@@ -58,6 +58,40 @@ private struct CFFullDNSRecord: Decodable, Sendable {
     let comment: String?
 }
 private struct CFAccount: Decodable, Sendable { let id: String }
+private struct CFRegistrarSearchResult: Decodable, Sendable {
+    let name: String
+}
+/// The Registrar search/check `result` is an object wrapping a `domains` array (not a bare
+/// array like most other Cloudflare v4 list endpoints) — confirmed against the live API docs.
+private struct CFRegistrarSearchResponse: Decodable, Sendable {
+    let domains: [CFRegistrarSearchResult]
+}
+private struct CFRegistrarCheckResult: Decodable, Sendable {
+    let name: String
+    let registrable: Bool
+    let reason: String?
+    let pricing: Pricing?
+    struct Pricing: Decodable, Sendable {
+        let currency: String
+        let registration_cost: String
+        let renewal_cost: String
+    }
+}
+private struct CFRegistrarCheckResponse: Decodable, Sendable {
+    let domains: [CFRegistrarCheckResult]
+}
+private struct CFRegistrarCheckRequest: Encodable, Sendable {
+    let domains: [String]
+}
+private struct CFRegistrarRegisterRequest: Encodable, Sendable {
+    let domain_name: String
+}
+/// Shared by the immediate register response body and the poll (`registration-status`) response
+/// body — unlike search/check, both report a bare `state` field directly on `result`, confirmed
+/// against the live API docs (no `domains`-style wrapper here).
+private struct CFRegistrarRegistrationState: Decodable, Sendable {
+    let state: String
+}
 private struct CFWorkerScript: Decodable, Sendable { let id: String }
 private struct CFWorkerDomain: Decodable, Sendable { let hostname: String; let service: String }
 
@@ -111,6 +145,14 @@ public struct HTTPCloudflareClient: CloudflareReading {
     /// GET `path`, decode `CFEnvelope<T>`, return the whole envelope or throw a mapped error.
     private func getEnvelope<T: Decodable & Sendable>(_ path: String, apiToken: String, as: T.Type) async throws -> CFEnvelope<T> {
         guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
+        return try await getEnvelope(url: url, apiToken: apiToken, as: T.self)
+    }
+
+    /// GET `url`, decode `CFEnvelope<T>`, return the whole envelope or throw a mapped error.
+    /// Takes a pre-built `URL` (rather than a path string) so callers with query values that need
+    /// real percent-encoding — e.g. free-text search keywords that may contain `&`/`=`/`+` — can
+    /// build the request with `URLComponents`/`URLQueryItem` instead of manual string interpolation.
+    private func getEnvelope<T: Decodable & Sendable>(url: URL, apiToken: String, as: T.Type) async throws -> CFEnvelope<T> {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
@@ -133,6 +175,16 @@ public struct HTTPCloudflareClient: CloudflareReading {
     /// GET `path` and return the decoded `result`, or throw `.api` when it is absent.
     private func get<T: Decodable & Sendable>(_ path: String, apiToken: String, as type: T.Type) async throws -> T {
         let env = try await getEnvelope(path, apiToken: apiToken, as: type)
+        guard let result = env.result else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "missing result")
+        }
+        return result
+    }
+
+    /// GET `url` and return the decoded `result`, or throw `.api` when it is absent. See
+    /// `getEnvelope(url:apiToken:as:)` for why this pre-built-`URL` variant exists.
+    private func get<T: Decodable & Sendable>(url: URL, apiToken: String, as type: T.Type) async throws -> T {
+        let env = try await getEnvelope(url: url, apiToken: apiToken, as: type)
         guard let result = env.result else {
             throw CloudflareError.api(message: env.errors?.first?.message ?? "missing result")
         }
@@ -304,12 +356,18 @@ public struct HTTPCloudflareClient: CloudflareReading {
 
     // MARK: - Write helpers
 
-    private func mutate<Body: Encodable & Sendable>(
+    /// Builds and sends a `method` request to `path` with an encoded `body`, then maps
+    /// 401/403 to ``CloudflareError/unauthorized`` and any other non-2xx status to
+    /// ``CloudflareError/http(status:)``. Shared by `mutate(method:_:body:apiToken:)` (which
+    /// only checks the envelope's `success` flag) and the Registrar `post` helper below (which
+    /// also decodes and returns the envelope's `result`) — both need identical request
+    /// construction and status handling and previously duplicated it verbatim.
+    private func send<Body: Encodable & Sendable>(
         method: String,
         _ path: String,
         body: Body,
         apiToken: String
-    ) async throws {
+    ) async throws -> (Data, HTTPURLResponse) {
         guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -319,6 +377,16 @@ public struct HTTPCloudflareClient: CloudflareReading {
         let (data, http) = try await transport(request)
         if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
         guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        return (data, http)
+    }
+
+    private func mutate<Body: Encodable & Sendable>(
+        method: String,
+        _ path: String,
+        body: Body,
+        apiToken: String
+    ) async throws {
+        let (data, _) = try await send(method: method, path, body: body, apiToken: apiToken)
         let env: CFEnvelope<CFEmpty>
         do {
             env = try JSONDecoder().decode(CFEnvelope<CFEmpty>.self, from: data)
@@ -528,5 +596,152 @@ extension HTTPCloudflareClient: CloudflareWriting {
                                               rules: [rule]),
                              apiToken: apiToken)
         }
+    }
+}
+
+// MARK: - CloudflareRegistrarReading conformance
+
+extension HTTPCloudflareClient: CloudflareRegistrarReading {
+    /// Resolves the token's first visible account id — every Registrar endpoint is
+    /// account-scoped. Mirrors `workerScriptNames`'s resolution exactly.
+    private func resolveAccountID(apiToken: String) async throws -> String {
+        let accounts = try await get("/accounts?per_page=1", apiToken: apiToken, as: [CFAccount].self)
+        guard let accountID = accounts.first?.id else {
+            throw CloudflareError.api(message: "no Cloudflare account visible to this token")
+        }
+        return accountID
+    }
+
+    /// POST `path` with `body`, decode `CFEnvelope<T>`, return its `result` — like `get`, but for
+    /// POST calls that need the decoded payload back (unlike `mutate`, which only checks success).
+    /// Shares request construction and status mapping with `mutate` via `send(method:_:body:apiToken:)`.
+    private func post<Body: Encodable & Sendable, T: Decodable & Sendable>(
+        _ path: String, body: Body, apiToken: String, as type: T.Type
+    ) async throws -> T {
+        let (data, _) = try await send(method: "POST", path, body: body, apiToken: apiToken)
+        let env: CFEnvelope<T>
+        do {
+            env = try JSONDecoder().decode(CFEnvelope<T>.self, from: data)
+        } catch {
+            throw CloudflareError.malformedResponse
+        }
+        guard env.success else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "request failed")
+        }
+        guard let result = env.result else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "missing result")
+        }
+        return result
+    }
+
+    /// See ``CloudflareRegistrarReading/searchDomains(query:apiToken:)``.
+    ///
+    /// Builds the request with `URLComponents`/`URLQueryItem` rather than manual string
+    /// interpolation: `query` is free-text (e.g. a business name like "Smith & Sons"), and
+    /// `CharacterSet.urlQueryAllowed` — the encoding used elsewhere in this file for hostnames,
+    /// which never contain `&`/`=`/`+` — does not escape those characters. Left unescaped, `&`/`=`
+    /// would truncate the `q` value at the API and corrupt or drop the `limit` parameter.
+    ///
+    /// `+` needs separate handling: `URLComponents.queryItems`/`.url` treat it as a legal RFC 3986
+    /// sub-delimiter and never percent-encode it, but many server-side query parsers conventionally
+    /// form-decode a literal `+` as a space. Left as-is, a search for "A+ Dental" or "C++ Institute"
+    /// would silently arrive at the API as "A Dental" / "C  Institute". So `q`'s value is percent-encoded
+    /// by hand — down to RFC 3986 unreserved characters, which also covers `&`/`=` — and assigned via
+    /// `percentEncodedQueryItems` rather than `queryItems` (which would double-encode it).
+    public func searchDomains(query: String, apiToken: String) async throws -> [String] {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        guard var components = URLComponents(string: Self.base + "/accounts/\(accountID)/registrar/domain-search") else {
+            throw CloudflareError.malformedResponse
+        }
+        var queryValueAllowed = CharacterSet.alphanumerics
+        queryValueAllowed.insert(charactersIn: "-._~")
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) else {
+            throw CloudflareError.malformedResponse
+        }
+        components.percentEncodedQueryItems = [
+            URLQueryItem(name: "q", value: encodedQuery),
+            URLQueryItem(name: "limit", value: "20"),
+        ]
+        guard let url = components.url else { throw CloudflareError.malformedResponse }
+        let response = try await get(url: url, apiToken: apiToken, as: CFRegistrarSearchResponse.self)
+        return response.domains.map(\.name)
+    }
+
+    /// See ``CloudflareRegistrarReading/checkDomainAvailability(domains:apiToken:)``.
+    public func checkDomainAvailability(domains: [String], apiToken: String) async throws -> [RegistrarDomainCheck] {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        let response = try await post(
+            "/accounts/\(accountID)/registrar/domain-check",
+            body: CFRegistrarCheckRequest(domains: domains), apiToken: apiToken,
+            as: CFRegistrarCheckResponse.self)
+        return response.domains.map {
+            RegistrarDomainCheck(
+                name: $0.name, registrable: $0.registrable, reason: $0.reason,
+                registrationCost: $0.pricing?.registration_cost, currency: $0.pricing?.currency)
+        }
+    }
+}
+
+// MARK: - CloudflareRegistrarWriting conformance
+
+extension HTTPCloudflareClient: CloudflareRegistrarWriting {
+    /// `POST /accounts/{id}/registrar/registrations`. See
+    /// ``CloudflareRegistrarWriting/registerDomain(name:apiToken:)``.
+    ///
+    /// Reuses `send(method:_:body:apiToken:)` for request construction and 401/403/non-2xx
+    /// mapping (201 and 202 both already fall inside `send`'s 200..<300 success range) rather
+    /// than duplicating that logic a third time alongside `mutate`/`post` — the only thing this
+    /// call needs beyond `send` is branching on which 2xx status came back.
+    public func registerDomain(name: String, apiToken: String) async throws -> RegistrarRegistrationOutcome {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        let (data, http) = try await send(
+            method: "POST", "/accounts/\(accountID)/registrar/registrations",
+            body: CFRegistrarRegisterRequest(domain_name: name), apiToken: apiToken)
+        if http.statusCode == 202 {
+            return try await pollRegistrationStatus(domain: name, accountID: accountID, apiToken: apiToken)
+        }
+        return Self.outcome(forState: try Self.decodeState(from: data))
+    }
+
+    private static func decodeState(from data: Data) throws -> String {
+        let env: CFEnvelope<CFRegistrarRegistrationState>
+        do {
+            env = try JSONDecoder().decode(CFEnvelope<CFRegistrarRegistrationState>.self, from: data)
+        } catch {
+            throw CloudflareError.malformedResponse
+        }
+        guard env.success, let state = env.result?.state else {
+            throw CloudflareError.api(message: env.errors?.first?.message ?? "missing registration state")
+        }
+        return state
+    }
+
+    private static func outcome(forState state: String) -> RegistrarRegistrationOutcome {
+        switch state {
+        case "succeeded": return .succeeded
+        case "action_required": return .actionRequired
+        case "blocked": return .blocked
+        case "failed": return .failed(reason: "Cloudflare reported the registration failed.")
+        default: return .stillProcessing
+        }
+    }
+
+    /// Polls `registration-status` every 2.5s, up to 6 times (~15s total — matching the API's own
+    /// "synchronous in most cases (10s timeout)" framing with one poll's margin past it). Resolves
+    /// to `.stillProcessing` if `state` never leaves `in_progress` in that window. No task survives
+    /// past this method returning — there is no background/long-lived polling.
+    private func pollRegistrationStatus(
+        domain: String, accountID: String, apiToken: String
+    ) async throws -> RegistrarRegistrationOutcome {
+        for _ in 0..<6 {
+            try? await Task.sleep(for: .milliseconds(2500))
+            let state = try await get(
+                "/accounts/\(accountID)/registrar/registrations/\(domain)/registration-status",
+                apiToken: apiToken, as: CFRegistrarRegistrationState.self)
+            let outcome = Self.outcome(forState: state.state)
+            if case .stillProcessing = outcome { continue }
+            return outcome
+        }
+        return .stillProcessing
     }
 }

@@ -16,8 +16,9 @@ final class PublishModel {
     }
 
     /// Progress of verifying a pasted GitHub token, consumed by `GitHubTokenPromptView`'s status
-    /// line and button-enabled logic. Mirrors `DeployModel.TokenVerification` — kept as a separate
-    /// type rather than shared, since the two prompts have no other coupling.
+    /// line and button-enabled logic. Shaped like `CloudflareTokenVerification`
+    /// (`CloudflareTokenPromptView.swift`) — kept as a separate type rather than shared, since the
+    /// two prompts (GitHub vs. Cloudflare tokens) have no other coupling.
     enum TokenVerification: Equatable {
         case idle
         case checking

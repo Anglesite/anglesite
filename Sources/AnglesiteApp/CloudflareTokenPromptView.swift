@@ -1,6 +1,18 @@
 import SwiftUI
 import AnglesiteCore
 
+/// Progress of verifying a pasted Cloudflare token, consumed by `CloudflareTokenPromptView`'s
+/// status line and button-enabled logic. A token is only persisted once verification reaches
+/// `.connected`; a `.failed` state keeps the sheet open and leaves storage untouched. Shared
+/// between every Cloudflare token-prompt flow (`DeployModel`, `BuyDomainModel`) rather than
+/// nested in one model, since the view itself is shared.
+enum CloudflareTokenVerification: Equatable {
+    case idle
+    case checking
+    case connected(accountName: String?)
+    case failed(message: String)
+}
+
 /// First-deploy modal: guide the user through creating a Cloudflare API token, verify it against
 /// Cloudflare, store it in the Keychain, and let the parked deploy proceed. Surfaced by
 /// `DeployModel` when both the env var and the Keychain are empty at the moment the user clicks
@@ -17,7 +29,8 @@ import AnglesiteCore
 /// clearing) happens in Settings → Advanced → Credentials, which shares the same `KeychainStore`
 /// slot, so a token saved from either entry point is immediately usable by `wrangler deploy`.
 struct CloudflareTokenPromptView: View {
-    let model: DeployModel
+    let tokenVerification: CloudflareTokenVerification
+    let onSubmit: (String) async -> Void
     let onCancel: () -> Void
 
     @State private var token: String = ""
@@ -27,7 +40,7 @@ struct CloudflareTokenPromptView: View {
     /// (`.connected`) — i.e. whenever the field and submit button should be locked so the user
     /// can't edit or re-submit mid-verify.
     private var isInputLocked: Bool {
-        switch model.tokenVerification {
+        switch tokenVerification {
         case .checking, .connected: return true
         case .idle, .failed: return false
         }
@@ -106,7 +119,7 @@ struct CloudflareTokenPromptView: View {
 
     @ViewBuilder
     private var status: some View {
-        switch model.tokenVerification {
+        switch tokenVerification {
         case .idle:
             EmptyView()
         case .checking:
@@ -132,10 +145,10 @@ struct CloudflareTokenPromptView: View {
 
     private func submit() {
         guard canSubmit else { return }
-        Task { await model.verifyAndSaveToken(token) }
+        Task { await onSubmit(token) }
     }
 }
 
 #Preview {
-    CloudflareTokenPromptView(model: DeployModel(), onCancel: {})
+    CloudflareTokenPromptView(tokenVerification: .idle, onSubmit: { _ in }, onCancel: {})
 }

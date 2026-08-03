@@ -35,6 +35,14 @@ final class ConnectDomainModel {
     /// plays for its own async work.
     private(set) var isLookingUpRegistrarInfo: Bool = false
 
+    /// Set by `chooseBuy()` right before it dismisses this sheet; consumed by `SiteWindow`'s
+    /// `onDismiss` on the `connectDomain` sheet registration to open `BuyDomainSheetView` only
+    /// *after* this sheet's own dismissal transaction finishes. Two sibling `.sheet` modifiers
+    /// dismissing-and-presenting synchronously in the same SwiftUI transaction is a known-risky
+    /// pattern (see the presentation-binding race behind #968/#969) — `onDismiss` is the
+    /// idiomatic way to sequence "close this sheet, then open that one" instead.
+    var pendingBuyDomain: Bool = false
+
     private let rdap: any RDAPLookupService
     private var registrarLookupTask: Task<Void, Never>?
     private var currentSite: CurrentSite?
@@ -49,10 +57,9 @@ final class ConnectDomainModel {
     /// double-tap on submit, both spawn two lookups for the same hostname).
     private var registrarLookupGeneration = 0
 
-    /// The Cloudflare Domains marketing page — opened by the view layer's "Buy a domain" button,
-    /// not by `chooseBuy()` itself, so this model stays free of `NSWorkspace`/AppKit side effects
-    /// and is fully testable (matches `WebsiteCommands`'s "View on GitHub" convention of keeping
-    /// `NSWorkspace.shared.open` out of the model layer).
+    /// The Cloudflare Domains marketing page — surfaced as the escape-hatch link inside
+    /// `BuyDomainSheetView` (via `BuyDomainModel.cloudflareDomainsURL`, which aliases this) for
+    /// owners who prefer registering directly on Cloudflare.
     static let cloudflareDomainsURL = URL(string: "https://www.cloudflare.com/products/registrar/")!
 
     /// `rdap` is injectable for tests; production callers take the default `RDAPClient`.
@@ -72,6 +79,7 @@ final class ConnectDomainModel {
     /// at `.choosing`, unchanged from #1180.
     func openSheet() {
         hostnameInput = ""
+        pendingBuyDomain = false
         registrarLookupTask?.cancel()
         registrarLookupTask = nil
         isLookingUpRegistrarInfo = false
@@ -102,11 +110,13 @@ final class ConnectDomainModel {
         dismissSheet()
     }
 
-    /// "Buy a domain" — records the buy intent and dismisses. Opening Cloudflare Domains in the
-    /// browser is the view's job (see `cloudflareDomainsURL`'s doc comment).
+    /// "Buy a domain" — records the buy intent, flags the handoff for `SiteWindow`'s
+    /// `onDismiss`, then dismisses. See `pendingBuyDomain`'s doc comment for why the actual
+    /// `BuyDomainSheetView` presentation happens on dismiss rather than synchronously here.
     func chooseBuy() {
         guard let site = currentSite else { return }
         ConnectDomainCommand.recordBuy(siteDirectory: site.sourceDirectory)
+        pendingBuyDomain = true
         dismissSheet()
     }
 

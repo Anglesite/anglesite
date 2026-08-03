@@ -585,9 +585,11 @@ struct SiteWindow: View {
             }
         }
         .sheet(isPresented: $bindableModel.deploy.tokenPromptPresented) {
-            CloudflareTokenPromptView(model: model.deploy) {
-                model.deploy.cancelTokenPrompt()
-            }
+            CloudflareTokenPromptView(
+                tokenVerification: model.deploy.tokenVerification,
+                onSubmit: { await model.deploy.verifyAndSaveToken($0) },
+                onCancel: { model.deploy.cancelTokenPrompt() }
+            )
         }
         .sheet(isPresented: $bindableModel.deploy.workerNameConflictPresented) {
             if case .workerNameConflict(let name) = model.deploy.phase {
@@ -650,8 +652,20 @@ struct SiteWindow: View {
         .sheet(isPresented: $bindableModel.domain.sheetPresented) {
             DomainSheetView(model: model.domain)
         }
-        .sheet(isPresented: $bindableModel.connectDomain.sheetPresented) {
+        .sheet(isPresented: $bindableModel.connectDomain.sheetPresented, onDismiss: {
+            // Sequences the "Buy a domain" handoff to `BuyDomainSheetView` after this sheet's own
+            // dismissal transaction finishes, rather than flipping both sheets' `sheetPresented`
+            // bindings synchronously from one button action — see `ConnectDomainModel
+            // .pendingBuyDomain`'s doc comment.
+            if model.connectDomain.pendingBuyDomain {
+                model.connectDomain.pendingBuyDomain = false
+                model.buyDomain.openSheet()
+            }
+        }) {
             ConnectDomainSheetView(model: model.connectDomain)
+        }
+        .sheet(isPresented: $bindableModel.buyDomain.sheetPresented) {
+            BuyDomainSheetView(model: model.buyDomain)
         }
         .sheet(isPresented: $bindableModel.publish.sheetPresented) {
             PublishSheet(model: model.publish, siteName: site.name)
