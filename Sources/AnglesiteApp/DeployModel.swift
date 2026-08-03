@@ -104,7 +104,7 @@ final class DeployModel {
     /// sheet (#1171), not here, so there's no `pendingDeploy` retry to park.
     var domainConfigDriftPresented: Bool = false
 
-    /// Progress of verifying a pasted token, consumed by `CloudflareTokenPromptView`'s status line
+    /// Progress of verifying a pasted token, consumed by `CloudflareOAuthSignInView`'s status line
     /// and button-enabled logic. A token is only written to the Keychain once verification reaches
     /// `.connected`; a `.failed` state keeps the sheet open and leaves the Keychain untouched.
     enum TokenVerification: Equatable {
@@ -157,7 +157,7 @@ final class DeployModel {
     private let suddenTerminationController: SuddenTerminationController
     private let tokenAvailabilityOverride: (() -> Bool)?
     /// Site to retry once the user takes the action a parked deploy is waiting on — either
-    /// pasting a Cloudflare token (`verifyAndSaveToken`) or renaming a taken Worker name
+    /// signing in to Cloudflare via OAuth (`signInWithCloudflare`) or renaming a taken Worker name
     /// (`renameWorkerAndRetry`). `nil` outside both prompt flows. Carries the container control
     /// (if any) so the parked-then-retried deploy uses the same executor as the original dispatch.
     private var pendingDeploy: (
@@ -243,9 +243,9 @@ final class DeployModel {
     /// the pending-deploy flow, so a token-prompt retry re-resolves against the runtime's current
     /// state instead of an executor built from a possibly-stale earlier snapshot.
     ///
-    /// First checks whether a Cloudflare token is available (env > Keychain). If neither has one,
-    /// the token-prompt sheet is presented and the deploy is parked until the user pastes and
-    /// verifies a token via `verifyAndSaveToken(_:)` — at which point the parked site is dispatched
+    /// First checks whether a Cloudflare token is available (env > OAuth > legacy Keychain). If
+    /// none has one, the token-prompt sheet is presented and the deploy is parked until the user
+    /// signs in via `signInWithCloudflare()` — at which point the parked site is dispatched
     /// without the user having to click Deploy again.
     func deploy(
         siteID: String,
@@ -351,8 +351,14 @@ final class DeployModel {
             tokenVerification = .idle
             return
         } catch {
-            // Includes `.stateMismatch` — a hard, generic failure, never silently accepted.
-            tokenVerification = .failed(message: "Couldn't sign in to Cloudflare: \(error)")
+            // Includes `.stateMismatch` — a hard, generic failure, never silently accepted. The
+            // raw error can carry a Cloudflare API response body (e.g. `tokenExchangeFailed`'s
+            // HTTP detail) that isn't fit to show a non-technical site owner, so only a
+            // plain-language message reaches the UI; the real error goes to the log instead.
+            await logCenter.append(
+                source: "cloudflare-oauth-sign-in", stream: .stderr,
+                text: "Cloudflare sign-in failed: \(error)")
+            tokenVerification = .failed(message: "Couldn't sign in to Cloudflare. Try again in a moment.")
             return
         }
 
@@ -485,10 +491,14 @@ final class DeployModel {
     }
 
     /// True if the env var, a stored OAuth credential, or the legacy pasted-token slot currently
-    /// holds a non-empty Cloudflare credential. Keychain errors are treated as "no token" — the
-    /// user can recover by signing in again. This is a presence check only (no refresh attempted
-    /// here, since it's synchronous) — the actual refresh happens in
-    /// `DeployCommand.keychainTokenSource` at the moment a deploy resolves its token.
+    /// holds a usable Cloudflare credential. Keychain errors are treated as "no token" — the
+    /// user can recover by signing in again. A stored OAuth credential counts as usable unless
+    /// it's *definitely* unrefreshable (expired with no refresh token, e.g. because Cloudflare's
+    /// OAuth doesn't issue one for this client) — in that dead-end case this falls through to the
+    /// next check instead, so the sign-in sheet re-presents rather than deploys failing forever
+    /// with a generic "no token" error. An expired credential that still has a refresh token is
+    /// left to `DeployCommand.keychainTokenSource` to actually refresh (this is a presence check
+    /// only — no refresh attempted here, since it's synchronous).
     private func hasUsableToken() -> Bool {
         if let tokenAvailabilityOverride {
             return tokenAvailabilityOverride()
@@ -496,8 +506,12 @@ final class DeployModel {
         if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
             return true
         }
-        if (try? keychain.readCloudflareOAuthCredential()) != nil {
-            return true
+        if let credential = try? keychain.readCloudflareOAuthCredential() {
+            let isDefinitelyUnrefreshable = credential.refreshToken == nil
+                && (credential.expiresAt.map { $0 <= Date() } ?? false)
+            if !isDefinitelyUnrefreshable {
+                return true
+            }
         }
         if let stored = (try? keychain.readCloudflareToken()) ?? nil, !stored.isEmpty {
             return true

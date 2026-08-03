@@ -37,6 +37,26 @@ struct CloudflareOAuthTokenSourceTests {
         #expect(try await source.resolve() == "no-expiry-tok")
     }
 
+    @Test("a credential expiring within the 60s leeway refreshes ahead of actual expiry")
+    func refreshesCredentialWithinLeeway() async throws {
+        let store = InMemorySecretStore()
+        try store.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+            accessToken: "soon-to-expire-tok", refreshToken: "old-refresh",
+            expiresAt: epoch.addingTimeInterval(30), tokenEndpoint: endpoint))
+        var capturedRefreshToken: String?
+        let source = CloudflareOAuthTokenSource(
+            secretStore: store,
+            refresh: { refreshToken, tokenEndpoint in
+                capturedRefreshToken = refreshToken
+                #expect(tokenEndpoint == self.endpoint)
+                return OAuthToken(accessToken: "new-tok", tokenType: "bearer", expiresIn: 3600, refreshToken: "new-refresh")
+            },
+            now: { self.epoch })
+
+        #expect(try await source.resolve() == "new-tok")
+        #expect(capturedRefreshToken == "old-refresh")
+    }
+
     @Test("an expired credential refreshes, persists the new pair, and returns the new access token")
     func refreshesExpiredCredential() async throws {
         let store = InMemorySecretStore()

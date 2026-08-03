@@ -11,6 +11,10 @@ public struct CloudflareOAuthTokenSource: Sendable {
     /// Injected so tests can stub it without `CloudflareOAuthClient`'s network transport.
     public typealias Refresh = @Sendable (_ refreshToken: String, _ tokenEndpoint: URL) async throws -> OAuthToken
 
+    /// Refresh this long before actual expiry, so a token handed out with only a few seconds
+    /// left doesn't expire mid-use in a caller that can run for minutes (e.g. a deploy).
+    private static let refreshLeeway: TimeInterval = 60
+
     private let secretStore: any SecretStore
     private let refresh: Refresh
     private let now: @Sendable () -> Date
@@ -26,10 +30,11 @@ public struct CloudflareOAuthTokenSource: Sendable {
     }
 
     /// Returns the access token to use, refreshing and persisting a new one first if the stored
-    /// credential is expired.
+    /// credential is expired or within `refreshLeeway` of expiring.
     public func resolve() async throws -> String? {
         guard let credential = try secretStore.readCloudflareOAuthCredential() else { return nil }
-        guard let expiresAt = credential.expiresAt, expiresAt <= now() else {
+        let currentTime = now()
+        guard let expiresAt = credential.expiresAt, expiresAt <= currentTime.addingTimeInterval(Self.refreshLeeway) else {
             return credential.accessToken
         }
         guard let refreshToken = credential.refreshToken,
@@ -38,7 +43,7 @@ public struct CloudflareOAuthTokenSource: Sendable {
         let updated = CloudflareOAuthCredential(
             accessToken: refreshed.accessToken,
             refreshToken: refreshed.refreshToken ?? refreshToken,
-            expiresAt: refreshed.expiresIn.map { now().addingTimeInterval(TimeInterval($0)) },
+            expiresAt: refreshed.expiresIn.map { currentTime.addingTimeInterval(TimeInterval($0)) },
             tokenEndpoint: credential.tokenEndpoint)
         try secretStore.writeCloudflareOAuthCredential(updated)
         return updated.accessToken

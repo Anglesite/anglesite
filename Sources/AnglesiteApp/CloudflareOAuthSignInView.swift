@@ -1,5 +1,4 @@
 import SwiftUI
-import AnglesiteCore
 
 /// First-deploy modal: sign in to Cloudflare via OAuth, then let the parked deploy proceed.
 /// Surfaced by `DeployModel` when neither the env var, an OAuth credential, nor a legacy pasted

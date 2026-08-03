@@ -729,6 +729,28 @@ struct DeployModelTests {
         #expect(!model.tokenPromptPresented)
     }
 
+    @Test("an expired OAuth credential with no refresh token re-presents the sign-in sheet")
+    func deadOAuthCredentialDoesNotSatisfyHasUsableToken() async {
+        let restoreEnv = clearCloudflareAPITokenEnvForTest()
+        defer { restoreEnv() }
+        let executor = GatedDeployExecutor()
+        let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
+        let keychain = InMemorySecretStore()
+        // Definitely unrefreshable: expired in the past, and no refresh token to fall back on
+        // (e.g. Cloudflare's OAuth never issued one for this client — a real open item).
+        try? keychain.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+            accessToken: "dead-access-token", refreshToken: nil,
+            expiresAt: Date().addingTimeInterval(-3600),
+            tokenEndpoint: URL(string: "https://dash.cloudflare.com/oauth2/token")!))
+        let model = DeployModel(command: command, logCenter: LogCenter(), keychain: keychain)
+        let directory = FileManager.default.temporaryDirectory
+
+        model.deploy(siteID: "s", siteDirectory: directory, configDirectory: directory, currentRoutes: [])
+
+        #expect(model.tokenPromptPresented)
+        #expect(!model.isRunning)
+    }
+
     @Test("signInWithCloudflare persists the credential and dispatches the parked deploy on success")
     func signInSuccessPersistsAndDispatches() async throws {
         let restoreEnv = clearCloudflareAPITokenEnvForTest()
