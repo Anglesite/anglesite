@@ -676,7 +676,7 @@ public actor DeployCommand {
 
     /// Default `TokenSource` for production: env var first (so a developer's shell still wins),
     /// then a stored OAuth credential (refreshing it first if expired), then the legacy pasted
-    /// token — read-only now that `CloudflareTokenPromptView` no longer writes it (#1204), kept so
+    /// token — becoming read-only once `CloudflareTokenPromptView` is replaced by OAuth sign-in (#1204), kept so
     /// a token a user already pasted keeps working. A store error is surfaced to the caller — we'd
     /// rather show the user "couldn't read token" than silently fall through to `nil` and prompt
     /// for a re-sign-in when a token is actually stored fine.
