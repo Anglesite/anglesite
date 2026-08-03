@@ -327,6 +327,7 @@ fileprivate func bigEndianBytes(_ value: UInt32) -> [UInt8] {
 
 extension UInt16 {
     fileprivate init(data: Data) {
-        self = UInt16(data[0]) << 8 | UInt16(data[1])
+        // Use startIndex-relative indexing to handle non-zero-based slices safely
+        self = UInt16(data[data.startIndex]) << 8 | UInt16(data[data.startIndex + 1])
     }
 }

@@ -43,13 +43,15 @@ import Foundation
         let frame = HTTPBridgeFrame.requestEnd(id: 42)
         let encoded = try frame.encoded()
 
-        // Prefix the encoded data with junk to create a non-zero-based slice
+        // Create a non-zero-based slice by using dropFirst (preserves startIndex offset)
         let junk = Data([0xFF, 0xEE, 0xDD])
         var buffer = junk
         buffer.append(contentsOf: encoded)
 
-        // Slice the buffer to extract just the encoded frame (now with startIndex != 0)
-        let sliced = buffer.subdata(in: 3..<buffer.count)
+        let sliced = buffer.dropFirst(3)  // Non-zero-based slice via dropFirst
+
+        // Verify precondition: slice must have non-zero startIndex
+        #expect(sliced.startIndex != 0)
 
         // Should decode correctly despite non-zero startIndex
         let decoded = try HTTPBridgeFrame.decode(sliced)
@@ -60,12 +62,15 @@ import Foundation
         let frame = HMRFrame.text("hello")
         let encoded = try frame.encoded()
 
-        // Create a sliced Data with non-zero startIndex
+        // Create a non-zero-based slice by using range subscript (preserves startIndex offset)
         let junk = Data([0xAA, 0xBB])
         var buffer = junk
         buffer.append(contentsOf: encoded)
 
-        let sliced = buffer.subdata(in: 2..<buffer.count)
+        let sliced = buffer[2...]  // Non-zero-based slice via range subscript
+
+        // Verify precondition: slice must have non-zero startIndex
+        #expect(sliced.startIndex != 0)
 
         // Should decode correctly despite non-zero startIndex
         let decoded = try HMRFrame.decode(sliced)
@@ -76,11 +81,15 @@ import Foundation
         let frame = HTTPBridgeFrame.requestEnd(id: 7)
         let encoded = try frame.encoded()
 
-        // Create a buffer and slice it to be shorter than needed
-        var buffer = Data([0xFF])
+        // Create a buffer and extract a non-zero-based truncated slice
+        var buffer = Data([0xFF, 0xFF, 0xFF, 0xFF])
         buffer.append(contentsOf: encoded)
 
-        let sliced = buffer.subdata(in: 1..<(buffer.startIndex + 3))  // Only 2 bytes after startIndex
+        // Use dropFirst to create non-zero-based slice, then truncate it
+        let sliced = buffer.dropFirst(4).prefix(3)  // 3 bytes with non-zero startIndex
+
+        // Verify precondition: slice must have non-zero startIndex
+        #expect(sliced.startIndex != 0)
 
         #expect(throws: P2PFramingError.malformed) { _ = try HTTPBridgeFrame.decode(sliced) }
     }
