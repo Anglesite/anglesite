@@ -14,8 +14,8 @@ final class DomainModel {
             var purpose: String? {
                 switch self {
                 case .generic: return nil
-                case .bluesky: return "verification:bluesky"
-                case .google: return "verification:google"
+                case .bluesky: return DomainRecordPurpose.Verification.bluesky
+                case .google: return DomainRecordPurpose.Verification.google
                 }
             }
         }
