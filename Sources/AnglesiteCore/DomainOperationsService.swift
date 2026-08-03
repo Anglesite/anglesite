@@ -30,10 +30,11 @@ public protocol DomainOperationsService: Sendable {
     /// `priority` is required by MX records (lower = higher priority mail server) and ignored
     /// by every other record type — `nil` for non-MX records.
     ///
-    /// `purpose` is a namespaced tag (e.g. `"email:icloud"`, `"verification:bluesky"`) mirrored
-    /// into the live record's Cloudflare `comment` field as `"anglesite:<purpose>"` and, when
-    /// `sourceDirectory` is non-nil, appended to `Source/anglesite.json`'s `dns.managedRecords`
-    /// (#1170) — both nil for a generic owner-added record with no specific purpose.
+    /// `purpose` is a namespaced tag (e.g. `"email:icloud-plus"`, `"verification:bluesky"` — see
+    /// ``DomainRecordPurpose`` for the known vocabulary) mirrored into the live record's
+    /// Cloudflare `comment` field as `"anglesite:<purpose>"` and, when `sourceDirectory` is
+    /// non-nil, appended to `Source/anglesite.json`'s `dns.managedRecords` (#1170) — both nil for
+    /// a generic owner-added record with no specific purpose.
     /// `sourceDirectory` is nil for callers with no local site context (Siri/Shortcuts intents),
     /// which skip the write-through entirely rather than failing.
     func addRecord(
