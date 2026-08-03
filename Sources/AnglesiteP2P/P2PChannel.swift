@@ -21,6 +21,9 @@ public protocol P2PConnection: Sendable {
     /// Sends one message on a channel.
     ///
     /// Suspends under backpressure (a slow/full transport); throws once the connection is closed.
+    /// During the teardown window a peer-side send can still return successfully while the
+    /// message itself is silently dropped (the peer finished closing between the check and the
+    /// delivery) — this mirrors a real transport, which offers no delivery guarantee past close.
     ///
     /// - Parameters:
     ///   - data: The message payload, already framed per `P2PFraming` for `channel`.
