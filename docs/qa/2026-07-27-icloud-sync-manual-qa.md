@@ -99,7 +99,11 @@ time.
 > and `conflictMarkerPersistsUntilConverged` (2.3/2.8 — the conflict survives a relaunch and clears
 > only once converged, so a resolved conflict can't re-surface as a banner).
 > `SyncConflictResolverTests.loadsBothSides`/`resolveKeepMine`/`resolveKeepTheirs` cover the sheet's
-> data layer (2.5, 2.7) and `peerConvergesAfterResolution` covers the other Mac converging (2.8).
+> data layer (2.5, 2.7) and `peerConvergesAfterResolution` covers the other Mac converging (2.8) —
+> its *history* only. That test found a live bug: the peer's ref and HEAD reach the resolution
+> commit but its working tree keeps the stale content, so **2.8's "converges to the same resolved
+> content" is currently expected to fail by hand** until the engine fix lands. Check it deliberately
+> rather than skimming past it.
 > `SyncSchedulerTests.conflictResolvedRepullsAndClears` covers leaving `needs attention` (2.7).
 > What stays manual: iCloud actually minting `NSFileVersion` conflict versions from two real
 > concurrent writes (2.2–2.3 — the tests hand-build those handles), the sheet and banner as

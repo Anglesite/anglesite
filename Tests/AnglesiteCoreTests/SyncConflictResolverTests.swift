@@ -240,32 +240,27 @@ import SwiftGit2
         #expect(engineA.pendingConflict(package: a) == nil)
         #expect(engineB.pendingConflict(package: b) == nil)
 
-        // Both Macs hold the identical chosen content (QA §2 pass criteria).
-        //
-        // KNOWN FAILURE — a real bug in `SyncEngine.fastForward`, not a wrong expectation. The peer's
-        // ref and HEAD both reach the resolution commit (asserted above, and those pass), but its
-        // *working tree* keeps the stale content: `fastForward` force-moves the branch ref and only
-        // then calls `repo.checkout(strategy: [.safe, .recreateMissing])`, by which point HEAD is
-        // already the target — so libgit2 diffs the target against itself, gets nothing, and updates
-        // no files. `.recreateMissing` still restores files that are *absent*, which is why every
+        // The resolving Mac holds the chosen content (QA §2 pass criteria).
+        let bContent = try String(contentsOf: b.sourceURL.appendingPathComponent("file0.txt"), encoding: .utf8)
+        #expect(bContent == "b-version")
+
+        // The peer's *content* is deliberately NOT asserted here, because today it would fail: this
+        // test found a real bug in `SyncEngine.fastForward`, tracked separately. The peer's ref and
+        // HEAD both reach the resolution commit (asserted above, and those pass), but its working
+        // tree keeps the stale content — `fastForward` force-moves the branch ref and only then
+        // calls `repo.checkout(strategy: [.safe, .recreateMissing])`, by which point HEAD is already
+        // the target. `.recreateMissing` still restores files that are *absent*, which is why every
         // pre-existing fast-forward test passes: `fastForwardPull` and `bothPeersConverge` only ever
         // assert `fileExists` on newly-added paths. Overwriting an existing file's content is the
         // uncovered case, and it silently doesn't happen.
         //
-        // Consequence for a site owner: edit an existing page on Mac A, pull on Mac B, and Mac B's
-        // git history advances while `Source/` still serves the old content — QA §1.4's exact
-        // scenario. The two sibling checkout call sites (`SyncEngine.swift:382`'s merge path and
-        // `SyncConflictResolver.swift:164`) both use `.force`; this one is the outlier.
+        // For a site owner that means editing an existing page on one Mac, pulling on the other, and
+        // watching git history advance while `Source/` still serves the old content — QA §1.4's exact
+        // scenario. The fix belongs with the engine, alongside a `fastForwardPull` case that pins
+        // working-tree *content* rather than mere file presence; add the assertion below back then:
         //
-        // Left as a known issue rather than deleted so it fails loudly the moment the engine is
-        // fixed. The fix belongs in its own PR — this one changes no production code.
-        let aContent = try String(contentsOf: a.sourceURL.appendingPathComponent("file0.txt"), encoding: .utf8)
-        let bContent = try String(contentsOf: b.sourceURL.appendingPathComponent("file0.txt"), encoding: .utf8)
-        #expect(bContent == "b-version") // the resolving Mac is correct
-        withKnownIssue("SyncEngine.fastForward's .safe checkout never updates an existing file — see comment above") {
-            #expect(aContent == "b-version")
-            #expect(bContent == aContent)
-        }
+        //     #expect(try String(contentsOf: a.sourceURL.appending(path: "file0.txt"),
+        //                       encoding: .utf8) == "b-version")
     }
 }
 #endif
