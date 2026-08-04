@@ -1,15 +1,5 @@
 import Foundation
 
-/// Per-file-path locks that serialize access to `anglesite.json` to prevent concurrent writes from
-/// dropping updates (#1189). Multiple producers (DomainOperations, HardenExecutor,
-/// CustomDomainAttachCommand, EmailSetupExecutor, and others) may call `DomainConfigStore.save()`
-/// concurrently; locks ensure the read-modify-write sequence is atomic. Scoped per file path so
-/// concurrent saves to different sites' configs don't block each other.
-/// Note: Uses `NSLock` (OS-thread blocking) rather than Swift `actor` (cooperative suspension),
-/// which is acceptable here due to the short critical section. An actor-based store may be
-/// reconsidered if contention becomes a concern (#1189).
-private static let fileLocks = SharedInstanceCache<NSLock>()
-
 /// Reads/writes `Source/anglesite.json` (#1169) — the git-tracked declared-intent file for a
 /// site's domain, DNS, edge hardening, email, and Worker configuration. Rooted at
 /// `sourceDirectory` (the `Source/` git repo), not `Config/`, following `RedirectsStore`:
@@ -22,6 +12,16 @@ private static let fileLocks = SharedInstanceCache<NSLock>()
 /// exact fields `DomainConfig` declares are ever overwritten; everything else in the existing
 /// file rides along untouched.
 public struct DomainConfigStore: Sendable {
+    /// Per-file-path locks that serialize access to `anglesite.json` to prevent concurrent writes from
+    /// dropping updates (#1189). Multiple producers (DomainOperations, HardenExecutor,
+    /// CustomDomainAttachCommand, EmailSetupExecutor, and others) may call `save()`
+    /// concurrently; locks ensure the read-modify-write sequence is atomic. Scoped per file path so
+    /// concurrent saves to different sites' configs don't block each other.
+    /// Note: Uses `NSLock` (OS-thread blocking) rather than Swift `actor` (cooperative suspension),
+    /// which is acceptable here due to the short critical section. An actor-based store may be
+    /// reconsidered if contention becomes a concern (#1189).
+    private static let fileLocks = SharedInstanceCache<NSLock>()
+
     private let fileURL: URL
     private let fileManager: FileManager
 
