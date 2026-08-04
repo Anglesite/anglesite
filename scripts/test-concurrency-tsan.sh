@@ -18,8 +18,12 @@
 # genuine race rather than environment noise, the same way #203 covers the relay
 # suites.
 #
-# Scoped to these suites (--filter 'Relay|ProcessSupervisor') to keep the run
-# fast and avoid sanitizing the model-gated FoundationModels tests.
+# Scoped to these suites (--filter 'TurnRelay|TextStreamRelay|ProcessSupervisor')
+# to keep the run fast and avoid sanitizing the model-gated FoundationModels
+# tests. Keep this scoped to the original relay suites specifically — a bare
+# 'Relay' also matches AnglesiteP2PTests/HMRRelayTests, whose
+# concurrentDeliver*-style tests use 20ms timing windows that balloon 5-15x
+# under the sanitizer. P2P suites are intentionally excluded from this lane.
 #
 # Prerequisites:
 #   - Xcode 27+ toolchain. Locally, point DEVELOPER_DIR at it (the default
@@ -35,4 +39,4 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "Running relay and process-supervision concurrency suites under ThreadSanitizer…"
-exec xcrun swift test --sanitize thread --filter 'Relay|ProcessSupervisor'
+exec xcrun swift test --sanitize thread --filter 'TurnRelay|TextStreamRelay|ProcessSupervisor'

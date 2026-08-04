@@ -445,6 +445,11 @@ jobs:
     # appintents-schema job below: the 8 non-gated targets always build in one unconditional
     # step, and AnglesiteAppCore gets its own step gated on the same `has27` detection, green
     # with a ::warning:: until a runner ships Xcode 27, at which point it auto-activates.
+    #
+    # AnglesiteP2P rides in the same has27-gated step for an unrelated reason: it isn't
+    # compiler-gated, but on Xcode 26.6 `swift-symbolgraph-extract` fails to load WebRTC's
+    # binary xcframework module ("missing required module 'WebRTC'") during symbol-graph
+    # extraction — confirmed clean under Xcode 27, which loads the module fine.
     needs: changes
     if: needs.changes.outputs.swift == 'true'
     runs-on: macos-26
@@ -496,11 +501,12 @@ jobs:
             --target AnglesiteTestSupport \
             --warnings-as-errors
 
-      - name: Build documentation for AnglesiteAppCore (Swift 6.4+ only)
+      - name: Build documentation for AnglesiteAppCore and AnglesiteP2P (Xcode 27+ only)
         if: steps.xcode.outputs.has27 == 'true'
         run: |
           swift package generate-documentation \
             --target AnglesiteAppCore \
+            --target AnglesiteP2P \
             --warnings-as-errors
 
   xcodeproj-sync:

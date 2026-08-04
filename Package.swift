@@ -29,6 +29,23 @@ let weakLinkFoundationModels: [LinkerSetting] = [
     )
 ]
 
+// Anywhere runtime (#1208): stasel/WebRTC vends a real dynamic .xcframework (unlike the
+// source packages above), and SwiftPM's build system places its resolved WebRTC.framework
+// directly in .build/<config>/Products/<config>/ — a *sibling* of a flat executable product,
+// but three directories above an .xctest bundle's actual Mach-O (…/Foo.xctest/Contents/MacOS/Foo).
+// A flat executable's default @loader_path rpath already reaches that directory, so
+// anglesite-p2p-demo needs no extra help; an .xctest bundle's rpaths (@loader_path,
+// @loader_path/../Frameworks, and an empty PackageFrameworks/) never do, so dyld fails to
+// find @rpath/WebRTC.framework/WebRTC at test-run time without this. Adding the matching
+// relative rpath here keeps the fix in Package.swift (portable across machines/CI) rather
+// than a manual symlink into the gitignored .build directory.
+let webRTCTestRPath: [LinkerSetting] = [
+    .unsafeFlags(
+        ["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../.."],
+        .when(platforms: [.macOS])
+    )
+]
+
 // AnglesiteCore and AnglesiteAppCore (ChatView.swift) `import` FoundationModels. Swift embeds a *hard*
 // `-framework FoundationModels` autolink hint in its compiled object code, which wins over the
 // app target's explicit `-weak_framework FoundationModels` (project.yml) when the final app
@@ -291,6 +308,41 @@ if includeContainer && ProcessInfo.processInfo.environment["ANGLESITE_CONTAINER_
     )
 }
 
+// Anywhere runtime P0 (#1208): P2P transport core built on stasel/WebRTC's
+// prebuilt libwebrtc xcframework (Darwin-only binary), so this target set
+// only exists on Darwin — the dependency never enters the Linux graph.
+#if canImport(Darwin)
+packageTargets.append(contentsOf: [
+    .target(
+        name: "AnglesiteP2P",
+        dependencies: [
+            "AnglesiteCore",
+            .product(name: "WebRTC", package: "WebRTC"),
+        ],
+        path: "Sources/AnglesiteP2P",
+        swiftSettings: strictConcurrency
+    ),
+    // Both final-link products below transitively depend on AnglesiteCore (via AnglesiteP2P),
+    // so they need the same #541 weak-link workaround as AnglesiteLANHost/AnglesiteCoreTests/etc:
+    // an Xcode 27 beta SDK can add symbols the installed macOS 27 beta runtime doesn't export yet,
+    // and dyld resolves FoundationModels eagerly at load time without this.
+    .executableTarget(
+        name: "anglesite-p2p-demo",
+        dependencies: ["AnglesiteP2P"],
+        path: "Sources/anglesite-p2p-demo",
+        swiftSettings: strictConcurrency,
+        linkerSettings: weakLinkFoundationModels
+    ),
+    .testTarget(
+        name: "AnglesiteP2PTests",
+        dependencies: ["AnglesiteP2P"],
+        path: "Tests/AnglesiteP2PTests",
+        swiftSettings: strictConcurrency,
+        linkerSettings: weakLinkFoundationModels + webRTCTestRPath
+    ),
+])
+#endif
+
 var packageProducts: [Product] = [
     .library(name: "AnglesiteSiteModel", targets: ["AnglesiteSiteModel"]),
     .library(name: "AnglesiteQuickLookSupport", targets: ["AnglesiteQuickLookSupport"]),
@@ -319,6 +371,16 @@ packageDependencies.append(
 // deliberately.
 packageDependencies.append(
     .package(url: "https://github.com/Anglesite/SwiftGit2.git", revision: "446d4777ae4413c2faaa88425693ff29981e4b07")
+)
+
+// Anywhere runtime (#1208): prebuilt libwebrtc for the P2P transport core.
+// Darwin-only binary xcframework — the target set below only includes
+// AnglesiteP2P on Darwin, so the dependency never enters the Linux graph.
+// Pinned by revision, matching the SwiftGit2/STTextView policy above (a mutable tag like
+// `exact: "150.0.0"` can be re-pointed upstream without review): this is the commit release tag
+// 150.0.0 resolves to.
+packageDependencies.append(
+    .package(url: "https://github.com/stasel/WebRTC.git", revision: "6ed87f05368632f71dc95c89c14c051561710925")
 )
 
 // Component Editor slice 4 (spec §7, §4.3): STTextView-backed code panes ("Props & Data",
