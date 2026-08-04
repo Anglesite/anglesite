@@ -210,21 +210,19 @@ public struct DomainOperations: DomainOperationsService {
         type: String, name: String, content: String, priority: Int?, purpose: String?, domain: String,
         sourceDirectory: URL
     ) {
-        let store = DomainConfigStore(sourceDirectory: sourceDirectory)
-        let current = (try? store.load()) ?? DomainConfig()
-        let updated = current.addingManagedDNSRecord(
-            .init(type: type, name: relativeName(name, domain: domain), content: content,
-                  priority: priority, purpose: purpose))
-        try? store.save(updated)
+        DomainConfigStore.update(sourceDirectory: sourceDirectory) { config in
+            config = config.addingManagedDNSRecord(
+                .init(type: type, name: relativeName(name, domain: domain), content: content,
+                      priority: priority, purpose: purpose))
+        }
     }
 
     private static func writeThroughRemove(
         type: String, name: String, content: String, domain: String, sourceDirectory: URL
     ) {
-        let store = DomainConfigStore(sourceDirectory: sourceDirectory)
-        let current = (try? store.load()) ?? DomainConfig()
-        let updated = current.removingManagedDNSRecord(
-            type: type, name: relativeName(name, domain: domain), content: content)
-        try? store.save(updated)
+        DomainConfigStore.update(sourceDirectory: sourceDirectory) { config in
+            config = config.removingManagedDNSRecord(
+                type: type, name: relativeName(name, domain: domain), content: content)
+        }
     }
 }

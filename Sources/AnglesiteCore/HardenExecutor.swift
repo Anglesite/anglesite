@@ -167,38 +167,37 @@ public struct HardenExecutor: Sendable {
     /// Harden's own DNS writes is left to a follow-up.
     private static func writeThroughEdge(_ items: [HardenPlanItem], sourceDirectory: URL) {
         guard !items.isEmpty else { return }
-        let store = DomainConfigStore(sourceDirectory: sourceDirectory)
-        var config = (try? store.load()) ?? DomainConfig()
-        var edge = config.edge ?? DomainConfig.Edge()
-        var cloudflareEdge = edge.cloudflare ?? DomainConfig.Edge.CloudflareEdge()
-        var newWAFRules: [DomainConfig.Edge.WAFRule] = []
+        DomainConfigStore.update(sourceDirectory: sourceDirectory) { config in
+            var edge = config.edge ?? DomainConfig.Edge()
+            var cloudflareEdge = edge.cloudflare ?? DomainConfig.Edge.CloudflareEdge()
+            var newWAFRules: [DomainConfig.Edge.WAFRule] = []
 
-        for item in items {
-            switch item {
-            case .enableDNSSEC:
-                edge.dnssec = true
-            case .enableAlwaysUseHTTPS:
-                edge.alwaysUseHTTPS = true
-            case .enableHSTS(let maxAge, let subs, let preload):
-                edge.hsts = .init(maxAge: maxAge, includeSubdomains: subs, preload: preload)
-            case .enableBotFightMode:
-                cloudflareEdge.botFightMode = true
-            case .addWAFRule(let desc, let expr, let action):
-                newWAFRules.append(.init(description: desc, expression: expr, action: action))
-            case .addCAARecord, .addNullMX, .addSPFRejectAll, .addDMARCReject,
-                 .enableSpeedBrain, .enableZstandardCompression, .enableECH, .enablePageShieldMonitoring:
-                break
+            for item in items {
+                switch item {
+                case .enableDNSSEC:
+                    edge.dnssec = true
+                case .enableAlwaysUseHTTPS:
+                    edge.alwaysUseHTTPS = true
+                case .enableHSTS(let maxAge, let subs, let preload):
+                    edge.hsts = .init(maxAge: maxAge, includeSubdomains: subs, preload: preload)
+                case .enableBotFightMode:
+                    cloudflareEdge.botFightMode = true
+                case .addWAFRule(let desc, let expr, let action):
+                    newWAFRules.append(.init(description: desc, expression: expr, action: action))
+                case .addCAARecord, .addNullMX, .addSPFRejectAll, .addDMARCReject,
+                     .enableSpeedBrain, .enableZstandardCompression, .enableECH, .enablePageShieldMonitoring:
+                    break
+                }
             }
-        }
 
-        if !newWAFRules.isEmpty {
-            cloudflareEdge.wafRules = DomainConfig.Edge.CloudflareEdge.accumulatingWAFRules(
-                newWAFRules, onto: cloudflareEdge.wafRules ?? [])
+            if !newWAFRules.isEmpty {
+                cloudflareEdge.wafRules = DomainConfig.Edge.CloudflareEdge.accumulatingWAFRules(
+                    newWAFRules, onto: cloudflareEdge.wafRules ?? [])
+            }
+            if cloudflareEdge.botFightMode != nil || cloudflareEdge.wafRules != nil {
+                edge.cloudflare = cloudflareEdge
+            }
+            config.edge = edge
         }
-        if cloudflareEdge.botFightMode != nil || cloudflareEdge.wafRules != nil {
-            edge.cloudflare = cloudflareEdge
-        }
-        config.edge = edge
-        try? store.save(config)
     }
 }
