@@ -1,0 +1,15 @@
+---
+// Members page (#907, design doc §4.2) — one of the group preset's four pages (home, about/
+// rules, members, timeline). Ships in the base template so the render pipeline round-trips end
+// to end (mirrors CommunityTimeline.astro's own "ships now, inert until wired" precedent): the
+// page renders "No members yet" on every ordinary site, since data/community-members/ is only
+// ever populated once a hosted-community provisioning flow sets
+// SiteSettings.communityActorURL and CommunityMembersSync starts snapshotting.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CommunityMembers from "../../components/CommunityMembers.astro";
+---
+
+<BaseLayout title="Members" description="Who's part of this community.">
+  <h1>Members</h1>
+  <CommunityMembers />
+</BaseLayout>
