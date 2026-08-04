@@ -932,14 +932,195 @@ git commit -m "docs(#975): widen GitHub token recipe copy for advisories and Dep
 
 **Files:**
 - Modify: `Sources/AnglesiteApp/SiteWindowModel.swift`
+- Test: `Tests/AnglesiteAppTests/SiteWindowModelSecurityReportsTests.swift`
 
 **Interfaces:**
-- Consumes: `SecurityReportsModel` (Task 3), `RemoteRepo`/`BackupCommand.defaultRunner`/`KeychainStore` (existing), `DependencyUpdateModel`/`DependencySyncOffers`/`DependencyUpdateOffer`/`DependencySyncApplier`/`AppVersion` (existing).
-- Produces: `var securityReports: SecurityReportsModel` (new stored property, read by Task 8's badge and passed into `PlistEditorModel` in Task 9), `private(set) var dependencySyncOffers: DependencySyncOffers` (new stored property, read by Task 9), `func recheckSecurityReports()` (called by Task 8's badge popover "Recheck" action), `func presentDependencyFixSheet(_ offer: DependencyUpdateOffer)` (called by Task 9's "Update available" row action).
+- Consumes: `SecurityReportsModel`/`RepoAdvisoryReading` (Task 3/1), `RemoteRepo`/`BackupCommand.GitRunner`/`BackupCommand.defaultRunner`/`KeychainStore`/`AppVersion` (existing), `DependencyUpdateModel`/`DependencySyncOffers`/`DependencyUpdateOffer`/`DependencySyncApplier` (existing).
+- Produces: `var securityReports: SecurityReportsModel` (new stored property, read by Task 8's badge and passed into `PlistEditorModel` in Task 9), `private(set) var dependencySyncOffers: DependencySyncOffers` (new stored property, read by Task 9), `@discardableResult func recheckSecurityReports() -> Task<Void, Never>` (called by Task 8's badge popover "Recheck" action), `func presentDependencyFixSheet(_ offer: DependencyUpdateOffer)` (called by Task 9's "Update available" row action).
 
-No new automated test for this task: `loadAndStart()`'s dependency-sync hook this mirrors has none either (its own comment at `SiteWindowModel.swift:1795-1806` documents the same "manual QA pass, not a proof" tolerance for exactly this class of site-open wiring — real git/Keychain/network side effects, not a pure function). `SecurityReportsModel`'s own logic is already fully covered at the unit level in Task 3; this task is the thin wiring around it. Verify manually per this plan's final task.
+This task adds three new injectable dependencies to `SiteWindowModel`'s initializer — `gitRunner`, `githubToken`, `runningAppVersion` — mirroring `PlistEditorModel`'s existing `gitRunner`/`githubToken` seam, specifically so the new wiring below is unit-testable rather than only reachable through a live git/Keychain/network path. `securityReports` itself is a plain `var`, so tests substitute a fake `RepoAdvisoryReading` directly (`model.securityReports = SecurityReportsModel(reader: FakeReader(...))`) the same way existing `SiteWindowModelTests` substitute `model.site` directly rather than running `loadAndStart()`.
 
-- [ ] **Step 1: Add the `securityReports` and `dependencySyncOffers` stored properties**
+- [ ] **Step 1: Write the failing tests**
+
+```swift
+// Tests/AnglesiteAppTests/SiteWindowModelSecurityReportsTests.swift
+import Testing
+import Foundation
+import AnglesiteCore
+@testable import AnglesiteAppCore
+
+/// Wiring tests for #975: `SiteWindowModel.recheckSecurityReports()` (resolves the GitHub
+/// remote + token, then drives the shared `SecurityReportsModel`) and
+/// `presentDependencyFixSheet(_:)` (routes a single matched Dependabot fix through the same
+/// apply path `loadAndStart()`'s automatic offer sheet uses). `SecurityReportsModel`'s own
+/// recheck logic is already fully covered in `SecurityReportsModelTests` — these tests only
+/// prove the wiring around it: the right facts reach it, and the right sheet/apply call follows.
+@Suite("SiteWindowModel security reports wiring (#975)")
+@MainActor
+struct SiteWindowModelSecurityReportsTests {
+    actor FakeReader: RepoAdvisoryReading {
+        private let advisories: [SecurityAdvisory]
+        init(advisories: [SecurityAdvisory] = []) { self.advisories = advisories }
+        func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] { advisories }
+        func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] { [] }
+    }
+
+    private static let sampleAdvisory = SecurityAdvisory(
+        id: "GHSA-1", summary: "Example", severity: .high,
+        htmlURL: URL(string: "https://github.com/acme/site/security/advisories/GHSA-1")!, publishedAt: nil)
+
+    private func makeModel(
+        remote: String = "https://github.com/acme/site.git\n",
+        remoteExitCode: Int32 = 0,
+        token: String? = "tok"
+    ) -> SiteWindowModel {
+        SiteWindowModel(
+            contentGraph: SiteContentGraph(),
+            knowledgeIndex: SiteKnowledgeIndex(),
+            semanticRanker: nil,
+            conventionsEngine: ProjectConventionsEngine(),
+            runtimeFactory: NeverStartedSiteRuntimeFactory(),
+            contentIndexerStore: ContentIndexerStore(),
+            gitRunner: { _, _ in ProcessSupervisor.RunResult(stdout: remote, stderr: "", exitCode: remoteExitCode) },
+            githubToken: { token },
+            runningAppVersion: { "1.0.0" }
+        )
+    }
+
+    /// Reuses `SiteWindowModelTests`' fixture shape (a real temp `Foo.anglesite/Source`
+    /// directory) — `SiteStore.Site.sourceDirectory` is computed from `packageURL`, not settable
+    /// directly, so a real-enough directory on disk is required even for wiring-only tests.
+    private func makeSite(in root: URL, packageJSON: String? = nil) throws -> SiteStore.Site {
+        let sourceDirectory = root.appendingPathComponent("Test.anglesite/Source")
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        if let packageJSON {
+            try packageJSON.write(to: sourceDirectory.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+        }
+        return SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: root.appendingPathComponent("Test.anglesite"),
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil)
+    }
+
+    private func withTempDirectory<T>(_ body: (URL) throws -> T) rethrows -> T {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("SiteWindowModelSecurityReportsTests-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        return try body(root)
+    }
+
+    // MARK: - recheckSecurityReports
+
+    @Test("resolves the GitHub remote via gitRunner and populates securityReports on success")
+    func recheckPopulatesFromResolvedRemote() async throws {
+        try withTempDirectory { root in
+            let model = makeModel()
+            model.site = try makeSite(in: root)
+            model.securityReports = SecurityReportsModel(reader: FakeReader(advisories: [Self.sampleAdvisory]))
+            await model.recheckSecurityReports().value
+            #expect(model.securityReports.openAdvisories == [Self.sampleAdvisory])
+        }
+    }
+
+    @Test("a non-zero git exit code (no remote) clears securityReports rather than erroring")
+    func recheckNoRemoteClears() async throws {
+        try withTempDirectory { root in
+            let model = makeModel(remoteExitCode: 1)
+            model.site = try makeSite(in: root)
+            model.securityReports = SecurityReportsModel(reader: FakeReader(advisories: [Self.sampleAdvisory]))
+            await model.recheckSecurityReports().value
+            #expect(model.securityReports.totalCount == 0)
+            #expect(model.securityReports.lastError == nil)
+        }
+    }
+
+    @Test("a nil token from the injected githubToken clears securityReports rather than erroring")
+    func recheckNoTokenClears() async throws {
+        try withTempDirectory { root in
+            let model = makeModel(token: nil)
+            model.site = try makeSite(in: root)
+            model.securityReports = SecurityReportsModel(reader: FakeReader(advisories: [Self.sampleAdvisory]))
+            await model.recheckSecurityReports().value
+            #expect(model.securityReports.totalCount == 0)
+        }
+    }
+
+    @Test("recheckSecurityReports without an open site clears rather than crashing")
+    func recheckNoSiteIsNoOp() async {
+        let model = makeModel()
+        model.securityReports = SecurityReportsModel(reader: FakeReader(advisories: [Self.sampleAdvisory]))
+        await model.recheckSecurityReports().value
+        #expect(model.securityReports.totalCount == 0)
+    }
+
+    // MARK: - presentDependencyFixSheet
+
+    @Test("presents the dependency-update sheet scoped to exactly the one matched offer")
+    func presentDependencyFixSheetScopesToOneOffer() throws {
+        try withTempDirectory { root in
+            let model = makeModel()
+            model.site = try makeSite(in: root, packageJSON: #"{"dependencies":{"left-pad":"^1.0.0"}}"#)
+            let offer = DependencyUpdateOffer(name: "left-pad", currentRange: "^1.0.0", offeredRange: "^1.3.0")
+
+            model.presentDependencyFixSheet(offer)
+
+            #expect(model.dependencyUpdateModel?.offers == DependencySyncOffers(updates: [offer]))
+        }
+    }
+
+    @Test("accepting the fix sheet rewrites package.json via the shared apply path")
+    func presentDependencyFixSheetAcceptRewritesPackageJSON() throws {
+        try withTempDirectory { root in
+            let model = makeModel()
+            let site = try makeSite(in: root, packageJSON: #"{"dependencies":{"left-pad":"^1.0.0"}}"#)
+            model.site = site
+            let offer = DependencyUpdateOffer(name: "left-pad", currentRange: "^1.0.0", offeredRange: "^1.3.0")
+
+            model.presentDependencyFixSheet(offer)
+            model.dependencyUpdateModel?.update()
+
+            let rewritten = try String(contentsOf: site.sourceDirectory.appendingPathComponent("package.json"), encoding: .utf8)
+            #expect(rewritten.contains("1.3.0"))
+            #expect(model.preview.isUpdatingDependencies)
+            #expect(model.dependencyUpdateModel == nil)
+        }
+    }
+
+    @Test("skipping the fix sheet leaves package.json untouched and clears the sheet")
+    func presentDependencyFixSheetSkipLeavesFileUntouched() throws {
+        try withTempDirectory { root in
+            let model = makeModel()
+            let originalJSON = #"{"dependencies":{"left-pad":"^1.0.0"}}"#
+            let site = try makeSite(in: root, packageJSON: originalJSON)
+            model.site = site
+            let offer = DependencyUpdateOffer(name: "left-pad", currentRange: "^1.0.0", offeredRange: "^1.3.0")
+
+            model.presentDependencyFixSheet(offer)
+            model.dependencyUpdateModel?.skip()
+
+            let unchanged = try String(contentsOf: site.sourceDirectory.appendingPathComponent("package.json"), encoding: .utf8)
+            #expect(unchanged == originalJSON)
+            #expect(model.dependencyUpdateModel == nil)
+        }
+    }
+
+    @Test("presentDependencyFixSheet without an open site does nothing")
+    func presentDependencyFixSheetNoSiteIsNoOp() {
+        let model = makeModel()
+        let offer = DependencyUpdateOffer(name: "left-pad", currentRange: "^1.0.0", offeredRange: "^1.3.0")
+        model.presentDependencyFixSheet(offer)
+        #expect(model.dependencyUpdateModel == nil)
+    }
+}
+```
+
+This reuses `NeverStartedSiteRuntimeFactory`, already defined (`internal`, not `private`) at the top of `Tests/AnglesiteAppTests/SiteWindowModelTests.swift` in the same test target — no need to redefine it.
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `swift test --package-path . --filter SiteWindowModelSecurityReportsTests`
+Expected: FAIL — `SiteWindowModel`'s initializer doesn't accept `gitRunner`/`githubToken`/`runningAppVersion` yet, and `recheckSecurityReports()`/`presentDependencyFixSheet(_:)` don't exist (compile error).
+
+- [ ] **Step 3: Add the new stored properties and initializer parameters**
 
 In `Sources/AnglesiteApp/SiteWindowModel.swift`, immediately after the existing `var health = HealthModel(runner: DefaultHealthCheckRunner())` (around line 159):
 
@@ -961,7 +1142,34 @@ And, near `var dependencyUpdateModel: DependencyUpdateModel?` (around line 172),
     private(set) var dependencySyncOffers = DependencySyncOffers()
 ```
 
-- [ ] **Step 2: Add the git-remote lookup and the recheck entry point**
+Then extend the initializer (around line 245) with three new parameters, defaulting to the real implementations so every existing call site keeps compiling unchanged, and store them:
+
+```swift
+    private let gitRunner: BackupCommand.GitRunner
+    private let githubToken: @Sendable () throws -> String?
+    private let runningAppVersion: () -> String?
+
+    init(
+        contentGraph: SiteContentGraph,
+        knowledgeIndex: SiteKnowledgeIndex,
+        semanticRanker: SemanticRanker?,
+        conventionsEngine: ProjectConventionsEngine,
+        runtimeFactory: any SiteRuntimeFactory,
+        contentIndexerStore: ContentIndexerStore,
+        gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
+        githubToken: @escaping @Sendable () throws -> String? = { try KeychainStore().readGitHubToken() },
+        runningAppVersion: @escaping () -> String? = { AppVersion.current() }
+    ) {
+        self.gitRunner = gitRunner
+        self.githubToken = githubToken
+        self.runningAppVersion = runningAppVersion
+        self.contentGraph = contentGraph
+        // ... rest of the existing initializer body is unchanged ...
+```
+
+(Only the three new parameters/assignments are new; every existing parameter, and the rest of the body starting at `self.contentGraph = contentGraph`, stays exactly as it is today.)
+
+- [ ] **Step 4: Add the git-remote lookup and the recheck entry point**
 
 Near `func recheckHealth()` (around line 680):
 
@@ -971,31 +1179,33 @@ Near `func recheckHealth()` (around line 680):
         health.recheck(siteID: site.id, siteDirectory: site.sourceDirectory)
     }
 
-    /// Resolves this site's GitHub origin, mirroring `PlistEditorModel.currentRemoteRepo()` —
-    /// a separate small lookup rather than a shared dependency, consistent with how `PublishModel`
-    /// already resolves the same fact its own way via `RepoBootstrap`. `nil` for no remote, a
-    /// non-GitHub remote, or a failed git call.
+    /// Resolves this site's GitHub origin via the injected `gitRunner`, mirroring
+    /// `PlistEditorModel.currentRemoteRepo()` — a separate small lookup rather than a shared
+    /// dependency, consistent with how `PublishModel` already resolves the same fact its own way
+    /// via `RepoBootstrap`. `nil` for no remote, a non-GitHub remote, or a failed git call.
     private func currentGitHubRemote() async -> RemoteRepo? {
         guard let site else { return nil }
-        guard let result = try? await BackupCommand.defaultRunner(site.sourceDirectory, ["remote", "get-url", "origin"]),
+        guard let result = try? await gitRunner(site.sourceDirectory, ["remote", "get-url", "origin"]),
               result.exitCode == 0 else { return nil }
         return RemoteRepo.parse(remoteURL: result.stdout)
     }
 
-    /// Kicks off a `securityReports` check. Fire-and-forget: called from `loadAndStart()` on
-    /// every site open (not awaited, so it never delays open) and from the badge popover /
-    /// Settings-tab "Check for reports" action — one code path, two triggers.
-    func recheckSecurityReports() {
+    /// Kicks off a `securityReports` check and returns the settling `Task` so callers (and
+    /// tests) can await completion; production callers other than tests discard it. Called from
+    /// `loadAndStart()` on every site open (not awaited there, so it never delays open) and from
+    /// the badge popover / Settings-tab "Check for reports" action — one code path, many triggers.
+    @discardableResult
+    func recheckSecurityReports() -> Task<Void, Never> {
         Task { [weak self] in
             guard let self else { return }
             let repo = await self.currentGitHubRemote()
-            let token = (try? KeychainStore().readGitHubToken()) ?? nil
-            self.securityReports.recheck(repo: repo, token: token)
+            let token = (try? self.githubToken()) ?? nil
+            await self.securityReports.recheck(repo: repo, token: token).value
         }
     }
 ```
 
-- [ ] **Step 3: Call it from `loadAndStart()`, and persist `dependencySyncOffers`**
+- [ ] **Step 5: Call it from `loadAndStart()`, and persist `dependencySyncOffers`**
 
 In `loadAndStart(siteID:openSitesWindow:dismissSiteWindow:)`, right after the existing `sync.start(package:)` call (around line 1741) and before the `#if ANGLESITE_MAS` block, add the fire-and-forget call:
 
@@ -1020,9 +1230,9 @@ Then, in the existing dependency-sync block (around line 1762), persist the comp
             if !offers.isEmpty {
 ```
 
-(Only the `dependencySyncOffers = offers` line is new; the surrounding `if let`/`if !offers.isEmpty` structure is unchanged.)
+(Only the `dependencySyncOffers = offers` line is new; the surrounding `if let`/`if !offers.isEmpty` structure — including its own local `runningVersion` from `AppVersion.current()`, which stays exactly as it is today — is unchanged.)
 
-- [ ] **Step 4: Factor out the apply step and add `presentDependencyFixSheet`**
+- [ ] **Step 6: Factor out the apply step and add `presentDependencyFixSheet`**
 
 Replace the existing inline apply block inside that same `if !offers.isEmpty` continuation (the `dependencyUpdateModel = DependencyUpdateModel(offers: offers) { ... }` closure body, around lines 1771–1791):
 
@@ -1043,9 +1253,11 @@ Then add the extracted helper and the new single-offer entry point near `recheck
 ```swift
     /// Writes `offers` (bumps + additions) into the site's `package.json`. Shared by
     /// `loadAndStart()`'s automatic offer sheet and `presentDependencyFixSheet(_:)`'s
-    /// single-offer sheet (#975), so both apply through the identical path.
+    /// single-offer sheet (#975), so both apply through the identical path. Uses the injected
+    /// `runningAppVersion` (not a direct `AppVersion.current()` call) so tests can supply a
+    /// non-nil version — a plain SwiftPM test host has no `CFBundleShortVersionString`.
     private func applyDependencySyncOffers(_ offers: DependencySyncOffers, sourceDirectory: URL, configDirectory: URL) {
-        guard let runningVersion = AppVersion.current() else { return }
+        guard let runningVersion = runningAppVersion() else { return }
         do {
             try DependencySyncApplier.apply(
                 offers, sourceDirectory: sourceDirectory, configDirectory: configDirectory,
@@ -1074,15 +1286,25 @@ Then add the extracted helper and the new single-offer entry point near `recheck
     }
 ```
 
-- [ ] **Step 5: Build to verify it compiles**
+- [ ] **Step 7: Run tests to verify they pass**
+
+Run: `swift test --package-path . --filter SiteWindowModelSecurityReportsTests`
+Expected: PASS
+
+Also run the pre-existing `SiteWindowModelTests`/`SiteWindowModelSettingsAggregationTests` suites to confirm the initializer change didn't break any existing construction call site (every new parameter has a default):
+
+Run: `swift test --package-path . --filter SiteWindowModelTests && swift test --package-path . --filter SiteWindowModelSettingsAggregationTests`
+Expected: PASS
+
+- [ ] **Step 8: Build to verify the app target compiles**
 
 Run: `scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build`
-Expected: Build succeeds (this task adds no new tests; correctness is verified by the compiler plus Task 3's existing coverage of `SecurityReportsModel` itself, and by Task 9's `PlistEditorModel`-level tests exercising `presentDependencyFixSheet` indirectly via its injected callback).
+Expected: Build succeeds.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add Sources/AnglesiteApp/SiteWindowModel.swift
+git add Sources/AnglesiteApp/SiteWindowModel.swift Tests/AnglesiteAppTests/SiteWindowModelSecurityReportsTests.swift
 git commit -m "feat(#975): wire SiteWindowModel to check GitHub security reports on open"
 ```
 
