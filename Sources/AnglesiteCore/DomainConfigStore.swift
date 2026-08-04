@@ -1,5 +1,11 @@
 import Foundation
 
+/// Global actor that serializes access to `anglesite.json` to prevent concurrent writes from
+/// dropping updates (#1189). Multiple producers (DomainOperations, HardenExecutor,
+/// CustomDomainAttachCommand, EmailSetupExecutor, and others) may call `DomainConfigStore.save()`
+/// concurrently; this actor ensures the read-modify-write sequence is atomic.
+nonisolated(unsafe) private let domainConfigFileLock = NSLock()
+
 /// Reads/writes `Source/anglesite.json` (#1169) — the git-tracked declared-intent file for a
 /// site's domain, DNS, edge hardening, email, and Worker configuration. Rooted at
 /// `sourceDirectory` (the `Source/` git repo), not `Config/`, following `RedirectsStore`:
@@ -35,8 +41,8 @@ public struct DomainConfigStore: Sendable {
 
     /// Writes `config`, merging it over whatever is already on disk so unknown keys survive.
     /// Pretty-printed and sorted (matching `RedirectsStore`/`RobotsConfigStore`) so re-saving
-    /// unchanged content produces a minimal git diff, and atomic so a crash mid-write can never
-    /// leave a truncated `anglesite.json` behind.
+    /// unchanged content produces a minimal git diff. The read-modify-write sequence is protected
+    /// by a lock to ensure atomicity when multiple producers call `save()` concurrently (#1189).
     ///
     /// This merge cannot distinguish "this field is unknown to the current app version" from
     /// "this field is known but the caller passed `nil` for it" — both look identical to `merge`
@@ -60,6 +66,9 @@ public struct DomainConfigStore: Sendable {
     /// as any other non-object value. A hand-added array element, or an unknown field inside one,
     /// does not survive a save that touches the containing array.
     public func save(_ config: DomainConfig) throws {
+        domainConfigFileLock.lock()
+        defer { domainConfigFileLock.unlock() }
+
         let newData = try JSONEncoder().encode(config)
         var newFields = Self.objectFields(fromJSONData: newData)
 
