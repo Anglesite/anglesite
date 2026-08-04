@@ -184,7 +184,7 @@ public enum WorkerComposition {
     ///   - moderators: Actor IRIs authorized to moderate this site's Group actor
     ///     (`SiteSettings.moderators`) — ignored for a Person actor. Emitted as a comma-joined
     ///     `AP_MODERATORS` var (Wrangler has no native list-valued var type); each IRI is filtered
-    ///     through ``isSafeTomlStringValue`` individually, same as `siteURL`/`displayName`.
+    ///     through `isSafeTomlStringValue` individually, same as `siteURL`/`displayName`.
     /// - Returns: A complete wrangler.toml string.
     /// - Throws: ``ConfigError/invalidSiteName(_:)`` if `siteName` contains
     ///   characters outside `[A-Za-z0-9_-]`, or ``ConfigError/invalidRouteClaim(path:reason:)``

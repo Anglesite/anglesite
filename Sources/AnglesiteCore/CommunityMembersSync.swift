@@ -5,7 +5,7 @@ import FoundationNetworking
 
 /// Orchestrates #907's "pull a hosted community's own followers collection and snapshot current
 /// membership into the site's git working copy" step: page the Group actor's public `followers`
-/// collection (``FollowersCollectionClient``), resolve each member's profile
+/// collection (`FollowersCollectionClient`), resolve each member's profile
 /// (`ActorProfileFetcher`/`ActorProfileCache`, same as `AnnouncedPostSync`/`FollowersModel`'s
 /// enrichment), then reconcile + commit (`CommunityMemberCommitter`). Mirrors `AnnouncedPostSync`
 /// (#908) exactly, but reads the actor's `followers` collection instead of its `outbox` — members
@@ -19,10 +19,10 @@ import FoundationNetworking
 /// work to this slice of #907 — see `pullAndCommitIfConfigured`.
 public enum CommunityMembersSync {
     /// Fetch transport for the followers client — public so callers (tests) can inject a fake
-    /// without reaching into the internal ``FollowersCollectionClient`` type.
+    /// without reaching into the internal `FollowersCollectionClient` type.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
-    /// Production transport — re-exposed at this (public) level since ``FollowersCollectionClient``
+    /// Production transport — re-exposed at this (public) level since `FollowersCollectionClient`
     /// itself stays internal, mirroring `AnnouncedPostSync.defaultTransport`.
     public static let defaultTransport: Transport = FollowersCollectionClient.defaultTransport
 
@@ -49,7 +49,7 @@ public enum CommunityMembersSync {
     /// of a URL the site owner configures (`communityActorURL`). A malicious or compromised
     /// community server could otherwise steer the pagination chain at arbitrary other https
     /// hosts (bounded only by `pullAndCommit`'s 50-page cap, not by an origin check). `first`/
-    /// `next` are treated as absent — not thrown — when they don't match ``trustedHost``, so an
+    /// `next` are treated as absent — not thrown — when they don't match `trustedHost`, so an
     /// off-host link simply ends the chain early rather than failing the whole sync. Member
     /// actor IRIs themselves (`orderedItems`) are deliberately *not* host-pinned: members
     /// legitimately live on any remote host (Mastodon, Lemmy, another Anglesite site, …) — only
@@ -69,7 +69,7 @@ public enum CommunityMembersSync {
         }
 
         /// A pagination link (`first`/`next`) is used only when it parses as a URL *and* its host
-        /// matches ``trustedHost`` — anything else (a different host, an unparseable string) is
+        /// matches `trustedHost` — anything else (a different host, an unparseable string) is
         /// treated the same as "no more pages" rather than followed.
         private func trustedPaginationLink(_ value: Any?) -> URL? {
             guard let string = value as? String, let url = URL(string: string),
