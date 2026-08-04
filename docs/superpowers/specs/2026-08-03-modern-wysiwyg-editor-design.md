@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-03
 **Status:** Approved vision design, pre-plan
-**Related:** Component Editor (`2026-07-05-component-editor-design.md`, epic #496 — shipped), edit overlay (`JS/edit-overlay/`), #459 (deterministic-path direction), #571 (cross-platform port), #72 (git is the source of truth)
+**Related:** Component Editor (`2026-07-05-component-editor-design.md`, epic #496 — shipped), edit overlay (`JS/edit-overlay/`), #459 (deterministic-path direction), #571 (cross-platform port), #72 (git is the source of truth), `docs/mac-assed-app-spec.md` (platform UX standard for the first host)
 
 ## 1. Summary
 
@@ -76,6 +76,12 @@ The seam that makes the engine portable. Two directions:
 - **Engine → host:** a small vocabulary of semantic edit operations —
   `insertBlock`, `moveBlock`, `deleteBlock`, `setProp`, `editText` (rich-text
   runs), `setDesignToken` — each targeting stable block IDs.
+- **Every op is invertible — no op ships without its inverse.** This is a hard
+  protocol requirement, not an implementation detail: it is what lets a native
+  host register real undo (`NSUndoManager` on macOS) with truthful action names,
+  typing coalescing, and undo state that survives focus changes and webview
+  reloads — the failure that sank every `contenteditable`-based editor. It is
+  also what makes ops CRDT-mergeable (§7) and AI outcomes reviewable (§6).
 - **Host → engine:** the block-tree model (component instances with typed
   props/slots, source spans, content-hash version — the shape
   `get_component_model` already established) plus re-render notifications.
@@ -173,7 +179,87 @@ file model:
 - Presence (cursors, courtesy block locks — advisory, not enforced) rides the
   same channel.
 
-## 8. Error handling
+## 8. The Mac-assed host
+
+The engine/host split is what makes a platform-native editor possible: the classic
+web-editor failure mode (Webflow-in-a-window) happens when the editor's whole UI
+lives in the web canvas. Here the engine owns only in-canvas selection and text
+chrome; **everything else is native UI driving the same ops protocol.** The first
+host must meet `docs/mac-assed-app-spec.md`; the requirements below are the
+editor-specific consequences, and each future host owes its platform the
+equivalent (per the platform-UX standards in `AGENTS.md`).
+
+### 8.1 The menu bar is a first-class client of the ops protocol
+
+Every editing command is a menu item that emits ops — the engine is never the
+only home of a command:
+
+- **Insert menu** lists the theme's block palette by its owner-facing manifest
+  names (*Insert ▸ Testimonial*), like Pages.
+- **Format menu:** ⌘B/⌘I/⌘K route to `editText` ops on the canvas selection;
+  standard shortcuts keep standard meanings.
+- **Block commands:** Move Block Up/Down (⌥⌘↑/↓), Duplicate (⌘D), Delete —
+  enablement via `focusedSceneValue` off the current selection.
+- **Right-click on a block shows a real `NSMenu`**, never a web context menu:
+  the engine hit-tests and reports the block under the cursor; the host builds
+  the menu.
+
+### 8.2 Undo through `NSUndoManager`
+
+Invertible ops (§3.2) register their inverses with the window's undo manager:
+real Edit ▸ Undo/Redo with truthful names ("Undo Move Block", "Undo Typing"),
+typing coalescing, and undo that lives in the host — never lost to a webview
+reload.
+
+### 8.3 Native panels around the canvas
+
+- **Inspector, not floating web panels:** block props edit in a right-hand
+  inspector with system controls (steppers, color wells with the system color
+  panel, pop-up buttons) — the typed-prop editors, rendered natively.
+- **Palette as a native source list** dragged *from* into the canvas;
+  cross-boundary drops land as `insertBlock` ops at the engine-computed index.
+- Toolbar uses `.toolbar(id:)` so Customize Toolbar works.
+
+### 8.4 Files, clipboard, drag and drop
+
+- **Drag an image from Finder or Photos onto the canvas** → asset ingestion +
+  image block + AI alt-text proposal in one gesture.
+- **Paste is semantic:** rich text from Pages/Word/Safari maps to blocks and
+  honest inline runs; ⇧⌥⌘V Paste and Match Style does what it says; copying a
+  block puts real HTML + plain text on the pasteboard.
+- Window title = page title with the **document proxy icon pointing at the real
+  source file** (git honesty made visible); edited-dot tied to uncommitted ops;
+  ⌘F opens the native find bar (aligns with the #517 editor-find design).
+
+### 8.5 Text services — flagged risk
+
+In-canvas text lives in WKWebView. WebKit inherits much of the system text stack
+(spelling, dictation, input methods, autocorrect largely work in editable web
+content), but **Services, Look Up, and grammar must be verified, not assumed** —
+this is an acceptance-checklist item. If WKWebView falls short, bridge to the
+platform rather than accept degraded interaction: the contingency is a native
+`NSTextView` editing session overlaid on the active block, committing to
+`editText` ops on end.
+
+### 8.6 Keyboard, accessibility, system integration
+
+- **Keyboard-only editing grammar:** arrows move block selection, Return enters
+  text editing, Tab walks props, Escape exits the deepest context first
+  (text → block → none).
+- **VoiceOver navigates blocks by their owner-facing manifest names** — the
+  block model doubles as the accessibility model.
+- **App Intents over the same ops** ("Append a post to my blog") for
+  Shortcuts/Spotlight — deterministic ops are the right substrate for intents
+  and future FM tools.
+- Share menu for collaboration draft links; Quick Look on `.anglesite` packages.
+
+### 8.7 Documented convention departure
+
+The canvas renders the **site's** appearance, not system light/dark — correct,
+because the canvas is the artifact. The chrome around it adapts to system
+appearance; reduced-motion governs editing animations.
+
+## 9. Error handling
 
 - Every op carries the model version (content hash) it targeted. On mismatch the
   host rejects with the fresh model; the engine replays or drops the gesture
@@ -182,7 +268,7 @@ file model:
   canvas to a "this page needs attention" state, never a blank webview.
 - All host op-handling is logged like any subprocess — no silent failure paths.
 
-## 9. Testing
+## 10. Testing
 
 The protocol seam is the test surface:
 
@@ -194,7 +280,7 @@ The protocol seam is the test surface:
 - **Swift host layer:** stays thin; logic pushed into testable core types per the
   existing pattern.
 
-## 10. Out of scope (YAGNI)
+## 11. Out of scope (YAGNI)
 
 - Per-breakpoint style authoring for owners (theme craft, by design).
 - A designer/developer tier (progressive disclosure) — the Component Editor
@@ -204,12 +290,13 @@ The protocol seam is the test surface:
   spent on it now.
 - Enforced locking / permissions in collaboration — courtesy locks only.
 
-## 11. Next steps
+## 12. Next steps
 
 This is a vision document. Before any implementation plan:
 
 1. Decide the landing target (expected: Anglesite, superseding the route
    click-to-edit overlay with the block editor).
 2. Slice the vision into epics (protocol + model service, engine core, canvas
-   chrome, gates, AI services, collaboration) — collaboration last.
+   chrome, Mac host chrome (menus/undo/inspector, §8), gates, AI services,
+   collaboration) — collaboration last.
 3. Open tracking issues per `CONTRIBUTING.md` before code.
