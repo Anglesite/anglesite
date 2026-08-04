@@ -1,10 +1,15 @@
 import Foundation
 
-/// Global actor that serializes access to `anglesite.json` to prevent concurrent writes from
+/// Per-file-path locks that serialize access to `anglesite.json` to prevent concurrent writes from
 /// dropping updates (#1189). Multiple producers (DomainOperations, HardenExecutor,
 /// CustomDomainAttachCommand, EmailSetupExecutor, and others) may call `DomainConfigStore.save()`
-/// concurrently; this actor ensures the read-modify-write sequence is atomic.
-nonisolated(unsafe) private let domainConfigFileLock = NSLock()
+/// concurrently; locks ensure the read-modify-write sequence is atomic. Scoped per file path so
+/// concurrent saves to different sites' configs don't block each other.
+/// Note: Uses `NSLock` (OS-thread blocking) rather than Swift `actor` (cooperative suspension),
+/// which is acceptable here due to the short critical section. An actor-based store may be
+/// reconsidered if contention becomes a concern (#1189).
+private var domainConfigFileLocks: [String: NSLock] = [:]
+private let domainConfigFileLocksMutex = NSLock()
 
 /// Reads/writes `Source/anglesite.json` (#1169) — the git-tracked declared-intent file for a
 /// site's domain, DNS, edge hardening, email, and Worker configuration. Rooted at
@@ -42,7 +47,7 @@ public struct DomainConfigStore: Sendable {
     /// Writes `config`, merging it over whatever is already on disk so unknown keys survive.
     /// Pretty-printed and sorted (matching `RedirectsStore`/`RobotsConfigStore`) so re-saving
     /// unchanged content produces a minimal git diff. The read-modify-write sequence is protected
-    /// by a lock to ensure atomicity when multiple producers call `save()` concurrently (#1189).
+    /// by a per-file lock to ensure atomicity when multiple producers call `save()` concurrently (#1189).
     ///
     /// This merge cannot distinguish "this field is unknown to the current app version" from
     /// "this field is known but the caller passed `nil` for it" — both look identical to `merge`
@@ -66,8 +71,21 @@ public struct DomainConfigStore: Sendable {
     /// as any other non-object value. A hand-added array element, or an unknown field inside one,
     /// does not survive a save that touches the containing array.
     public func save(_ config: DomainConfig) throws {
-        domainConfigFileLock.lock()
-        defer { domainConfigFileLock.unlock() }
+        let filePath = fileURL.path
+        let lock: NSLock
+
+        domainConfigFileLocksMutex.lock()
+        if let existingLock = domainConfigFileLocks[filePath] {
+            lock = existingLock
+        } else {
+            let newLock = NSLock()
+            domainConfigFileLocks[filePath] = newLock
+            lock = newLock
+        }
+        domainConfigFileLocksMutex.unlock()
+
+        lock.lock()
+        defer { lock.unlock() }
 
         let newData = try JSONEncoder().encode(config)
         var newFields = Self.objectFields(fromJSONData: newData)
