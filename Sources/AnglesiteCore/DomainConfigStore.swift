@@ -8,8 +8,7 @@ import Foundation
 /// Note: Uses `NSLock` (OS-thread blocking) rather than Swift `actor` (cooperative suspension),
 /// which is acceptable here due to the short critical section. An actor-based store may be
 /// reconsidered if contention becomes a concern (#1189).
-private var domainConfigFileLocks: [String: NSLock] = [:]
-private let domainConfigFileLocksMutex = NSLock()
+private static let fileLocks = SharedInstanceCache<NSLock>()
 
 /// Reads/writes `Source/anglesite.json` (#1169) — the git-tracked declared-intent file for a
 /// site's domain, DNS, edge hardening, email, and Worker configuration. Rooted at
@@ -71,19 +70,7 @@ public struct DomainConfigStore: Sendable {
     /// as any other non-object value. A hand-added array element, or an unknown field inside one,
     /// does not survive a save that touches the containing array.
     public func save(_ config: DomainConfig) throws {
-        let filePath = fileURL.path
-        let lock: NSLock
-
-        domainConfigFileLocksMutex.lock()
-        if let existingLock = domainConfigFileLocks[filePath] {
-            lock = existingLock
-        } else {
-            let newLock = NSLock()
-            domainConfigFileLocks[filePath] = newLock
-            lock = newLock
-        }
-        domainConfigFileLocksMutex.unlock()
-
+        let lock = Self.fileLocks.instance(forKey: fileURL.path) { NSLock() }
         lock.lock()
         defer { lock.unlock() }
 
