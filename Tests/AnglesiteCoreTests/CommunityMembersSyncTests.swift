@@ -153,6 +153,83 @@ struct CommunityMembersSyncTests {
         #expect(text.contains("Alice"))
     }
 
+    @Test("returns 0 (insecureURL) without touching git when communityActorURL uses plain http")
+    func plainHTTPActorURLIsRejected() async throws {
+        let configDirectory = try Self.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: configDirectory) }
+
+        let count = await CommunityMembersSync.pullAndCommit(
+            actorURL: URL(string: "http://community.example/users/birding")!,
+            siteDirectory: URL(fileURLWithPath: "/nonexistent"),
+            configDirectory: configDirectory,
+            transport: { _ in
+                Issue.record("transport must not be called for a plain-http actorURL")
+                struct Unexpected: Error {}
+                throw Unexpected()
+            })
+        #expect(count == 0)
+    }
+
+    @Test("a first/next link pointing at a different host is treated as absent, not followed")
+    func offHostPaginationLinkIsIgnored() async throws {
+        let siteDirectory = try Self.makeThrowawayGitRepo()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let configDirectory = try Self.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: configDirectory) }
+
+        // The collection doc's own "first" link points at a different host than the actor being
+        // synced — a malicious/compromised community server steering the pagination chain
+        // elsewhere. This must never be fetched.
+        let maliciousCollectionBody = try! JSONSerialization.data(
+            withJSONObject: ["first": "https://evil.example/steal-everything"])
+
+        let count = await CommunityMembersSync.pullAndCommit(
+            actorURL: URL(string: "https://community.example/users/birding")!,
+            siteDirectory: siteDirectory,
+            configDirectory: configDirectory,
+            transport: { request in
+                let path = request.url!.absoluteString
+                if path.hasSuffix("/followers") { return (maliciousCollectionBody, Self.response(200)) }
+                Issue.record("must never fetch an off-host pagination link: \(path)")
+                struct Unexpected: Error {}
+                throw Unexpected()
+            })
+        #expect(count == 0)
+    }
+
+    @Test("a next link pointing at a different host ends the chain instead of being followed")
+    func offHostNextLinkEndsChain() async throws {
+        let siteDirectory = try Self.makeThrowawayGitRepo()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+        let configDirectory = try Self.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: configDirectory) }
+
+        let collectionBody = try! JSONSerialization.data(withJSONObject: ["first": "https://community.example/users/birding/followers?page=1"])
+        // page 1 legitimately has one member, but its "next" link points off-host.
+        let page1 = Self.pageBody(items: ["https://member.example/actor1"], next: "https://evil.example/steal-everything")
+        let profileBody = Self.actorProfileBody(name: "Alice")
+
+        let count = await CommunityMembersSync.pullAndCommit(
+            actorURL: URL(string: "https://community.example/users/birding")!,
+            siteDirectory: siteDirectory,
+            configDirectory: configDirectory,
+            transport: { request in
+                let path = request.url!.absoluteString
+                if path.hasSuffix("/followers") { return (collectionBody, Self.response(200)) }
+                if path.contains("page=1") { return (page1, Self.response(200)) }
+                if path.contains("evil.example") {
+                    Issue.record("must never fetch an off-host next link")
+                    struct Unexpected: Error {}
+                    throw Unexpected()
+                }
+                return (profileBody, Self.response(200))
+            })
+
+        // Page 1's member is still collected — only the off-host "next" is refused, ending the
+        // chain early rather than failing the whole sync.
+        #expect(count == 1)
+    }
+
     @Test("requests the collection at <actorURL>/followers")
     func requestsFollowersPath() async throws {
         let siteDirectory = try Self.makeThrowawayGitRepo()

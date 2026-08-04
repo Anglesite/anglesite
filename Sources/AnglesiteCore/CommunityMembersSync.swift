@@ -14,9 +14,9 @@ import FoundationNetworking
 /// Like `AnnouncedPostSync`, this needs **no Cloudflare API token**: `GET <actor>/followers` is
 /// the same public, unauthenticated AS2 collection every ActivityPub actor serves.
 ///
-/// Not yet wired into `PreviewModel.open(site:)` alongside the other per-site syncs — that needs
-/// `SiteSettings.communityActorURL` to actually be set by a provisioning flow first, which is
-/// follow-up work to this slice of #907.
+/// Wired into `PreviewModel.open(site:)` alongside the other per-site syncs; inert (no network
+/// call) until a provisioning flow sets `SiteSettings.communityActorURL`, which is follow-up
+/// work to this slice of #907 — see `pullAndCommitIfConfigured`.
 public enum CommunityMembersSync {
     /// Fetch transport for the followers client — public so callers (tests) can inject a fake
     /// without reaching into the internal ``FollowersCollectionClient`` type.
@@ -43,26 +43,51 @@ public enum CommunityMembersSync {
     /// Pages a Group actor's own public `followers` collection. Same unauthenticated, HTTPS-only,
     /// capped, AS2-collection-paging shape as `AnnouncedPostSync.OutboxClient` — a followers
     /// collection's `orderedItems` are bare actor IRI strings rather than embedded activities.
+    ///
+    /// **Host-pinned pagination.** `first`/`next` are extracted from the *remote* community
+    /// server's own JSON response bodies, not constructed by this app — an unauthenticated fetch
+    /// of a URL the site owner configures (`communityActorURL`). A malicious or compromised
+    /// community server could otherwise steer the pagination chain at arbitrary other https
+    /// hosts (bounded only by `pullAndCommit`'s 50-page cap, not by an origin check). `first`/
+    /// `next` are treated as absent — not thrown — when they don't match ``trustedHost``, so an
+    /// off-host link simply ends the chain early rather than failing the whole sync. Member
+    /// actor IRIs themselves (`orderedItems`) are deliberately *not* host-pinned: members
+    /// legitimately live on any remote host (Mastodon, Lemmy, another Anglesite site, …) — only
+    /// the pagination links that decide what this fetch trusts as "part of the collection" are.
     struct FollowersCollectionClient: Sendable {
         /// 1 MB — matches `AnnouncedPostSync.OutboxClient.maximumResponseBytes`.
         static let maximumResponseBytes = 1024 * 1024
 
         let transport: Transport
+        /// Lowercased host of the actor whose followers collection this client was constructed
+        /// for — every `first`/`next` link is required to stay on this host (see the type doc).
+        let trustedHost: String
 
-        init(transport: @escaping Transport = FollowersCollectionClient.defaultTransport) {
+        init(actorURL: URL, transport: @escaping Transport = FollowersCollectionClient.defaultTransport) {
             self.transport = transport
+            self.trustedHost = (actorURL.host ?? "").lowercased()
+        }
+
+        /// A pagination link (`first`/`next`) is used only when it parses as a URL *and* its host
+        /// matches ``trustedHost`` — anything else (a different host, an unparseable string) is
+        /// treated the same as "no more pages" rather than followed.
+        private func trustedPaginationLink(_ value: Any?) -> URL? {
+            guard let string = value as? String, let url = URL(string: string),
+                  url.host?.lowercased() == trustedHost
+            else { return nil }
+            return url
         }
 
         func collection(at followersURL: URL) async throws -> URL? {
             let json = try await fetch(followersURL)
-            return (json["first"] as? String).flatMap(URL.init(string:))
+            return trustedPaginationLink(json["first"])
         }
 
         func page(at url: URL) async throws -> (actorURLs: [URL], next: URL?) {
             let json = try await fetch(url)
             let rawItems = (json["orderedItems"] as? [Any]) ?? []
             let actorURLs = rawItems.compactMap(Self.actorURL(from:))
-            let next = (json["next"] as? String).flatMap(URL.init(string:))
+            let next = trustedPaginationLink(json["next"])
             return (actorURLs, next)
         }
 
@@ -176,7 +201,7 @@ public enum CommunityMembersSync {
         now: Date = Date()
     ) async -> Int {
         let followersURL = actorURL.appendingPathComponent("followers")
-        let client = FollowersCollectionClient(transport: transport)
+        let client = FollowersCollectionClient(actorURL: actorURL, transport: transport)
         guard let firstPage = try? await client.collection(at: followersURL) else { return 0 }
 
         var actorURLs: [URL] = []
