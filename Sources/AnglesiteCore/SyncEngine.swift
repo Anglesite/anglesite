@@ -748,8 +748,22 @@ public actor SyncEngine {
     }
 
     /// Force-updates `branchRefName` to `oid`, then checks out HEAD (which already points at that
-    /// branch symbolically) with a safe strategy — the fast-forward's working-tree update. Safe
-    /// to call only once the caller has confirmed a clean working tree.
+    /// branch symbolically) — the fast-forward's working-tree update. Safe to call only once the
+    /// caller has confirmed a clean working tree.
+    ///
+    /// The strategy must be `.force`, not `.safe` (#1245). `Repository.checkout(strategy:)` calls
+    /// libgit2's `git_checkout_head`, whose `baseline` defaults to HEAD — and by this point the ref
+    /// move above has already pointed HEAD at the target. A file the peer changed therefore differs
+    /// from that baseline, so libgit2 classifies it as a *local modification*: `.safe` preserves it
+    /// and the peer's edit is silently dropped, leaving history advanced but `Source/` stale.
+    /// `.recreateMissing` masks this for added files (they're absent, so they're recreated), which
+    /// is why it went unnoticed until a test asserted content rather than mere presence.
+    /// `.force` takes the target as definitive, matching `reconcileDivergence`'s post-merge
+    /// checkout and `SyncConflictResolver`'s.
+    ///
+    /// Nothing of the owner's can be lost to `.force` here: `pull()` snapshots a dirty tree into a
+    /// commit before reconciling, and a fast-forward only runs when the branch is not ahead — so
+    /// the working tree is clean by the time this is reached.
     private static func fastForward(repo: Repository, branchRefName: String, to oid: OID) -> Result<Void, EngineError> {
         var targetOID = oid.oid
         var createdRef: OpaquePointer?
@@ -760,7 +774,7 @@ public actor SyncEngine {
         guard result == GIT_OK.rawValue else {
             return .failure("couldn't update \(branchRefName): \(lastErrorMessage())")
         }
-        guard case .success = repo.checkout(strategy: [.safe, .recreateMissing]) else {
+        guard case .success = repo.checkout(strategy: [.force, .recreateMissing]) else {
             return .failure("checkout failed after moving \(branchRefName)")
         }
         return .success(())
