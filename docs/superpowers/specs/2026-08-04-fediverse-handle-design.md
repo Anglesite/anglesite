@@ -91,11 +91,26 @@ actor IRI.
 - **Validation:** case-insensitive `[a-z0-9_]` at both ends, `[a-z0-9_.-]` interior —
   the intersection of the `acct:` userpart (RFC 7565) and Mastodon's remote-username
   grammar. No length cap beyond WebFinger practicality (domains already exceed Mastodon's
-  30-char *local* limit; remote handles have no such limit).
-- **Lock signal:** app-side, derived from existing state — the followers collection is
-  non-empty (`ActivityPubFollowersClient`) or the outbox ledger has entries
-  (`ActivityPubOutboxLedger`). The worker does not enforce the lock; the app owns it, the
-  same way it owns every other provisioning decision.
+  30-char *local* limit; remote handles have no such limit). Enforced at **both** ends:
+  the app validates at entry, and — because `.site-config` is hand-editable by design —
+  `worker.ts` re-validates `env.AP_USERNAME` at request time and **falls back to the
+  hostname default when the value is invalid**, so a stray git edit degrades to the
+  default handle rather than emitting a malformed `acct:` resource or actor document.
+  (An override equal to the derived default is simply deduped, not an error.)
+- **Lock signal:** derived from existing state — the followers collection is non-empty
+  (`ActivityPubFollowersClient`) or the outbox ledger has entries
+  (`ActivityPubOutboxLedger`). The app's field lock is the *advisory* layer, and it is
+  knowingly bypassable: `Source/` is a plain git repo the owner can edit outside the app
+  ("Git is the source of truth" — the app must never be the only way to edit a site), so
+  a hand edit to `AP_USERNAME` after federation is a legal move, not a hole to close.
+  The backstop is **deploy-time detection**: the app records the last-deployed username
+  in `Config/` (the same deploy-baseline pattern as `lastDeployedWorkerIDs`, #709) and,
+  when the handle of a federated actor has changed, asks before deploying — phrased in
+  consequences per the house rule (*"Changing your handle disconnects the people who
+  follow you. Keep `@old@…` or switch to `@new@…`?"*) — rather than silently renaming.
+  A `wrangler deploy` run entirely outside the app bypasses that check; accepted pre-1.0,
+  consistent with every other app-orchestrated edge invariant (`wrangler.toml` itself is
+  equally hand-editable).
 - **UI voice:** per the house rule (the app advises, phrased in consequences to the
   owner's site, never mechanics): *"This is how people find and follow you across social
   networks. Once someone follows you it can't change without losing them."* The field
@@ -192,10 +207,11 @@ handles like `@photos@example.com`, never as the primary identity splitting.
 
 | Change | Where | Size |
 |---|---|---|
-| `preferredUsername` default-from-hostname + `AP_USERNAME` override | `worker.ts` | small, app-only |
+| `preferredUsername` default-from-hostname + `AP_USERNAME` override, validated with hostname fallback | `worker.ts` | small, app-only |
 | WebFinger map: canonical + alias `acct:` forms | `worker.ts` | small, app-only |
 | `AP_USERNAME` var emission | `WorkerComposition` | small, app-only |
-| `.site-config` key + handle field UI + lock | app | moderate, app-only |
+| `.site-config` key + handle field UI + advisory lock | app | moderate, app-only |
+| Deploy-time handle-rename detection (last-deployed baseline in `Config/`) | app | small, app-only |
 | `photo` → `attachment` fan-out | `worker.ts` (+ possibly `@dwk/workers` release) | small |
 | Pixelfed / Friendica / Misskey support | — | **none** (same actor) |
 | Lemmy support | — | **none** (v5 Communities, shipped path) |
