@@ -74,6 +74,30 @@ public struct DomainConfigStore: Sendable {
         lock.lock()
         defer { lock.unlock() }
 
+        try performSave(config)
+    }
+
+    /// Loads the current config (falling back to an empty `DomainConfig` if the file is absent or
+    /// fails to decode — mirrors `DomainConfigStore.update(sourceDirectory:_:)`'s pre-#1255
+    /// fallback), applies `mutate` in place, and saves the result — holding the per-file lock
+    /// (#1189) across the *entire* load-mutate-save sequence, not just the save. This is what
+    /// closes #1255: two concurrent calls that both mutate the same top-level section can no
+    /// longer both load the same stale snapshot before either saves, because the second caller's
+    /// `load()` here can't run until the first caller's `performSave(_:)` has released the lock.
+    @discardableResult
+    public func update(_ mutate: (inout DomainConfig) -> Void) -> Bool {
+        let lock = Self.fileLocks.instance(forKey: fileURL.path) { NSLock() }
+        lock.lock()
+        defer { lock.unlock() }
+
+        var config = (try? load()) ?? DomainConfig()
+        mutate(&config)
+        return (try? performSave(config)) != nil
+    }
+
+    /// The unlocked body of `save(_:)`, reused by `update(_:)` so it can hold the lock across its
+    /// own load+mutate+save without `NSLock`'s non-reentrancy deadlocking a nested `save()` call.
+    private func performSave(_ config: DomainConfig) throws {
         let newData = try JSONEncoder().encode(config)
         var newFields = Self.objectFields(fromJSONData: newData)
 
