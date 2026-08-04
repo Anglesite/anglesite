@@ -158,4 +158,81 @@ struct DomainConfigStoreTests {
         #expect(reloaded.dns?.managedRecords?.count == 1)
         #expect(reloaded.dns?.managedRecords?.first?.type == "MX")
     }
+
+    @Test("concurrent saves from multiple producers merge updates without losing data (#1189)")
+    func concurrentSavesMergeUpdates() throws {
+        let dir = try tempSourceDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = DomainConfigStore(sourceDirectory: dir)
+
+        let initialConfig = DomainConfig(
+            domain: .init(hostname: "example.com"),
+            dns: .init(managedRecords: [
+                .init(type: "MX", name: "@", content: "mx01.mail.icloud.com", priority: 10, purpose: "email:icloud"),
+            ])
+        )
+        try store.save(initialConfig)
+
+        let group = DispatchGroup()
+        var saveErrors: [Error] = []
+        let errorLock = NSLock()
+
+        // Simulate concurrent producers: email setup and DNS modifications
+        group.enter()
+        DispatchQueue.global().async {
+            defer { group.leave() }
+            do {
+                let emailConfig = DomainConfig(
+                    email: .init(provider: "icloud", dmarcReportEmail: "postmaster@example.com")
+                )
+                try store.save(emailConfig)
+            } catch {
+                errorLock.lock()
+                saveErrors.append(error)
+                errorLock.unlock()
+            }
+        }
+
+        group.enter()
+        DispatchQueue.global().async {
+            defer { group.leave() }
+            do {
+                let edgeConfig = DomainConfig(
+                    edge: .init(dnssec: true, alwaysUseHTTPS: true)
+                )
+                try store.save(edgeConfig)
+            } catch {
+                errorLock.lock()
+                saveErrors.append(error)
+                errorLock.unlock()
+            }
+        }
+
+        group.enter()
+        DispatchQueue.global().async {
+            defer { group.leave() }
+            do {
+                let workersConfig = DomainConfig(
+                    workers: .init(active: ["webmention-receive"])
+                )
+                try store.save(workersConfig)
+            } catch {
+                errorLock.lock()
+                saveErrors.append(error)
+                errorLock.unlock()
+            }
+        }
+
+        group.wait()
+        #expect(saveErrors.isEmpty, "No errors during concurrent saves")
+
+        let final = try store.load()
+        // Verify all sections from all concurrent producers were saved
+        #expect(final.domain?.hostname == "example.com", "Initial domain config preserved")
+        #expect(final.dns?.managedRecords?.count == 1, "Initial DNS records preserved")
+        #expect(final.dns?.managedRecords?.first?.type == "MX", "DNS record type preserved")
+        #expect(final.email?.provider == "icloud", "Email config from concurrent save")
+        #expect(final.edge?.dnssec == true, "Edge config from concurrent save")
+        #expect(final.workers?.active == ["webmention-receive"], "Workers config from concurrent save")
+    }
 }
