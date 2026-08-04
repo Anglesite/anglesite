@@ -329,7 +329,11 @@ public struct MicropubClient: Sendable {
     /// - Returns: The decoded ``MicropubConfiguration``.
     public func configuration() async throws -> MicropubConfiguration {
         let object = try await getJSON(query: [URLQueryItem(name: "q", value: "config")])
-        let mediaEndpoint = (object["media-endpoint"] as? String).flatMap(URL.init(string:))
+        // Resolved against the micropub endpoint, same as `Location` handling: nothing in the
+        // spec requires `media-endpoint` to be absolute, and an unresolved relative URL would
+        // surface much later as an opaque network failure in `uploadMedia`.
+        let mediaEndpoint = (object["media-endpoint"] as? String)
+            .flatMap { URL(string: $0, relativeTo: endpoint)?.absoluteURL }
         let queries = (object["q"] as? [Any])?.compactMap { $0 as? String } ?? []
         return MicropubConfiguration(mediaEndpoint: mediaEndpoint, supportedQueries: queries)
     }

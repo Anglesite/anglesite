@@ -283,6 +283,19 @@ struct MicropubClientTests {
         #expect(config.supportedQueries == ["source", "config", "syndicate-to"])
     }
 
+    @Test("configuration resolves a relative media-endpoint against the micropub endpoint")
+    func configurationResolvesRelativeMediaEndpoint() async throws {
+        let client = MicropubClient(
+            endpoint: endpoint, accessToken: "tok", dpopKeyPair: DPoPKeyPair(),
+            transport: { _ in
+                let body = #"{"media-endpoint":"/media","q":["source","config"]}"#
+                return (Data(body.utf8), self.response(200))
+            }
+        )
+        let config = try await client.configuration()
+        #expect(config.mediaEndpoint == URL(string: "https://owner.example/media")!)
+    }
+
     // MARK: - Media upload
 
     @Test("uploadMedia posts multipart form-data to the media endpoint and returns the Location")
