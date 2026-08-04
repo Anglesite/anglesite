@@ -84,6 +84,11 @@ public struct DomainConfigStore: Sendable {
     /// closes #1255: two concurrent calls that both mutate the same top-level section can no
     /// longer both load the same stale snapshot before either saves, because the second caller's
     /// `load()` here can't run until the first caller's `performSave(_:)` has released the lock.
+    ///
+    /// - Warning: `mutate` runs while the per-file lock is held. It must not call back into
+    ///   `save(_:)` or `update(_:)` on a `DomainConfigStore` for this same `anglesite.json` path —
+    ///   `NSLock` isn't reentrant, so that would deadlock. Every current caller's closure only does
+    ///   in-memory `DomainConfig` field mutation; keep new ones that way too.
     @discardableResult
     public func update(_ mutate: (inout DomainConfig) -> Void) -> Bool {
         let lock = Self.fileLocks.instance(forKey: fileURL.path) { NSLock() }
