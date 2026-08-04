@@ -211,6 +211,11 @@ final class PreviewModel {
             // (SiteSettings.communityOutboxURL unset — inert until #907 ships that site kind).
             _ = await AnnouncedPostSync.pullAndCommitIfConfigured(
                 siteDirectory: siteDirectory, configDirectory: configDirectory)
+            // #907: pull a hosted community's own followers collection (members = followers) and
+            // snapshot current membership into the git working copy. No-ops for sites that aren't
+            // a hosted community (SiteSettings.communityActorURL unset).
+            _ = await CommunityMembersSync.pullAndCommitIfConfigured(
+                siteDirectory: siteDirectory, configDirectory: configDirectory)
             clearDevServerCommandInFlight(token: token)
         }
     }

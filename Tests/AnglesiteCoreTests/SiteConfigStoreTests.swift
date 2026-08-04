@@ -220,4 +220,43 @@ struct SiteConfigStoreTests {
         let loaded = try await store.load()
         #expect(loaded.communityOutboxURL == nil)
     }
+
+    @Test("communityActorURL and moderators round-trip through save/load")
+    func communityActorURLAndModeratorsRoundTrip() async throws {
+        let dir = try tempConfigDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let store = SiteConfigStore(configDirectory: dir)
+
+        let settings = SiteSettings(
+            communityActorURL: URL(string: "https://community.example/users/birding"),
+            moderators: ["https://mod1.example/actor", "https://mod2.example/actor"]
+        )
+        try await store.save(settings)
+
+        let loaded = try await store.load()
+        #expect(loaded.communityActorURL == URL(string: "https://community.example/users/birding"))
+        #expect(loaded.moderators == ["https://mod1.example/actor", "https://mod2.example/actor"])
+    }
+
+    @Test("a settings.plist written before communityActorURL/moderators existed still decodes (forward-compat)")
+    func decodesOldPlistWithoutCommunityActorURLOrModerators() async throws {
+        let dir = try tempConfigDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let oldFormat = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>displayName</key>
+            <string>My Site</string>
+        </dict>
+        </plist>
+        """
+        try oldFormat.write(to: dir.appendingPathComponent("settings.plist"), atomically: true, encoding: .utf8)
+        let store = SiteConfigStore(configDirectory: dir)
+
+        let loaded = try await store.load()
+        #expect(loaded.communityActorURL == nil)
+        #expect(loaded.moderators == nil)
+    }
 }

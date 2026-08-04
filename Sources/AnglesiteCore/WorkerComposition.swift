@@ -177,6 +177,14 @@ public enum WorkerComposition {
     ///     no fallback of its own), threaded into the ActivityPub actor's `AP_DISPLAY_NAME` var.
     ///     `nil` when unknown; the composed Worker's actor document then falls back to a fixed
     ///     generic name (`worker.ts`'s concern, not this function's).
+    ///   - activityPubActorType: The ActivityPub actor's AS2 type (V-5.1b, #907;
+    ///     `SiteSettings.communityActorURL`'s sibling concept) — `"Group"` for a hosted community,
+    ///     `nil`/anything else for an ordinary Person actor. Only `"Group"` ever emits a var; the
+    ///     composed Worker's actor document otherwise defaults to Person (`worker.ts`'s concern).
+    ///   - moderators: Actor IRIs authorized to moderate this site's Group actor
+    ///     (`SiteSettings.moderators`) — ignored for a Person actor. Emitted as a comma-joined
+    ///     `AP_MODERATORS` var (Wrangler has no native list-valued var type); each IRI is filtered
+    ///     through ``isSafeTomlStringValue`` individually, same as `siteURL`/`displayName`.
     /// - Returns: A complete wrangler.toml string.
     /// - Throws: ``ConfigError/invalidSiteName(_:)`` if `siteName` contains
     ///   characters outside `[A-Za-z0-9_-]`, or ``ConfigError/invalidRouteClaim(path:reason:)``
@@ -189,7 +197,9 @@ public enum WorkerComposition {
         inboxCaptureEnabled: Bool = false,
         inboxKVNamespaceID: String? = nil,
         siteURL: String? = nil,
-        displayName: String? = nil
+        displayName: String? = nil,
+        activityPubActorType: String? = nil,
+        moderators: [String]? = nil
     ) throws -> String {
         guard isValidSiteName(siteName) else {
             throw ConfigError.invalidSiteName(siteName)
@@ -475,6 +485,16 @@ public enum WorkerComposition {
         }
         if hasActivityPub, let displayName, !displayName.isEmpty, isSafeTomlStringValue(displayName) {
             varsLines.append("AP_DISPLAY_NAME = \"\(displayName)\"")
+        }
+        // Group actor config (V-5.1b, #907, design doc §4.1 D3): only "Group" ever emits a var —
+        // an ordinary Person actor (the overwhelming common case) leaves both vars out entirely,
+        // matching AP_DISPLAY_NAME's "only emit when there's something to say" convention.
+        if hasActivityPub, activityPubActorType == "Group" {
+            varsLines.append("AP_ACTOR_TYPE = \"Group\"")
+            let safeModerators = (moderators ?? []).filter { !$0.isEmpty && isSafeTomlStringValue($0) }
+            if !safeModerators.isEmpty {
+                varsLines.append("AP_MODERATORS = \"\(safeModerators.joined(separator: ","))\"")
+            }
         }
         if !varsLines.isEmpty {
             lines.append("")

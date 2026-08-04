@@ -74,6 +74,19 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// site: `AnnouncedPostSync` no-ops without it, so this field is inert until #907 ships.
     public var communityOutboxURL: URL?
 
+    /// This site's own hosted-community actor URL (V-5.1b, #907) — set alongside
+    /// ``communityOutboxURL`` once a provisioning flow creates this site's Group actor Worker.
+    /// `nil` on every other site: `CommunityMembersSync` no-ops without it, so this field is
+    /// inert until that provisioning flow ships and sets it.
+    public var communityActorURL: URL?
+
+    /// Actor IRIs authorized to moderate this site's Group actor (V-5.1b, #907; design doc §4.1
+    /// D3) — ban a member or un-announce a member post, enforced Worker-side. `nil`/`[]` on every
+    /// site: this field only has an effect once a provisioning/redeploy flow threads it into the
+    /// composed Worker's config (`WorkerComposition.generateWranglerToml`'s `moderators`
+    /// parameter), which is inert until that wiring lands.
+    public var moderators: [String]?
+
     /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
     /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
@@ -90,7 +103,9 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         lastDeployedWorkerIDs: [String]? = nil,
         provisionedWorkerResources: WorkerComposition.ProvisionedResources? = nil,
         webmentionReceivePaidPlanAcknowledged: Bool? = nil,
-        communityOutboxURL: URL? = nil
+        communityOutboxURL: URL? = nil,
+        communityActorURL: URL? = nil,
+        moderators: [String]? = nil
     ) {
         self.displayName = displayName
         self.inboxCaptureAccountID = inboxCaptureAccountID
@@ -105,6 +120,8 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.provisionedWorkerResources = provisionedWorkerResources
         self.webmentionReceivePaidPlanAcknowledged = webmentionReceivePaidPlanAcknowledged
         self.communityOutboxURL = communityOutboxURL
+        self.communityActorURL = communityActorURL
+        self.moderators = moderators
     }
 }
 
