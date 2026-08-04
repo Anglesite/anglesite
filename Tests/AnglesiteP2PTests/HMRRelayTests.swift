@@ -60,6 +60,48 @@ import Foundation
         }
     }
 
+    /// Resumes a waiter once `record()` has been called `target` times. Lets a test wait for a
+    /// property ("N misses have happened") instead of guessing a wall-clock delay — CI's shared
+    /// runners see multi-second scheduling delays under load (observed 1.0–2.3s), so a fixed short
+    /// sleep is a flake, not a bound.
+    private actor MissSignal {
+        private let target: Int
+        private var count = 0
+        private var continuation: CheckedContinuation<Void, Never>?
+
+        init(target: Int) {
+            self.target = target
+        }
+
+        func record() {
+            count += 1
+            guard count >= target, let continuation else { return }
+            continuation.resume()
+            self.continuation = nil
+        }
+
+        /// Suspends until `target` calls to `record()` have happened, or returns immediately if
+        /// that already occurred. Callers race this against their own generous timeout — this
+        /// method has no timeout of its own.
+        func wait() async {
+            guard count < target else { return }
+            await withCheckedContinuation { continuation = $0 }
+        }
+    }
+
+    /// Races `body` against a `timeout` sleep and returns as soon as either finishes — the
+    /// event-driven counterpart to a fixed `Task.sleep`. `body` is expected to be a `MissSignal`
+    /// wait (or similar); if `timeout` wins, `body`'s condition is simply left unmet and the
+    /// caller's own assertion (e.g. a miss counter) reports the failure.
+    private func waitUntil(timeout: Duration, _ body: @Sendable @escaping () async -> Void) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await body() }
+            group.addTask { try? await Task.sleep(for: timeout) }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
     @Test func heartbeatAnswersInboundPingWithPong() async throws {
         let pair = InProcessP2PPair.make()
         let heartbeat = ControlHeartbeat(connection: pair.b, interval: .seconds(60), missLimit: 100) { _ in }
@@ -84,8 +126,10 @@ import Foundation
         heartbeatTask.cancel()
     }
 
-    @Test func missedPongsInvokeOnMiss() async throws {
+    @Test(.timeLimit(.minutes(1)))
+    func missedPongsInvokeOnMiss() async throws {
         let pair = InProcessP2PPair.make()
+        let signal = MissSignal(target: 2)
 
         await confirmation(expectedCount: 2...) { confirmed in
             let heartbeat = ControlHeartbeat(
@@ -94,11 +138,14 @@ import Foundation
                 missLimit: 2
             ) { _ in
                 confirmed()
+                Task { await signal.record() }
             }
             // Deliberately no responder wired to `pair.b` — every ping the heartbeat sends goes
-            // unanswered, so misses accumulate.
+            // unanswered, so misses accumulate. Wait for the property (>= 2 misses), generously
+            // bounded rather than sleeping a fixed guess — `.timeLimit` above is the hang guard
+            // if this never resolves.
             let heartbeatTask = Task { await heartbeat.run() }
-            try? await Task.sleep(for: .milliseconds(500))
+            await waitUntil(timeout: .seconds(30)) { await signal.wait() }
             heartbeatTask.cancel()
         }
     }
@@ -111,31 +158,40 @@ import Foundation
     func closingConnectionStopsHeartbeatAndOnMissGrowth() async throws {
         let pair = InProcessP2PPair.make()
         let counter = MissCounter()
+        let firstMiss = MissSignal(target: 1)
         let heartbeat = ControlHeartbeat(
             connection: pair.a,
             interval: .milliseconds(20),
             missLimit: 1
         ) { count in
             counter.record(count)
+            Task { await firstMiss.record() }
         }
         let heartbeatTask = Task { await heartbeat.run() }
 
-        // Deliberately no responder wired to `pair.b` — let a few misses accumulate first.
-        try await Task.sleep(for: .milliseconds(100))
+        // Deliberately no responder wired to `pair.b`. Wait for the property (the first miss
+        // happened), generously bounded rather than sleeping a fixed guess — a loaded CI runner
+        // can delay scheduling well past a 20ms interval (observed 1.0–2.3s in practice).
+        await waitUntil(timeout: .seconds(15)) { await firstMiss.wait() }
         #expect((counter.latest ?? 0) >= 1)
 
         await pair.a.close()
 
-        // `run()` must return in bounded time once the connection is gone, not loop forever.
+        // `run()` must return once the connection is gone, not loop forever — bounded generously
+        // (this is a liveness check, not a latency benchmark) so scheduling delays on a busy
+        // runner don't turn a correctness assertion into a flaky performance one.
         let start = ContinuousClock.now
         await heartbeatTask.value
-        #expect(ContinuousClock.now - start < .milliseconds(200))
+        #expect(ContinuousClock.now - start < .seconds(10))
 
         // Let any straggler `onMiss` `Task` already in flight at close-time finish, then confirm
         // the count stops growing — the ping loop must not keep firing into a dead connection.
-        try await Task.sleep(for: .milliseconds(50))
+        // Windows scaled up for load tolerance: this is inherently sleep-based (proving an
+        // absence isn't event-driven), but generous enough not to flake under CI scheduling
+        // delay while still catching a real "keeps firing forever" regression.
+        try await Task.sleep(for: .milliseconds(500))
         let countAtClose = counter.latest ?? 0
-        try await Task.sleep(for: .milliseconds(150))
+        try await Task.sleep(for: .seconds(3))
         #expect(counter.latest == countAtClose)
     }
 
@@ -148,8 +204,9 @@ import Foundation
         try await Task.sleep(for: .milliseconds(50))
         heartbeatTask.cancel()
 
+        // Bounded generously (liveness, not latency) — see `closingConnectionStops...` above.
         let start = ContinuousClock.now
         await heartbeatTask.value
-        #expect(ContinuousClock.now - start < .milliseconds(200))
+        #expect(ContinuousClock.now - start < .seconds(10))
     }
 }
