@@ -251,6 +251,13 @@ export function checkMixedContent(content: string, file: string): Issue[] {
  * blocks the response on CORS before integrity is evaluated, so the resource
  * silently fails to load. Heuristic tag-level regex match; multi-line tag
  * attributes are not matched. One issue per offending tag.
+ *
+ * No allowlist: this intentionally also warns on auto-updating, unversioned CDN
+ * scripts (e.g. the Cloudflare Web Analytics beacon, legacy Google gtag.js) that
+ * can't carry a stable `integrity` hash without breaking on the vendor's next
+ * content rotation — for those, the warning firing is the expected, disposed
+ * outcome (Cloudflare beacon: #1165), not a gap to fix. Advisory only
+ * (`severity: "warning"`); doesn't block deploys unless `--strict` is passed.
  */
 export function checkSRI(content: string, file: string): Issue[] {
   const issues: Issue[] = [];
