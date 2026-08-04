@@ -7,9 +7,10 @@
 ## 1. Summary
 
 A vision design for a modern WYSIWYG HTML editor: what a 2026 successor to
-Dreamweaver/GoLive/iWeb should be, and the architecture that realizes it. This is
-exploratory — no committed delivery target — but it is shaped so that Anglesite can
-be its first host.
+Dreamweaver/GoLive/iWeb should be, and the architecture that realizes it.
+**Landing target (decided 2026-08-03): Anglesite** — the block editor supersedes
+the route click-to-edit overlay as the page-editing surface, with the portable
+engine/protocol shape preserved for future hosts.
 
 Decisions made during brainstorming:
 
@@ -336,8 +337,8 @@ The protocol seam is the test surface:
 
 This is a vision document. Before any implementation plan:
 
-1. Decide the landing target (expected: Anglesite, superseding the route
-   click-to-edit overlay with the block editor).
+1. ~~Decide the landing target~~ **Decided: Anglesite** — the block editor
+   supersedes the route click-to-edit overlay.
 2. Slice the vision into epics (protocol + model service, engine core, canvas
    chrome, Mac host chrome (menus/undo/inspector, §8), gates, AI services,
    collaboration) — collaboration last.
