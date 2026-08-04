@@ -3,9 +3,9 @@ import AnglesiteCore
 
 /// Progress of verifying a pasted Cloudflare token, consumed by `CloudflareTokenPromptView`'s
 /// status line and button-enabled logic. A token is only persisted once verification reaches
-/// `.connected`; a `.failed` state keeps the sheet open and leaves storage untouched. Shared
-/// between every Cloudflare token-prompt flow (`DeployModel`, `BuyDomainModel`) rather than
-/// nested in one model, since the view itself is shared.
+/// `.connected`; a `.failed` state keeps the sheet open and leaves storage untouched. Also used by
+/// `DeployModel` (`CloudflareOAuthSignInView.swift`) for its own, unrelated OAuth sign-in progress
+/// — the case shape happens to be identical, so the type is shared rather than duplicated.
 enum CloudflareTokenVerification: Equatable {
     case idle
     case checking
@@ -13,21 +13,22 @@ enum CloudflareTokenVerification: Equatable {
     case failed(message: String)
 }
 
-/// First-deploy modal: guide the user through creating a Cloudflare API token, verify it against
-/// Cloudflare, store it in the Keychain, and let the parked deploy proceed. Surfaced by
-/// `DeployModel` when both the env var and the Keychain are empty at the moment the user clicks
-/// Deploy.
+/// Guide the user through creating a Cloudflare API token, verify it against Cloudflare, and store
+/// it in the Keychain. Surfaced by `BuyDomainModel` when buying a domain needs Cloudflare Registrar
+/// access that the current token doesn't have (#1195) — `DeployModel`'s first-deploy onboarding
+/// uses OAuth sign-in instead (`CloudflareOAuthSignInView`, #1204), not this paste flow.
 ///
 /// The hard part for newcomers isn't pasting — it's knowing *which* token to make. So step 1 links
 /// to a pre-filled Cloudflare token form that creates a custom token named "Anglesite" covering
 /// deploy + harden + the integration wizards (`AnglesiteTokenTemplate`), and the numbered steps
 /// describe that pre-fill by hand in case the (undocumented) pre-fill ever stops working. The token
-/// isn't trusted on faith: `DeployModel.verifyAndSaveToken` runs `wrangler whoami` before
-/// persisting, so a bad token is caught here instead of failing later inside the deploy.
+/// isn't trusted on faith: the caller's `onSubmit` is expected to verify it (e.g. via
+/// `wrangler whoami` or an equivalent API check) before persisting, so a bad token is caught here
+/// instead of failing later.
 ///
 /// The view is intentionally narrow — it only onboards the token. Long-term management (replacing,
 /// clearing) happens in Settings → Advanced → Credentials, which shares the same `KeychainStore`
-/// slot, so a token saved from either entry point is immediately usable by `wrangler deploy`.
+/// slot, so a token saved from either entry point is immediately usable elsewhere.
 struct CloudflareTokenPromptView: View {
     let tokenVerification: CloudflareTokenVerification
     let onSubmit: (String) async -> Void

@@ -44,6 +44,13 @@ public enum AnglesiteTokenTemplate {
         ("registrar", "edit"),
     ]
 
+    /// The OAuth `scope` string covering every permission group above. Cloudflare's self-managed
+    /// OAuth scope names equal API-token permission-group names, so this is the same list,
+    /// space-joined per OAuth's multi-scope convention — not a separately maintained vocabulary.
+    public static var oauthScope: String {
+        permissionGroups.map(\.key).joined(separator: " ")
+    }
+
     /// The dashboard deep link that pre-fills the whole template: name, all accounts/zones (the
     /// one token must cover every site the owner deploys), and ``permissionGroups`` encoded as a
     /// JSON array in a query param. Built with `URLComponents` so that JSON payload is

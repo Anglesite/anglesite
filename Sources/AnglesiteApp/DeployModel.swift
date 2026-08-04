@@ -1,5 +1,6 @@
 import SwiftUI
 import AnglesiteCore
+import AuthenticationServices
 
 /// SwiftUI-facing wrapper around `DeployCommand`. Drives one deploy at a time and exposes the
 /// live log stream, the terminal `Phase`, and the two presentation flags the views consume.
@@ -103,6 +104,10 @@ final class DeployModel {
     /// sheet (#1171), not here, so there's no `pendingDeploy` retry to park.
     var domainConfigDriftPresented: Bool = false
 
+    /// Progress of the Cloudflare sign-in, consumed by `CloudflareOAuthSignInView`'s status line
+    /// and button-enabled logic. The credential is only persisted once verification reaches
+    /// `.connected`; a `.failed` state keeps the sheet open and leaves storage untouched. Shared
+    /// with `BuyDomainModel` (`CloudflareTokenPromptView.swift`) since the case shape is identical.
     private(set) var tokenVerification: CloudflareTokenVerification = .idle
 
     /// Fires every time the deploy pipeline's preflight step resolves, with the
@@ -128,8 +133,9 @@ final class DeployModel {
     private let websubPing: WebSubPublishPing
     private let activityPubOutboxBackfill: ActivityPubOutboxBackfill
     private let logCenter: LogCenter
-    private let keychain: KeychainStore
+    private let keychain: any SecretStore
     private let onboarding: TokenOnboarding
+    private let oauthSignIn: CloudflareOAuthSignIn
     private let summarizer: any DeployFailureSummarizing
     private let contentGraph: SiteContentGraph
     /// Returns the current `@dwk/workers` catalog. Defaults to `{ [] }` (no network, no active
@@ -146,7 +152,7 @@ final class DeployModel {
     private let suddenTerminationController: SuddenTerminationController
     private let tokenAvailabilityOverride: (() -> Bool)?
     /// Site to retry once the user takes the action a parked deploy is waiting on — either
-    /// pasting a Cloudflare token (`verifyAndSaveToken`) or renaming a taken Worker name
+    /// signing in to Cloudflare via OAuth (`signInWithCloudflare`) or renaming a taken Worker name
     /// (`renameWorkerAndRetry`). `nil` outside both prompt flows. Carries the container control
     /// (if any) so the parked-then-retried deploy uses the same executor as the original dispatch.
     private var pendingDeploy: (
@@ -170,8 +176,11 @@ final class DeployModel {
         websubPing: WebSubPublishPing = WebSubPublishPing(),
         activityPubOutboxBackfill: ActivityPubOutboxBackfill = ActivityPubOutboxBackfill(),
         logCenter: LogCenter = .shared,
-        keychain: KeychainStore = KeychainStore(),
+        keychain: any SecretStore = KeychainStore(),
         verifier: TokenVerifying = CloudflareAPITokenVerifier(),
+        oauthSignIn: CloudflareOAuthSignIn = CloudflareOAuthSignIn(
+            client: CloudflareOAuthClient(scope: AnglesiteTokenTemplate.oauthScope),
+            present: CloudflareOAuthSignIn.defaultPresenter),
         summarizer: any DeployFailureSummarizing = DeploySummarizerFactory.makeDefault(),
         suddenTerminationController: SuddenTerminationController = .shared,
         tokenAvailabilityOverride: (() -> Bool)? = nil,
@@ -186,6 +195,7 @@ final class DeployModel {
         self.logCenter = logCenter
         self.keychain = keychain
         self.onboarding = TokenOnboarding(verifier: verifier)
+        self.oauthSignIn = oauthSignIn
         self.summarizer = summarizer
         self.suddenTerminationController = suddenTerminationController
         self.tokenAvailabilityOverride = tokenAvailabilityOverride
@@ -228,9 +238,9 @@ final class DeployModel {
     /// the pending-deploy flow, so a token-prompt retry re-resolves against the runtime's current
     /// state instead of an executor built from a possibly-stale earlier snapshot.
     ///
-    /// First checks whether a Cloudflare token is available (env > Keychain). If neither has one,
-    /// the token-prompt sheet is presented and the deploy is parked until the user pastes and
-    /// verifies a token via `verifyAndSaveToken(_:)` — at which point the parked site is dispatched
+    /// First checks whether a Cloudflare token is available (env > OAuth > legacy Keychain). If
+    /// none has one, the token-prompt sheet is presented and the deploy is parked until the user
+    /// signs in via `signInWithCloudflare()` — at which point the parked site is dispatched
     /// without the user having to click Deploy again.
     func deploy(
         siteID: String,
@@ -310,27 +320,53 @@ final class DeployModel {
         }
     }
 
-    /// Called by the token-prompt sheet's "Connect & deploy" button. Verifies the token against
-    /// Cloudflare (via `wrangler whoami`) *before* persisting it — so a bad token is caught here
-    /// rather than failing later inside the deploy, and never reaches the Keychain. On success the
-    /// token is stored, the connected account is surfaced briefly, and the parked deploy is
-    /// dispatched. On failure the sheet stays open with a specific message.
-    func verifyAndSaveToken(_ token: String) async {
+    /// Called by the sign-in sheet's "Sign in with Cloudflare" button. Runs the OAuth flow,
+    /// verifies the resulting access token against Cloudflare exactly as a pasted token was
+    /// verified — `TokenOnboarding` can't tell the two apart, since both are just Cloudflare API
+    /// bearer tokens — then persists the full credential (access + refresh + expiry) and dispatches
+    /// the parked deploy.
+    func signInWithCloudflare() async {
         guard let pending = pendingDeploy else {
-            // The prompt is only shown with a parked deploy; guard defensively.
             tokenVerification = .failed(message: "No deploy is waiting — close this and click Deploy again.")
             return
         }
 
         tokenVerification = .checking
-        // `TokenOnboarding` owns the verify → persist → flash → re-check-cancel ordering; this method
-        // just maps its outcome onto observable state and the parked deploy. `isCancelled` covers
-        // both the user hitting Cancel (which clears `tokenPromptPresented` via `cancelTokenPrompt`)
-        // and the view tearing down (which cancels this Task).
+        let signInResult: CloudflareOAuthSignIn.Result
+        do {
+            signInResult = try await oauthSignIn.run()
+        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            // The user dismissed the browser sheet — same "no error banner" treatment a dismissed
+            // paste sheet got.
+            tokenVerification = .idle
+            return
+        } catch CloudflareOAuthError.callbackDenied {
+            // The user declined on Cloudflare's own consent screen — same treatment as cancelling
+            // the sheet itself, not a connection failure.
+            tokenVerification = .idle
+            return
+        } catch {
+            // Includes `.stateMismatch` — a hard, generic failure, never silently accepted. The
+            // raw error can carry a Cloudflare API response body (e.g. `tokenExchangeFailed`'s
+            // HTTP detail) that isn't fit to show a non-technical site owner, so only a
+            // plain-language message reaches the UI; the real error goes to the log instead.
+            await logCenter.append(
+                source: "cloudflare-oauth-sign-in", stream: .stderr,
+                text: "Cloudflare sign-in failed: \(error)")
+            tokenVerification = .failed(message: "Couldn't sign in to Cloudflare. Try again in a moment.")
+            return
+        }
+
         let outcome = await onboarding.run(
-            token: token,
+            token: signInResult.token.accessToken,
             siteDirectory: pending.siteDirectory,
-            persist: { try keychain.writeCloudflareToken($0) },
+            persist: { _ in
+                try keychain.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+                    accessToken: signInResult.token.accessToken,
+                    refreshToken: signInResult.token.refreshToken,
+                    expiresAt: signInResult.token.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) },
+                    tokenEndpoint: signInResult.tokenEndpoint))
+            },
             onConnected: { tokenVerification = .connected(accountName: $0.name) },
             delay: { try? await Task.sleep(for: .milliseconds(700)) },
             isCancelled: { Task.isCancelled || !tokenPromptPresented }
@@ -348,7 +384,6 @@ final class DeployModel {
         case .stay(let message):
             tokenVerification = .failed(message: message)
         case .abort:
-            // The user cancelled mid-flow; `cancelTokenPrompt` already cleared the parked deploy.
             tokenVerification = .idle
         }
     }
@@ -450,14 +485,28 @@ final class DeployModel {
         blockedPresented = false
     }
 
-    /// True if either the env var or the Keychain currently holds a non-empty Cloudflare token.
-    /// Keychain errors are treated as "no token" — the user can recover by pasting fresh.
+    /// True if the env var, a stored OAuth credential, or the legacy pasted-token slot currently
+    /// holds a usable Cloudflare credential. Keychain errors are treated as "no token" — the
+    /// user can recover by signing in again. A stored OAuth credential counts as usable unless
+    /// it's *definitely* unrefreshable (expired with no refresh token, e.g. because Cloudflare's
+    /// OAuth doesn't issue one for this client) — in that dead-end case this falls through to the
+    /// next check instead, so the sign-in sheet re-presents rather than deploys failing forever
+    /// with a generic "no token" error. An expired credential that still has a refresh token is
+    /// left to `DeployCommand.keychainTokenSource` to actually refresh (this is a presence check
+    /// only — no refresh attempted here, since it's synchronous).
     private func hasUsableToken() -> Bool {
         if let tokenAvailabilityOverride {
             return tokenAvailabilityOverride()
         }
         if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
             return true
+        }
+        if let credential = try? keychain.readCloudflareOAuthCredential() {
+            let isDefinitelyUnrefreshable = credential.refreshToken == nil
+                && (credential.expiresAt.map { $0 <= Date() } ?? false)
+            if !isDefinitelyUnrefreshable {
+                return true
+            }
         }
         if let stored = (try? keychain.readCloudflareToken()) ?? nil, !stored.isEmpty {
             return true

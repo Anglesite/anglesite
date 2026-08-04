@@ -37,6 +37,14 @@
 		<string>CloudDocuments</string>
 	</array>
 
+	<!-- Cloudflare OAuth sign-in (#1204): matches the callback Worker's `webcredentials` entry at
+	     auth.anglesite.dwk.io. Requires a real provisioning profile — same reason this file (not
+	     the default Debug entitlements) is where the iCloud entitlement above lives too. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:auth.anglesite.dwk.io</string>
+	</array>
+
 	<!-- DEBUG-ONLY WORKAROUND for #775 — do not add to Resources/Anglesite.entitlements.
 	     macOS 27 seeds 26A5378n–26A5388g deny sandboxed processes the mach bootstrap
 	     look-up of com.apple.NetworkSharing that vmnet_network_create now performs, so
