@@ -20,11 +20,21 @@ import SwiftGit2
 
     /// Records every URL it was asked to materialize and returns a scripted outcome — the seam
     /// that keeps real `NSFileVersion`/`startDownloadingUbiquitousItem` out of these tests (P4
-    /// extends this protocol with conflict-version enumeration; this phase only needs the single
-    /// scripted outcome below).
+    /// extends this protocol with conflict-version enumeration).
     private final class FakeVersionStore: VersionStore, @unchecked Sendable {
         var outcome: VersionMaterialization = .alreadyLocal
         private(set) var materializedURLs: [URL] = []
+
+        /// Per-call outcomes, consumed front-to-back, for sequences a single `outcome` can't
+        /// express — an evicted artifact that times out once and then finishes downloading (QA
+        /// §4.3). Empty by default, in which case every call falls back to `outcome`, so call
+        /// sites that only set `outcome` behave exactly as they did before this existed.
+        var outcomes: [VersionMaterialization] = []
+
+        /// Every `timeout` the engine passed in — recorded so a test can prove
+        /// `SyncEngine(materializeTimeout:)` is actually threaded through to this seam rather
+        /// than dropped on the floor (QA §4.4).
+        private(set) var materializeTimeouts: [TimeInterval] = []
 
         /// Manufactured "iCloud conflict versions" — bundle URLs to hand back as
         /// `ConflictVersionHandle`s. Real `NSFileVersion` conflicts can't be created in CI, so
@@ -35,7 +45,9 @@ import SwiftGit2
 
         func materialize(at url: URL, timeout: TimeInterval) async -> VersionMaterialization {
             materializedURLs.append(url)
-            return outcome
+            materializeTimeouts.append(timeout)
+            guard !outcomes.isEmpty else { return outcome }
+            return outcomes.removeFirst()
         }
 
         func conflictVersions(of url: URL) async -> [ConflictVersionHandle] {
@@ -413,6 +425,87 @@ import SwiftGit2
         #expect((try? repo.reference(named: "refs/remotes/peer-0/main").get()) != nil)
     }
 
+    /// QA §2.2 edge: the checklist's simultaneous-edit case assumes both Macs are on the same
+    /// branch. A peer whose history moved to a *different* branch must be ignored rather than
+    /// folded into the branch being synced — the source's "this conflict version doesn't carry the
+    /// branch we're syncing — skip it" path. Its objects still land in their own
+    /// `refs/remotes/peer-<n>/*` namespace (nothing is lost); they're just never merged, and the
+    /// version is never marked resolved.
+    @Test("pull skips a conflict version whose history is on a different branch")
+    func pullSkipsConflictVersionOnAnotherBranch() async throws {
+        let a = try await makeGitPackage(name: "A14", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        // A peer Mac whose whole history moved to `release`: its artifact carries
+        // refs/heads/release and no refs/heads/main at all. Built inline rather than through
+        // `makeConflictVersionBundle` because the rename needs an `await`ed subprocess git call
+        // between the bootstrap and the commit, which that helper's synchronous `edit` closure
+        // can't perform.
+        let peer = try makeFreshPeerPackage(mirroring: a, name: "Peer14")
+        let peerEngine = SyncEngine()
+        guard case .bootstrapped = await peerEngine.pull(package: peer) else {
+            Issue.record("fixture peer bootstrap failed"); return
+        }
+        try await git(["branch", "-m", "main", "release"], in: peer.sourceURL)
+        try "peer-edit".write(to: peer.sourceURL.appendingPathComponent("peer-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: peer.sourceURL)
+        try await git(["commit", "-m", "peer edit on release"], in: peer.sourceURL)
+        guard case .pushed = await peerEngine.push(package: peer) else {
+            Issue.record("fixture peer push failed"); return
+        }
+        let peerRefNames = try BundleArtifact().refs(of: peer.syncBundleURL).map(\.name)
+        #expect(peerRefNames.contains("refs/heads/release"))
+        #expect(!peerRefNames.contains("refs/heads/main"), "precondition: the peer's artifact must not carry main")
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B14")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        // A and B diverge on `main` so reconciliation actually runs and gets a chance to consider
+        // the peer's conflict version.
+        try "a-edit".write(to: a.sourceURL.appendingPathComponent("a-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's work"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        try "b-edit".write(to: b.sourceURL.appendingPathComponent("b-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's work"], in: b.sourceURL)
+
+        let versionStore = FakeVersionStore()
+        versionStore.conflictArtifactURLs = [peer.syncBundleURL]
+        let engine = SyncEngine(versionStore: versionStore)
+        let result = await engine.pull(package: b)
+        guard case .merged(let branch, let mergedTips) = result else {
+            Issue.record("expected .merged, got \(result)"); return
+        }
+        #expect(branch == "main")
+        #expect(mergedTips == ["icloud"], "the peer's release-branch history must be skipped, not folded into main")
+        #expect(versionStore.resolvedIDs.isEmpty, "a skipped conflict version is never marked resolved")
+
+        let fm = FileManager.default
+        #expect(fm.fileExists(atPath: b.sourceURL.appendingPathComponent("a-only.txt").path))
+        #expect(fm.fileExists(atPath: b.sourceURL.appendingPathComponent("b-only.txt").path))
+        #expect(!fm.fileExists(atPath: b.sourceURL.appendingPathComponent("peer-only.txt").path),
+                "the other branch's edit must not appear on main")
+
+        SwiftGit2Bootstrap.ensureInitialized
+        guard case .success(let repo) = Repository.at(b.sourceURL) else {
+            Issue.record("Repository.at failed after reconciliation"); return
+        }
+        // Fetched into its own namespace — recoverable, just not merged.
+        #expect((try? repo.reference(named: "refs/remotes/peer-0/main").get()) == nil)
+        #expect((try? repo.reference(named: "refs/remotes/peer-0/release").get()) != nil)
+    }
+
     @Test("both peers converge to the same history after independently running reconciliation")
     func bothPeersConverge() async throws {
         let a = try await makeGitPackage(name: "A11", commits: 1)
@@ -507,6 +600,74 @@ import SwiftGit2
         if case .pausedForConflict = pushAfterAcknowledge {
             Issue.record("push should no longer be paused after acknowledging the conflict")
         }
+    }
+
+    /// QA §2.3 + §2.8: the banner's backing state is a plain file (`Config/sync/conflict.json`),
+    /// so it must survive the app quitting (a *fresh* engine decodes the same payload — §2.3's
+    /// "the orange banner appears") and must be gone once the sites have converged again (§2.8's
+    /// "no repeat conflict, no banner" on the other Mac's next open). The second half stands in
+    /// for §2.7's resolve-and-apply with a local merge commit, since the resolution UI itself
+    /// (`SyncConflictResolver`) isn't what's under test here.
+    @Test("a conflicted pull persists a conflict marker; a later converged pull clears it")
+    func conflictMarkerPersistsUntilConverged() async throws {
+        let a = try await makeGitPackage(name: "A15", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B15")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+        // B's repo was created by libgit2's bootstrap, so it carries no identity of its own — set
+        // one before the resolution merge below runs through subprocess git.
+        try await git(["config", "user.email", "t@t.io"], in: b.sourceURL)
+        try await git(["config", "user.name", "t"], in: b.sourceURL)
+
+        // Both Macs retype the same file differently from the same base (§2.3).
+        try "a-version".write(to: a.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's conflicting edit"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        try "b-version".write(to: b.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's conflicting edit"], in: b.sourceURL)
+
+        let conflictedPull = await engineB.pull(package: b)
+        guard case .conflicted(let conflict) = conflictedPull else {
+            Issue.record("expected .conflicted, got \(conflictedPull)"); return
+        }
+
+        let markerURL = b.syncDirectoryURL.appendingPathComponent("conflict.json")
+        #expect(FileManager.default.fileExists(atPath: markerURL.path))
+        // A brand-new engine (i.e. the next launch of the app) decodes the identical payload.
+        #expect(SyncEngine().pendingConflict(package: b) == conflict)
+
+        // Resolve on this Mac by keeping its own side of the collision (§2.7's "This Mac" choice),
+        // then let A move on again so the next pull genuinely diverges and merges cleanly.
+        try await git(["merge", "-X", "ours", "-m", "resolve conflict", "--no-edit", "refs/remotes/icloud/main"], in: b.sourceURL)
+
+        try "a-second".write(to: a.sourceURL.appendingPathComponent("a-second.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "a's later work"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture A second push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        let convergedPull = await engineB.pull(package: b)
+        guard case .merged = convergedPull else {
+            Issue.record("expected .merged, got \(convergedPull)"); return
+        }
+        #expect(!FileManager.default.fileExists(atPath: markerURL.path),
+                "a resolved conflict must not re-surface as a banner on the next open")
+        #expect(SyncEngine().pendingConflict(package: b) == nil)
     }
 
     // MARK: - Working-tree conflict-copy quarantine
@@ -684,6 +845,123 @@ import SwiftGit2
         let result = await engineB.pull(package: b)
         #expect(result == .waitingForICloud)
         #expect(versionStore.materializedURLs.contains(b.syncBundleURL))
+    }
+
+    /// QA §4.2: pushing while this Mac's own `source.bundle` is evicted. The checklist predicts
+    /// "push succeeds normally"; the implementation is stricter — it refuses rather than
+    /// overwriting a copy it can't read, so a slow download can't be mistaken for "no artifact
+    /// yet". What §4.2 is really asking ("confirm no crash/hang", nothing damaged) is what's
+    /// asserted here: a typed failure, and an existing artifact left byte-for-byte alone.
+    @Test("push against an evicted artifact fails cleanly without touching the existing artifact")
+    func pushAgainstEvictedArtifactLeavesItIntact() async throws {
+        let pkg = try await makeGitPackage(name: "A16", commits: 1)
+        let versionStore = FakeVersionStore()
+        let engine = SyncEngine(versionStore: versionStore)
+        guard case .pushed = await engine.push(package: pkg) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let fileManager = FileManager.default
+        let refsBefore = try BundleArtifact().refs(of: pkg.syncBundleURL)
+        let mtimeBefore = try fileManager.attributesOfItem(atPath: pkg.syncBundleURL.path)[.modificationDate] as? Date
+
+        // Something genuinely new to push, so a push that got past the eviction check would
+        // definitely rewrite the artifact...
+        try "content 1".write(to: pkg.sourceURL.appendingPathComponent("file1.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: pkg.sourceURL)
+        try await git(["commit", "-m", "second"], in: pkg.sourceURL)
+
+        // ...but the local artifact never finishes materializing.
+        versionStore.outcome = .timedOut
+        let result = await engine.push(package: pkg)
+        guard case .failed(let reason) = result else {
+            Issue.record("expected .failed, got \(result)"); return
+        }
+        #expect(reason.contains("waiting for iCloud"))
+        #expect(versionStore.materializedURLs == [pkg.syncBundleURL])
+
+        let refsAfter = try BundleArtifact().refs(of: pkg.syncBundleURL)
+        let mtimeAfter = try fileManager.attributesOfItem(atPath: pkg.syncBundleURL.path)[.modificationDate] as? Date
+        #expect(Set(refsAfter) == Set(refsBefore), "a push that can't read the artifact must not rewrite it")
+        #expect(mtimeAfter == mtimeBefore)
+        let strays = try fileManager.contentsOfDirectory(at: pkg.syncDirectoryURL, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent != pkg.syncBundleURL.lastPathComponent }
+        #expect(strays.isEmpty, "no half-written sibling temp file left behind: \(strays.map(\.lastPathComponent))")
+    }
+
+    /// QA §4.3: opening the site on the Mac whose artifact is evicted — "Waiting for iCloud…
+    /// briefly while `startDownloadingUbiquitousItem` materializes the file, then proceeds to pull
+    /// normally". The first pull times out and moves no history; the second, once materialization
+    /// succeeds, fast-forwards onto the other Mac's edit.
+    @Test("pull proceeds normally on the next attempt once the evicted artifact materializes")
+    func pullRecoversAfterEvictedArtifactMaterializes() async throws {
+        let a = try await makeGitPackage(name: "A17", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B17")
+        let bootstrapEngine = SyncEngine()
+        guard case .bootstrapped = await bootstrapEngine.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        try "content 1".write(to: a.sourceURL.appendingPathComponent("file1.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "second"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture second push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+        let aHead = try await headOID(in: a.sourceURL)
+        let bHeadBeforePull = try await headOID(in: b.sourceURL)
+
+        // Evicted on the first attempt, downloaded by the second.
+        let versionStore = FakeVersionStore()
+        versionStore.outcomes = [.timedOut, .downloaded]
+        let engineB = SyncEngine(versionStore: versionStore)
+
+        let timedOutPull = await engineB.pull(package: b)
+        #expect(timedOutPull == .waitingForICloud)
+        let bHeadAfterTimeout = try await headOID(in: b.sourceURL)
+        #expect(bHeadAfterTimeout == bHeadBeforePull, "a timed-out pull must move no history at all")
+
+        let recovered = await engineB.pull(package: b)
+        guard case .fastForwarded(let branch, _, let to) = recovered else {
+            Issue.record("expected .fastForwarded once materialization succeeds, got \(recovered)"); return
+        }
+        #expect(branch == "main")
+        #expect(to == aHead)
+        #expect(try await headOID(in: b.sourceURL) == aHead)
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("file1.txt").path))
+        #expect(versionStore.materializedURLs == [b.syncBundleURL, b.syncBundleURL])
+    }
+
+    /// QA §4.4: the checklist asks whether `SyncEngine`'s materialize timeout ("default
+    /// `materializeTimeout`, 15s") is ever hit on a slow connection — which only means anything if
+    /// the value actually reaches the store doing the waiting. Pins both the default and that an
+    /// injected value is threaded through rather than ignored.
+    @Test("the injected materializeTimeout reaches the version store, defaulting to 15s")
+    func materializeTimeoutReachesTheVersionStore() async throws {
+        let pkg = try await makeGitPackage(name: "A18", commits: 1)
+
+        let defaultStore = FakeVersionStore()
+        let defaultEngine = SyncEngine(versionStore: defaultStore)
+        guard case .pushed = await defaultEngine.push(package: pkg) else {
+            Issue.record("fixture push failed"); return
+        }
+        #expect(defaultStore.materializeTimeouts.isEmpty, "no artifact existed yet — nothing to materialize")
+
+        // Now that an artifact exists, push materializes it before comparing against it.
+        let secondPush = await defaultEngine.push(package: pkg)
+        #expect(secondPush == .unchanged)
+        #expect(defaultStore.materializeTimeouts == [15], "SyncEngine's documented default materializeTimeout")
+
+        let customStore = FakeVersionStore()
+        let customEngine = SyncEngine(versionStore: customStore, materializeTimeout: 42)
+        let customPush = await customEngine.push(package: pkg)
+        #expect(customPush == .unchanged)
+        #expect(customStore.materializeTimeouts == [42])
     }
 }
 #endif
