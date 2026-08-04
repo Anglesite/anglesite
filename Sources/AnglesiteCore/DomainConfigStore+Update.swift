@@ -18,6 +18,15 @@ extension DomainConfigStore {
     /// never turn that success into a reported failure. Returns whether the save succeeded so a
     /// caller that does need to know (e.g. to decide whether a *second* write elsewhere should also
     /// happen) can check it; every current best-effort caller ignores it via `@discardableResult`.
+    ///
+    /// **Not atomic across the whole load-mutate-save sequence** (#1255): `load()` and `save()` are
+    /// still two separate calls here, so two concurrent `update()` calls that both mutate the *same*
+    /// top-level section can each `load()` a stale snapshot before either `save()`s, silently
+    /// dropping whichever one saves first — the #1189/#1253 lock only protects `save()`'s own
+    /// read-merge-write, not this gap. Not currently reachable by any producer routed through here
+    /// (no two same-section write-throughs fire concurrently today); #1255 tracks closing it once
+    /// #1253's lock lands, by moving this sequence into `DomainConfigStore.swift` itself so it can
+    /// hold that lock across the full load+mutate+save.
     @discardableResult
     public static func update(
         sourceDirectory: URL, _ mutate: (inout DomainConfig) -> Void
