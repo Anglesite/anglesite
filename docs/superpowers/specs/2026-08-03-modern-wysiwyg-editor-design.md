@@ -112,13 +112,55 @@ research project); the engine leaves that door open.
 - The **theme declares its block palette** in a manifest: name, icon,
   owner-facing description, prop editors, placement rules. Taste and markup
   quality are the theme author's craft; the editor is a component composer
-  underneath.
+  underneath. The manifest format **aligns with the
+  [Custom Elements Manifest](https://github.com/webcomponents/custom-elements-manifest)**
+  (CEM) — a superset adding the owner-facing fields — rather than inventing a
+  dialect the community standard already covers.
 - Content pages stay markdown/MDX where they are today. `editText` ops write
   markdown / semantic HTML runs: the owner sees a "bold" button, the source gets
   `**…**`/`<strong>` — never styled spans.
 - The WYSIWYM lesson lands as: **inline formatting is the small honest set**
   (strong, emphasis, link, code); everything richer is a block, where semantics
   are carried by the component.
+
+### 4.1 Web Components are the destination; Astro components are the stepping stone
+
+The block model's strategic direction is the web platform's own component model.
+Custom elements natively provide what §4 hand-specifies — named components,
+attributes-as-props, `<slot>` (the standard's own word for the concept traced
+back to Dreamweaver's editable regions) — and Declarative Shadow DOM (now
+baseline across engines) removed the historical blocker by making them
+server-renderable with zero JavaScript. A page of self-describing custom-element
+tags collapses source ↔ canvas mapping toward 1:1, makes shadow-DOM style
+encapsulation the standards-level form of this project's component-scoped-styles
+convention, and turns §11's "framework-agnostic hosting" from a research project
+into a consequence — including a browser-only host with no sidecar compiler.
+
+Astro components are the **stepping stone**, carrying the load where the
+platform still falls short:
+
+- **Typed props** — attributes are strings; arrays/objects (a gallery's image
+  list) are awkward, and CEM documents types but cannot enforce them. Astro
+  props are TypeScript-typed end to end.
+- **Build-time data** — collection-driven blocks ("Recent posts") render
+  against content collections at build time; WCs sit *inside* the SSG build
+  regardless, so the compiler-backed model service remains.
+- **Zero-JS default** — interactive WCs ship their definition; Astro ships
+  nothing unless asked.
+
+Consequences for the design, now:
+
+1. **`custom-element` is a first-class block kind** alongside `.astro`
+   components — Astro renders them today, and a WC block is portable across
+   themes, frameworks, and other tools.
+2. **The ops vocabulary maps to platform concepts** — attributes, slots, parts,
+   CSS custom properties — so the editor ages with the web platform, not with a
+   framework. (Quality gates and the inspector must pierce shadow roots; theme
+   tokens flow via custom properties and `::part()`.)
+3. **Migration is per-block, not big-bang:** as platform gaps close, theme
+   blocks move from `.astro` to custom elements without the editor, protocol,
+   or owner noticing. Astro remains the site substrate for as long as it earns
+   its place.
 
 ## 5. Responsive-first canvas
 
