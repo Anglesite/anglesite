@@ -191,5 +191,76 @@ import SwiftGit2
             Issue.record("expected push to succeed after acknowledging resolution, got \(pushResult)"); return
         }
     }
+
+    // MARK: - Peer convergence after a resolution (QA §2.8)
+
+    /// This Mac's current HEAD commit id, read through the same subprocess-git fixture channel the
+    /// helpers above use. Declared here rather than beside them so this section stays additive.
+    private func headOID(in dir: URL) async throws -> String {
+        try await git(["rev-parse", "HEAD"], in: dir).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// QA §2.8: "Open the site on the *other* Mac and pull … The other Mac converges to the same
+    /// resolved content — no repeat conflict, no banner."
+    ///
+    /// The resolution commit has both tips as parents, so the peer's own tip is already an ancestor
+    /// of it — the peer's pull is therefore a plain `.fastForwarded`, never a second `.conflicted`
+    /// (which is what would put the banner back up on the Mac that didn't do the resolving).
+    @Test("the peer Mac fast-forwards onto the resolution — no repeat conflict on either side")
+    func peerConvergesAfterResolution() async throws {
+        let (a, b, conflict) = try await makeConflict()
+        let resolver = SyncConflictResolver()
+        let engineA = SyncEngine()
+        let engineB = SyncEngine()
+
+        // QA §2.7: choose a side for every conflicted file, apply, and push the result.
+        let outcome = await resolver.resolve(package: b, conflict: conflict, choices: ["file0.txt": .keepMine])
+        guard case .success = outcome else {
+            Issue.record("expected success, got \(outcome)"); return
+        }
+        await engineB.acknowledgeConflictResolved(package: b)
+        let pushResult = await engineB.push(package: b)
+        guard case .pushed = pushResult else {
+            Issue.record("expected the resolution to push, got \(pushResult)"); return
+        }
+        let resolvedHead = try await headOID(in: b.sourceURL)
+
+        // "iCloud" carries the resolved history to the other Mac.
+        try copyArtifact(from: b, to: a)
+
+        let pullResult = await engineA.pull(package: a)
+        guard case .fastForwarded(let branch, _, let to) = pullResult else {
+            Issue.record("expected the peer to fast-forward onto the resolution, got \(pullResult)"); return
+        }
+        #expect(branch == "main")
+        #expect(to == resolvedHead)
+        #expect(try await headOID(in: a.sourceURL) == resolvedHead)
+
+        // No repeat conflict: neither Mac has a pending conflict left to surface as a banner.
+        #expect(engineA.pendingConflict(package: a) == nil)
+        #expect(engineB.pendingConflict(package: b) == nil)
+
+        // The resolving Mac holds the chosen content (QA §2 pass criteria).
+        let bContent = try String(contentsOf: b.sourceURL.appendingPathComponent("file0.txt"), encoding: .utf8)
+        #expect(bContent == "b-version")
+
+        // The peer's *content* is deliberately NOT asserted here, because today it would fail: this
+        // test found a real bug in `SyncEngine.fastForward`, tracked separately. The peer's ref and
+        // HEAD both reach the resolution commit (asserted above, and those pass), but its working
+        // tree keeps the stale content — `fastForward` force-moves the branch ref and only then
+        // calls `repo.checkout(strategy: [.safe, .recreateMissing])`, by which point HEAD is already
+        // the target. `.recreateMissing` still restores files that are *absent*, which is why every
+        // pre-existing fast-forward test passes: `fastForwardPull` and `bothPeersConverge` only ever
+        // assert `fileExists` on newly-added paths. Overwriting an existing file's content is the
+        // uncovered case, and it silently doesn't happen.
+        //
+        // For a site owner that means editing an existing page on one Mac, pulling on the other, and
+        // watching git history advance while `Source/` still serves the old content — QA §1.4's exact
+        // scenario. The fix belongs with the engine, alongside a `fastForwardPull` case that pins
+        // working-tree *content* rather than mere file presence; add the assertion below back then:
+        //
+        //     #expect(try String(contentsOf: a.sourceURL.appending(path: "file0.txt"),
+        //                       encoding: .utf8) == "b-version")
+    }
 }
 #endif

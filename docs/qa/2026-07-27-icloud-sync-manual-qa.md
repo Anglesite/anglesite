@@ -3,11 +3,18 @@
 **Issue:** [#881](https://github.com/Anglesite/Anglesite/issues/881) — iCloud sync P5: app wiring, conflict UX, manual QA doc
 **Epic:** [#876](https://github.com/Anglesite/Anglesite/issues/876)
 **Design:** [`docs/superpowers/specs/2026-07-21-icloud-git-sync-design.md`](../superpowers/specs/2026-07-21-icloud-git-sync-design.md)
-**Status:** **NOT YET RUN.** CI and `swift test` exercise `SyncEngine`, `SyncScheduler`, and
-`SyncConflictResolver` against local fixtures and a faked `VersionStore` (real `NSFileVersion`
-conflict versions can't be manufactured in CI). This checklist is the only coverage of the real
-multi-Mac iCloud path and must be run by hand on real hardware before this feature is considered
-release-ready.
+**Status:** **NOT YET RUN.** CI and `swift test` exercise `SyncEngine`, `SyncScheduler`,
+`SyncConflictResolver`, `VersionStore`, `ICloudSyncEligibility`, and `SyncModel` against local
+fixtures and a faked `VersionStore` (real `NSFileVersion` conflict versions can't be manufactured
+in CI). This checklist is the only coverage of the real multi-Mac iCloud path and must be run by
+hand on real hardware before this feature is considered release-ready.
+
+**Automated coverage.** Each section below opens with an *Automated* note naming the tests that
+now pin its non-hardware-dependent behavior. Those tests are not a substitute for running the
+section — they narrow what a failure here can mean. If a step's automated counterpart is green and
+the step still fails by hand, the fault is in the iCloud/multi-device layer the tests can't reach
+(propagation, eviction, `NSFileVersion` conflict minting), not in the reconciliation logic.
+**Section 5 is the exception: it is now fully automated and need not be run by hand.**
 
 ## Purpose
 
@@ -63,6 +70,14 @@ Verify that a `.anglesite` package kept in iCloud Drive:
 
 Baseline case: edit on Mac A, close, edit on Mac B — no true concurrency.
 
+> **Automated.** `SyncSchedulerTests.statusObserverReportsSyncingThenSynced` pins the
+> `Syncing… → Synced` transition *order* (1.1), `injectedClockStampsSyncedDate` pins the date the
+> `Synced` state carries, and `nonUpToDatePullResultsReportSynced` pins that a fast-forward pull
+> settles on `Synced` with no banner (1.3–1.4). `SyncEngineTests.fastForwardPull`,
+> `freshPeerBootstraps`, and `bothPeersConverge` cover the engine-side handoff on real fixture
+> repos. What stays manual: that iCloud actually propagates `source.bundle` between two Macs, and
+> how long that takes.
+
 | Step | Action | Expected outcome |
 |---|---|---|
 | 1.1 | On Mac A, create a new site (or open an existing iCloud-hosted one) and make a content edit. | Toolbar sync icon shows `Syncing…` shortly after the edit auto-commits (via `BackupCommand`), then `Synced`. |
@@ -77,6 +92,22 @@ Baseline case: edit on Mac A, close, edit on Mac B — no true concurrency.
 
 The core scenario #881 is required to handle: both Macs editing *while online* at close to the same
 time.
+
+> **Automated.** `SyncEngineTests.divergedPullMergesNonOverlappingEdits` (2.1–2.2),
+> `divergedPullReportsOverlappingConflict` (2.3), `pullSkipsConflictVersionOnAnotherBranch` (2.2,
+> peer on a different branch is skipped rather than mis-merged), `pushPausesWhileConflicted` (2.4),
+> and `conflictMarkerPersistsUntilConverged` (2.3/2.8 — the conflict survives a relaunch and clears
+> only once converged, so a resolved conflict can't re-surface as a banner).
+> `SyncConflictResolverTests.loadsBothSides`/`resolveKeepMine`/`resolveKeepTheirs` cover the sheet's
+> data layer (2.5, 2.7) and `peerConvergesAfterResolution` covers the other Mac converging (2.8) —
+> its *history* only. That test found a live bug: the peer's ref and HEAD reach the resolution
+> commit but its working tree keeps the stale content, so **2.8's "converges to the same resolved
+> content" is currently expected to fail by hand** until the engine fix lands. Check it deliberately
+> rather than skimming past it.
+> `SyncSchedulerTests.conflictResolvedRepullsAndClears` covers leaving `needs attention` (2.7).
+> What stays manual: iCloud actually minting `NSFileVersion` conflict versions from two real
+> concurrent writes (2.2–2.3 — the tests hand-build those handles), the sheet and banner as
+> *rendered UI*, "Open Both…" opening Finder (2.6), and that the banner doesn't block editing (2.4).
 
 | Step | Action | Expected outcome |
 |---|---|---|
@@ -97,6 +128,16 @@ both Macs converge to the identical chosen content.
 
 ## 3. Offline edit + reconnect
 
+> **Automated.** `SyncSchedulerTests.failedPushSurfacesFailure` pins that a push failure reaches the
+> toolbar as `.failed(reason:)` with the engine's own prose intact rather than a generic error
+> (3.2), and `retryAfterFailedPushSucceeds` pins that an ordinary later trigger recovers to `Synced`
+> with no manual action — the pass criterion that there is no "sync now" button by design (3.4).
+> `stopCancelsPendingDebounce` pins that closing the window mid-debounce doesn't fire a stray push.
+> `SyncEngineTests.divergedPullMergesNonOverlappingEdits` covers the merge that reconnection
+> produces (3.5). What stays manual: whether a real offline push fails fast rather than hanging —
+> the fake engine decides that outcome, so only real Wi-Fi-off can establish it — and reconnect
+> latency.
+
 | Step | Action | Expected outcome |
 |---|---|---|
 | 3.1 | On Mac A, turn off Wi-Fi (or otherwise fully disconnect from the network). | App keeps working normally — editing is fully local. |
@@ -115,10 +156,19 @@ if automatic reconnection sync doesn't fire promptly).
 Exercises `VersionStore.materialize`'s eviction-handling path (`waitingForICloud`) against a real,
 not faked, ubiquitous item.
 
+> **Automated.** `SyncEngineTests.pushAgainstEvictedArtifactLeavesItIntact` (4.2),
+> `pullRecoversAfterEvictedArtifactMaterializes` (4.3 — `waitingForICloud` then a normal
+> fast-forward on the next attempt), and `materializeTimeoutReachesTheVersionStore` (4.4 — the
+> injected timeout really reaches the seam, defaulting to 15s). `VersionStoreTests` covers
+> `UbiquitousVersionStore`'s non-ubiquitous short-circuit and `ConflictVersionHandle`'s value
+> semantics. What stays manual: everything involving a *real* evicted item — Finder badges,
+> `startDownloadingUbiquitousItem`'s actual latency, and whether 15s is the right timeout on a slow
+> link, which is a measurement rather than an assertion.
+
 | Step | Action | Expected outcome |
 |---|---|---|
 | 4.1 | On Mac B (not currently editing this site), enable "Optimize Mac Storage" for iCloud Drive (System Settings ▸ Apple ID ▸ iCloud ▸ iCloud Drive), or manually evict the file: Finder ▸ right-click `source.bundle` ▸ "Remove Download". | The Finder badge on `source.bundle` shows the cloud-download (not-yet-downloaded) icon. |
-| 4.2 | On Mac A, make an edit and let it push. | Push succeeds normally (push doesn't require the *local* copy to be materialized before overwriting it — confirm no crash/hang). |
+| 4.2 | On Mac A, make an edit and let it push, with Mac A's *own* copy of `source.bundle` evicted. | Push materializes the existing artifact **before** comparing against it, so an evicted local copy makes the push report `Waiting for iCloud…` rather than succeed. Confirm it fails cleanly — no crash, no hang, and the existing `source.bundle` is left byte-for-byte intact — then succeeds once the download finishes. *(Corrected 2026-08-04: this row previously predicted "push succeeds normally… doesn't require the local copy to be materialized". `SyncEngine.push` does the opposite, deliberately — reading a not-yet-downloaded placeholder would look like "no artifact yet" and force a spurious rewrite. See `SyncEngine.swift`'s materialize-before-compare branch and `SyncEngineTests.pushAgainstEvictedArtifactLeavesItIntact`.)* |
 | 4.3 | On Mac B, open the site (forcing a pull against the evicted local artifact). | Toolbar icon shows `Waiting for iCloud…` briefly while `startDownloadingUbiquitousItem` materializes the file, then proceeds to pull normally and shows `Synced` with Mac A's edit present. If materialization takes unusually long, confirm the UI stays responsive (not blocked) and eventually settles rather than hanging indefinitely. |
 | 4.4 | Repeat with a large-ish site history (many commits) if practical, to see whether the timeout (`SyncEngine`'s default `materializeTimeout`, 15s) is ever hit on a slow connection. | If it times out, the UI should show a clear "waiting for iCloud" state rather than a confusing generic failure — note whether the copy is legible and actionable. |
 
@@ -127,6 +177,19 @@ sees either progress or an explicit "waiting for iCloud" state, per the mac-asse
 requirement that a blocking operation always show a clear operation/status.
 
 ## 5. Non-iCloud site: zero activity (sanity check)
+
+> **Automated — this section does not need to be run by hand.** It needs no iCloud account and no
+> second Mac: a package under the system temp directory is non-ubiquitous for exactly the same
+> reason a package on an external volume is, so `ICloudSyncEligibility` answers `false` honestly.
+> `SyncModelTests.localPackageIsIneligibleAndIdle` (5.1 — `isEligible == false` is precisely the
+> condition that makes `SyncStatusView` render nothing), `localPackageCreatesNoSyncFilesOnDisk`
+> (5.3), `pushTriggersAreInertForALocalPackage` (5.2), and `conflictUIStaysAbsentForALocalPackage`
+> cover it, with `ICloudSyncEligibilityTests` pinning the underlying predicate in both directions.
+> One caveat: 5.2's literal observation channel is the Debug Pane's `sync:*` lines, and the tests
+> assert the durable proxy instead — the model never leaves `.idle` and `Config/sync/` is never
+> created, neither of which can be true if anything emitted a `sync:*` line. Asserting on
+> `LogCenter` directly would be flaky, since it's a process-wide ring buffer and suites run in
+> parallel.
 
 | Step | Action | Expected outcome |
 |---|---|---|
