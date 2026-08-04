@@ -237,7 +237,201 @@ import AnglesiteSiteModel
         func acknowledgeConflictResolved(package: AnglesitePackage) async {}
     }
 
+    // MARK: - Status observation (QA §1)
+
+    /// QA §1.1: automates the "toolbar sync icon shows `Syncing…` … then `Synced`" observation,
+    /// which the manual checklist can only make by eye. Exercises the `onStatusChange` seam that
+    /// `SiteWindow`/`SyncModel` actually consume, so the *order* of the transitions is asserted,
+    /// not just the terminal status.
+    @Test("a successful push reports syncing then synced through the status observer")
+    func statusObserverReportsSyncingThenSynced() async throws {
+        let package = try makePackage()
+        let engine = FakeEngine()
+        await engine.set(pushResult: .pushed(refs: []))
+        let recorder = StatusRecorder()
+        let scheduler = SyncScheduler(
+            package: package, engine: engine, pushDebounce: .zero,
+            onStatusChange: { recorder.record($0) })
+
+        await scheduler.backupCompleted()
+        try await waitUntil { await engine.pushCount == 1 }
+        try await waitUntil { recorder.statuses().count == 2 }
+
+        let observed = recorder.statuses()
+        guard observed.count == 2 else {
+            Issue.record("expected exactly 2 status changes, got \(observed)")
+            return
+        }
+        #expect(observed[0] == .syncing)
+        guard case .synced = observed[1] else {
+            Issue.record("expected .synced after .syncing, got \(observed[1])")
+            return
+        }
+    }
+
+    /// QA §1.1: the `Synced` toolbar state renders "synced N minutes ago" from the date carried in
+    /// `.synced(_)`. Pinning the injected clock is the only way to assert that date is the moment
+    /// the sync completed rather than, say, a stale value carried over from an earlier transition.
+    @Test("the injected clock stamps the synced status with exactly that date")
+    func injectedClockStampsSyncedDate() async throws {
+        let package = try makePackage()
+        let engine = FakeEngine()
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
+        let scheduler = SyncScheduler(package: package, engine: engine, now: { fixed })
+
+        let status = await scheduler.siteOpened()
+        #expect(status == .synced(fixed))
+    }
+
+    // MARK: - Pull outcomes that are still "synced" (QA §1.3, §2.2)
+
+    /// QA §1.3 (clean fast-forward on reopen) and §2.2 (`merged` after true concurrent edits):
+    /// both steps expect the toolbar to settle on `Synced` with no banner, even though the pull
+    /// did real work. Also covers `.bootstrapped` (fresh peer / repaired repo) and `.localAhead`
+    /// (nothing to pull), which `runPull` folds into the same `.synced` case.
+    @Test("merged/fastForwarded/bootstrapped/localAhead pulls all report synced")
+    func nonUpToDatePullResultsReportSynced() async throws {
+        let package = try makePackage()
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
+        let results: [SyncEngine.PullResult] = [
+            .merged(branch: "main", mergedTips: ["icloud", "peer-1"]),
+            .fastForwarded(branch: "main", from: "aaa", to: "bbb"),
+            .bootstrapped(branch: "main"),
+            .localAhead(branch: "main"),
+        ]
+
+        for result in results {
+            let engine = FakeEngine()
+            await engine.set(pullResult: result)
+            let scheduler = SyncScheduler(package: package, engine: engine, now: { fixed })
+
+            let status = await scheduler.siteOpened()
+            guard case .synced(let date) = status else {
+                Issue.record("expected .synced for \(result), got \(status)")
+                continue
+            }
+            #expect(date == fixed)
+        }
+    }
+
+    // MARK: - Push failure and recovery (QA §3)
+
+    /// QA §3.2: editing while offline, where the debounced push can't reach iCloud. The checklist
+    /// asks the tester to "note exactly what it shows"; this pins the answer to `.failed(reason:)`
+    /// with the engine's own owner-readable prose preserved verbatim, so the toolbar never shows a
+    /// generic failure in place of the real one.
+    @Test("a failed push surfaces failed with the engine's reason preserved")
+    func failedPushSurfacesFailure() async throws {
+        let package = try makePackage()
+        let engine = FakeEngine()
+        await engine.set(pushResult: .failed(reason: "couldn't reach iCloud"))
+        let scheduler = SyncScheduler(package: package, engine: engine, pushDebounce: .zero)
+
+        await scheduler.backupCompleted()
+        try await waitUntil { await engine.pushCount == 1 }
+        try await waitUntil { await scheduler.currentStatus() == .failed(reason: "couldn't reach iCloud") }
+        #expect(await scheduler.currentStatus() == .failed(reason: "couldn't reach iCloud"))
+    }
+
+    /// QA §3.4: reconnecting Wi-Fi must resume syncing with **no manual action** — the pass
+    /// criteria explicitly note there is no "sync now" button by design. A scheduler that latched
+    /// `.failed` and refused later triggers would break that, so this drives a failed push and
+    /// then an ordinary later trigger, and asserts the second push actually runs and lands on
+    /// `.synced`.
+    @Test("a trigger after a failed push recovers to synced with no manual action")
+    func retryAfterFailedPushSucceeds() async throws {
+        let package = try makePackage()
+        let engine = FakeEngine()
+        await engine.set(pushResult: .failed(reason: "offline"))
+        let scheduler = SyncScheduler(package: package, engine: engine, pushDebounce: .zero)
+
+        await scheduler.backupCompleted()
+        try await waitUntil { await scheduler.currentStatus() == .failed(reason: "offline") }
+
+        await engine.set(pushResult: .pushed(refs: []))
+        await scheduler.deployCompleted()
+        try await waitUntil { await engine.pushCount == 2 }
+        try await waitUntil {
+            if case .synced = await scheduler.currentStatus() { return true }
+            return false
+        }
+    }
+
+    /// QA §3 hygiene: closing a site window (or quitting, §1.2) calls `stop()`, and a debounce
+    /// still counting down must not fire a push afterwards. Not directly observable by hand — the
+    /// manual checklist can only note the absence of a `sync:push` line — so it's asserted here.
+    @Test("stop() cancels a pending debounce so no push ever runs")
+    func stopCancelsPendingDebounce() async throws {
+        let package = try makePackage()
+        let engine = FakeEngine()
+        let gate = ManualDebounceGate()
+        let scheduler = SyncScheduler(
+            package: package, engine: engine, pushDebounce: .milliseconds(250),
+            sleep: { _ in
+                await gate.sleep()
+                // Production's `Task.sleep(for:)` throws `CancellationError` once the debounce
+                // Task is cancelled; `ManualDebounceGate` alone doesn't model cancellation (see
+                // `pushTriggersCoalesce`'s note), so mirror that half of the real seam explicitly.
+                // Without it the fake sleep would return normally after `stop()` and `beginPush()`
+                // would still fire — testing the gate rather than `stop()`.
+                try Task.checkCancellation()
+            })
+
+        await scheduler.backupCompleted()
+        try await waitUntil { await gate.armedCount() == 1 }
+        await scheduler.stop()
+        await gate.release()
+
+        // Negative assertion, so there's no state to wait *for*: settle briefly and assert nothing
+        // happened, exactly as `idleSchedulerTouchesNothing` does.
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(await engine.pushCount == 0)
+    }
+
+    // MARK: - Conflict resolution (QA §2.7, §2.8)
+
+    /// QA §2.7/§2.8: after the resolution sheet applies a side, the toolbar must leave
+    /// `N files need attention` and return to `Syncing…` → `Synced`, and the other Mac must
+    /// converge on its next pull. `conflictResolved()` is the app-side hook for that — it re-pulls
+    /// and re-derives status from the fresh result rather than clearing `.needsAttention` locally.
+    /// Note it does *not* itself call `acknowledgeConflictResolved(package:)`; per its doc comment
+    /// the caller (`SyncConflictResolver`) has already done so before invoking it, so
+    /// `acknowledgedCount` stays 0 here.
+    @Test("conflictResolved() re-pulls and clears needsAttention once the resolution landed")
+    func conflictResolvedRepullsAndClears() async throws {
+        let package = try makePackage()
+        let engine = FakeEngine()
+        let conflict = SyncEngine.SyncConflict(
+            branch: "main", conflictedPaths: ["file.txt"], ourOID: "aaa", theirOID: "bbb", theirSource: "icloud")
+        await engine.set(pullResult: .conflicted(conflict))
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
+        let scheduler = SyncScheduler(package: package, engine: engine, now: { fixed })
+
+        #expect(await scheduler.siteOpened() == .needsAttention(conflict))
+
+        // The resolution merge commit is now local history the artifact doesn't have yet, so the
+        // engine's next pull reports `.localAhead` — still a clean, banner-free state.
+        await engine.set(pullResult: .localAhead(branch: "main"))
+        let status = await scheduler.conflictResolved()
+        #expect(await engine.pullCount == 2)
+        #expect(status == .synced(fixed))
+        #expect(await engine.acknowledgedCount == 0)
+    }
+
     // MARK: - Helpers
+
+    /// Ordered sink for `SyncScheduler.StatusObserver`. `StatusObserver` is a synchronous
+    /// `@Sendable (Status) -> Void` invoked inline inside the scheduler's own isolation, so it
+    /// can't `await` — which rules out an actor here (that would force `Task { await record(…) }`,
+    /// and `Task` ordering is non-deterministic, breaking the transition-order assertion). A plain
+    /// lock is the right tool for a synchronous concurrent sink; mirrors
+    /// `DeployCommandProgressTests.ProgressRecorder`.
+    private final class StatusRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var items: [SyncScheduler.Status] = []
+        func record(_ s: SyncScheduler.Status) { lock.lock(); items.append(s); lock.unlock() }
+        func statuses() -> [SyncScheduler.Status] { lock.lock(); defer { lock.unlock() }; return items }
+    }
 
     private func waitUntil(
         timeout: Duration = .seconds(10),
