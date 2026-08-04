@@ -226,6 +226,97 @@ import SwiftGit2
         #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("file1.txt").path))
     }
 
+    /// QA §1.4 / #1245: the peer must end up with the *content* of the fast-forwarded history, not
+    /// merely its refs.
+    ///
+    /// The regression this pins is narrow and was invisible for a long time: every other
+    /// fast-forward assertion in this file checks `fileExists` on a newly **added** path, and an
+    /// added path is absent from the peer's working tree, so `.recreateMissing` restores it no
+    /// matter what the checkout strategy is. Rewriting an **existing** tracked file is the case
+    /// that actually exercises the update, and under the old `.safe` strategy it silently did
+    /// nothing — history advanced while `Source/` still served the old page.
+    @Test("a fast-forward pull rewrites an existing file's content, not just added files")
+    func fastForwardPullUpdatesExistingFileContent() async throws {
+        let a = try await makeGitPackage(name: "A15", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B15")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        // A rewrites a file that already exists on both sides, rather than adding a new one.
+        try "rewritten by A".write(
+            to: a.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "rewrite file0"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture second push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        let aHead = try await headOID(in: a.sourceURL)
+        let result = await engineB.pull(package: b)
+        guard case .fastForwarded(_, _, let to) = result else {
+            Issue.record("expected .fastForwarded, got \(result)"); return
+        }
+        #expect(to == aHead)
+        #expect(try await headOID(in: b.sourceURL) == aHead)
+
+        let content = try String(
+            contentsOf: b.sourceURL.appendingPathComponent("file0.txt"), encoding: .utf8)
+        #expect(content == "rewritten by A", "the peer's working tree must match the history it fast-forwarded to")
+    }
+
+    /// #1245 sibling path: the same content check against the *merge* branch of reconciliation,
+    /// which shares `fastForward`'s move-then-checkout shape. It has always used `.force`, so this
+    /// is expected to pass unchanged — it's here so the two paths can't drift apart silently, since
+    /// the merge path's own tests likewise only ever assert on newly-added files.
+    @Test("a merging pull rewrites an existing file the other Mac changed")
+    func mergePullUpdatesExistingFileContent() async throws {
+        let a = try await makeGitPackage(name: "A16", commits: 1)
+        let engineA = SyncEngine()
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture push failed"); return
+        }
+
+        let b = try makeFreshPeerPackage(mirroring: a, name: "B16")
+        let engineB = SyncEngine()
+        guard case .bootstrapped = await engineB.pull(package: b) else {
+            Issue.record("fixture bootstrap failed"); return
+        }
+
+        // A rewrites the shared file; B commits an unrelated addition, so the histories diverge and
+        // reconciliation takes the three-way-merge branch rather than fast-forwarding.
+        try "rewritten by A".write(
+            to: a.sourceURL.appendingPathComponent("file0.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: a.sourceURL)
+        try await git(["commit", "-m", "rewrite file0"], in: a.sourceURL)
+        guard case .pushed = await engineA.push(package: a) else {
+            Issue.record("fixture second push failed"); return
+        }
+        try copyArtifact(from: a, to: b)
+
+        try "b's own work".write(
+            to: b.sourceURL.appendingPathComponent("b-only.txt"), atomically: true, encoding: .utf8)
+        try await git(["add", "-A"], in: b.sourceURL)
+        try await git(["commit", "-m", "b's addition"], in: b.sourceURL)
+
+        let result = await engineB.pull(package: b)
+        guard case .merged = result else {
+            Issue.record("expected .merged, got \(result)"); return
+        }
+
+        let content = try String(
+            contentsOf: b.sourceURL.appendingPathComponent("file0.txt"), encoding: .utf8)
+        #expect(content == "rewritten by A", "the merge result must reach the working tree, not just the index")
+        #expect(FileManager.default.fileExists(atPath: b.sourceURL.appendingPathComponent("b-only.txt").path))
+    }
+
     @Test("pull reports upToDate when local and artifact history already match")
     func upToDatePull() async throws {
         let a = try await makeGitPackage(name: "A2", commits: 1)

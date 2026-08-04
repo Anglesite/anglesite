@@ -75,8 +75,10 @@ Baseline case: edit on Mac A, close, edit on Mac B — no true concurrency.
 > `Synced` state carries, and `nonUpToDatePullResultsReportSynced` pins that a fast-forward pull
 > settles on `Synced` with no banner (1.3–1.4). `SyncEngineTests.fastForwardPull`,
 > `freshPeerBootstraps`, and `bothPeersConverge` cover the engine-side handoff on real fixture
-> repos. What stays manual: that iCloud actually propagates `source.bundle` between two Macs, and
-> how long that takes.
+> repos, and `fastForwardPullUpdatesExistingFileContent` pins step 1.4's real payload — that a
+> rewritten **existing** page reaches the other Mac's `Source/`, not merely its git history (#1245).
+> What stays manual: that iCloud actually propagates `source.bundle` between two Macs, and how long
+> that takes.
 
 | Step | Action | Expected outcome |
 |---|---|---|
@@ -100,10 +102,7 @@ time.
 > only once converged, so a resolved conflict can't re-surface as a banner).
 > `SyncConflictResolverTests.loadsBothSides`/`resolveKeepMine`/`resolveKeepTheirs` cover the sheet's
 > data layer (2.5, 2.7) and `peerConvergesAfterResolution` covers the other Mac converging (2.8) —
-> its *history* only. That test found a live bug: the peer's ref and HEAD reach the resolution
-> commit but its working tree keeps the stale content, so **2.8's "converges to the same resolved
-> content" is currently expected to fail by hand** until the engine fix lands. Check it deliberately
-> rather than skimming past it.
+> including its working-tree *content*, not just its refs, which is the assertion that caught #1245.
 > `SyncSchedulerTests.conflictResolvedRepullsAndClears` covers leaving `needs attention` (2.7).
 > What stays manual: iCloud actually minting `NSFileVersion` conflict versions from two real
 > concurrent writes (2.2–2.3 — the tests hand-build those handles), the sheet and banner as
