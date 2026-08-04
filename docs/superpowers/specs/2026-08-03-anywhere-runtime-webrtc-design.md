@@ -10,7 +10,7 @@ Mobile website development in Anglesite is currently gated on the Cloudflare rem
 
 WebRTC solves exactly that. With a rendezvous channel for the handshake and STUN/TURN for NAT traversal, the phone and the Mac establish a direct, E2E-encrypted connection from anywhere — no cloud runtime, no standing server, no open ports on the Mac, no billing dependency.
 
-**This spec re-bases the iOS thin client (#342) onto the owner's own Mac.** #66 stays deferred; if it ever ships, it becomes the "Mac is offline" fallback, not the mainline.
+**This spec re-bases the iOS thin client (#71, tracked under epic #342) onto the owner's own Mac.** #66 stays deferred; if it ever ships, it becomes the "Mac is offline" fallback, not the mainline.
 
 ## Owner-approved scope decisions (2026-08-03)
 
@@ -25,7 +25,7 @@ WebRTC solves exactly that. With a rendezvous channel for the handshake and STUN
 ## Approaches considered for the transport
 
 - **A. Generic port tunnel (most BitBang-like).** Mux'd TCP-over-data-channel; iOS runs a loopback proxy so WKWebView and the HTTP MCP transport hit `localhost`. Everything tunnels automatically (incl. HMR websockets) and `VsockTCPProxy`'s splice machinery is reusable, but iOS loopback listeners are fiddly (backgrounding, ATS, port collisions) and it tunnels HTTP framing we don't need.
-- **B. Protocol-aware bridge (chosen).** MCP rides a data channel natively via the `MCPTransport` seam; preview loads through a `WKURLSchemeHandler` backed by fetch-over-data-channel; HMR gets a dedicated relay channel. No listeners on iOS, everything in-process, every piece lands on an existing seam. Cost: the fetch bridge must faithfully reproduce HTTP semantics (streaming, redirects, headers).
+- **B. Protocol-aware bridge (chosen).** MCP rides a data channel natively via the `MCPTransport` seam; preview loads through a `WKURLSchemeHandler` backed by fetch-over-data-channel; HMR gets a dedicated relay channel. No listeners on iOS, everything in-process, every piece lands on an existing seam. Cost: the fetch bridge must faithfully reproduce HTTP semantics (streaming, redirects, headers). Note on redirects: `WKURLSchemeHandler` has no built-in 3xx following, so the bridge passes redirects through verbatim and the **P4 scheme handler must mechanize them explicitly** (follow internally within the bridge, or synthesize the navigation) — a P4-plan requirement, not something WebKit provides for free.
 - **C. Hybrid (B for MCP, A for preview).** Rejected: ships two transport mechanisms.
 
 ## Architecture
@@ -45,7 +45,9 @@ Wraps libwebrtc behind a small Swift API. Four logical data channels per session
 
 Registered as a login item via `SMAppService.agent`. It is a real (faceless) app rather than a bare LaunchAgent binary **specifically so it can receive CloudKit push** — bare agents can't register for remote notifications, which would degrade connect latency to CloudKit polling. The helper owns the signaling listener, the WebRTC endpoint, on-demand container boot, and the deploy path.
 
-The helper has **zero listening ports** — outbound-only. That is a materially better security posture than any port-forwarding or tunnel design: there is nothing on the Mac to scan, probe, or brute-force.
+The helper has **no standing listening ports** — it only dials out. (WebRTC's ICE negotiation still binds ephemeral UDP ports for hole-punching while a session is being established; what the design eliminates is any *stable inbound service*.) That is a materially better security posture than a port-forwarding or tunnel design: there is no always-on endpoint on the Mac to scan, probe, or brute-force.
+
+Introducing the helper **amends the "`Anglesite` is the only app target" invariant** documented in `CLAUDE.md`/`AGENTS.md` ▸ "Build target": P1 adds a second, embedded app bundle. The P1 plan must update that document alongside the code rather than leaving the two silently disagreeing.
 
 **File access.** Sites in the iCloud Drive "Anglesite" folder need no grants — both processes carry the ubiquity-container entitlement. For a site stored elsewhere, security-scoped bookmarks are app-scoped, so the main app's grants don't transfer; instead, when the owner enables remote access for such a site, the **helper presents a one-time `NSOpenPanel`** pre-targeted at the `.anglesite` package and saves its own bookmark from the powerbox grant. iCloud sites: zero-prompt; non-iCloud sites: one approval panel at enable time.
 
@@ -57,9 +59,13 @@ SDP offers/answers and trickle-ICE candidates are short-TTL records in the owner
 
 Gains `P2PSiteRuntime: SiteRuntime`: `start()` drives signaling → connected session → reports a preview URL in a custom scheme (`anglesite-p2p://…`) resolved by a `WKURLSchemeHandler` through the fetch bridge, plus an `MCPClient` connected over `WebRTCTransport`. `PreviewView`'s contract — load whatever URL the runtime reports — is untouched. All edit journeys arrive via the same MCP tools the Mac app uses.
 
+`AnglesiteMobile`'s existing #71 scaffold (`RemoteSessionModel`, the HTTP-only `MCPClient` wiring, `RemoteSandboxSiteRuntime`) is not deleted by this re-base: `P2PSiteRuntime` becomes the mainline runtime the app selects, and the remote-sandbox path stays behind it as the deferred #66 fallback. The P4 plan owns the runtime-selection policy and any pruning of that scaffold.
+
 ### 5. Mac-side runtime glue
 
 On session start the helper boots `LocalContainerSiteRuntime` for the requested site and bridges the channels to the container's loopback proxy ports. **One container owner per site, always:** if the main app already has the site open, the helper does not boot a second container — the app publishes its live proxy ports in app-group state and the helper bridges to those instead. The helper links `AnglesiteContainer` and carries the virtualization entitlement.
+
+Multiple paired devices (iPhone + iPad) may hold sessions concurrently: the helper runs one bridge stack per WebRTC session, and each bridge opens its **own loopback HTTP/MCP connections** to the shared container — sessions never multiplex over a single loopback socket. The MCP server serializes edits across sessions exactly as it does for two Mac windows; the P1 plan specifies the helper's session table.
 
 Git remains the source of truth exactly as today (#72): phone edits land in the container working copy via MCP, and commit/push semantics are identical whether the editor was the Mac app or the phone.
 
@@ -70,6 +76,8 @@ Git remains the source of truth exactly as today (#72): phone edits land in the 
 **Session auth.** DTLS provides transport encryption and mutual authentication against pinned certificates. `SessionToken` stays `nil` on the MCP connect path — there is nothing a bearer adds inside an already-mutually-authenticated channel. The TURN relay, when used, only ever sees DTLS ciphertext.
 
 **TURN via the owner's Cloudflare account.** The helper holds the already-onboarded Cloudflare token (the deploy credential). At session setup it mints short-lived Cloudflare Realtime TURN credentials and hands them to the phone inside the signed signaling payload. No token onboarded → STUN-only, with an honest failure when P2P is impossible. Relayed bytes bill to the owner's own free-tier allowance — no shared infrastructure, no operator-run relay.
+
+Scope separation: the deploy token's privileges are broader than TURN minting needs, so the **P3 plan must mint TURN credentials from a separately-scoped token** (created during onboarding, alongside the deploy token) — a compromised minting path must not be able to touch deploys. P3 also defines mid-session failure behavior (rate limit, revocation): an established relay path keeps working on its already-issued short-lived credential; only new ICE restarts lose the relay and fall back to STUN-or-fail.
 
 **Publish from the phone.** The phone never deploys. It sends a deploy *request* over `control`; the **Mac** runs the exact existing pipeline — `PreDeployCheck` (the non-bypassable gate, unchanged and unreachable from the phone) then deploy — streaming progress back over `control`. Failure output streams to the phone verbatim (logs are sacred).
 

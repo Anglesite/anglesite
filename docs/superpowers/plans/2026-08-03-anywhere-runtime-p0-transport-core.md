@@ -1,12 +1,14 @@
 # Anywhere Runtime P0 — `AnglesiteP2P` Transport Core Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **As-built note (2026-08-04):** P0 landed via PR #1219; the exit criterion passed on macOS (confirming stasel/WebRTC 150.0.0 ships a `macos-x86_64_arm64` slice). This plan text was updated post-review to match as-built decisions: commit-revision dependency pin, percent-decode-then-check traversal guard, and load-tolerant (event-driven) heartbeat timing tests.
 
 **Goal:** Vendor libwebrtc and build the `AnglesiteP2P` SwiftPM target — four logical data channels (`mcp`/`http`/`hmr`/`control`), a `WebRTCTransport: MCPTransport` conformer, a fetch bridge with faithful HTTP semantics, and file-based signaling — proven by a two-process E2E where a page and an MCP round-trip cross the bridge.
 
 **Architecture:** All protocol logic (framing, MCP transport, fetch bridge, relays) is written against a small `P2PConnection` abstraction and unit-tested with an in-process fake pair — no network, no libwebrtc. libwebrtc appears only in one conformer (`WebRTCPeer`) plus the signaling glue, exercised by opt-in gated tests (`ANGLESITE_P2P_E2E=1`), mirroring how `ANGLESITE_CONTAINER_TESTS` gates the container suites. Epic: [#1208](https://github.com/Anglesite/Anglesite/issues/1208); spec: `docs/superpowers/specs/2026-08-03-anywhere-runtime-webrtc-design.md`.
 
-**Tech Stack:** Swift 6.4 / Xcode 27, SwiftPM, Swift Testing (`import Testing`), [stasel/WebRTC](https://github.com/stasel/WebRTC) `150.0.0` (prebuilt libwebrtc xcframework; dependency approved in #1208).
+**Tech Stack:** Swift 6.4 / Xcode 27, SwiftPM, Swift Testing (`import Testing`), [stasel/WebRTC](https://github.com/stasel/WebRTC) release `150.0.0` pinned **by commit revision** (`6ed87f05…` — repo convention: every third-party dependency pins a revision and is bumped deliberately, see the pin-policy comments in `Package.swift`; dependency approved in #1208). The prebuilt xcframework includes a macOS slice (verified — the P0 E2E runs on macOS).
 
 ## Global Constraints
 
@@ -18,7 +20,7 @@
 - New public API needs `///` doc comments per `docs/comment-style-guide.md` (CI fails on broken DocC links).
 - Commit subjects ≤72 chars, conventional-commit format, reference #1208.
 - Tests are Swift Testing (`@Test`, `#expect`), not XCTest.
-- All work happens in the existing worktree `.claude/worktrees/anywhere-runtime-spec/` on branch `docs/anywhere-runtime-webrtc-spec`? **No** — code lands on a new branch `feat/1208-p0-p2p-transport-core` cut from `main` in a fresh worktree (`.claude/worktrees/1208-p0-p2p/`). Run `xcodegen generate` there once (repo convention), though P0 never builds the app target.
+- Code lands on a new branch `feat/1208-p0-p2p-transport-core` cut from `main` in a fresh worktree (`.claude/worktrees/1208-p0-p2p/`) — not on this spec's docs branch or worktree. Run `xcodegen generate` there once (repo convention), though P0 never builds the app target.
 
 ## File Structure
 
@@ -34,10 +36,11 @@ Sources/AnglesiteP2P/
   HMRRelay.swift            # host-side websocket relay + client-side frame stream
   Signaling.swift           # SignalingChannel protocol + SignalingEnvelope
   FileSignalingChannel.swift# file-directory signaling (E2E + UTM rig)
-  WebRTCPeer.swift          # libwebrtc conformer of P2PConnection (only file importing WebRTC)
+  WebRTCPeer.swift          # libwebrtc conformer of P2PConnection (only PRODUCTION file importing WebRTC — SmokeTests.swift also imports it for the link check)
 Sources/anglesite-p2p-demo/
   main.swift                # host/client subcommands for the two-process E2E
 Tests/AnglesiteP2PTests/
+  SmokeTests.swift          # Task 1 link check (imports WebRTC directly)
   P2PFramingTests.swift
   InProcessP2PPairTests.swift
   WebRTCTransportTests.swift
@@ -55,7 +58,7 @@ Out of P0 scope (explicitly deferred): CloudKit signaling + key pinning (P2), TU
 ### Task 1: Package scaffolding — WebRTC dependency + `AnglesiteP2P` target
 
 **Files:**
-- Modify: `Package.swift` (dependency list ~line 321 area; `packageTargets` array; test-target list)
+- Modify: `Package.swift` (dependency list — anchor on the SwiftGit2 `.package` entry and its pin-policy comment, not a line number; `packageTargets` array; test-target list)
 - Create: `Sources/AnglesiteP2P/P2PChannel.swift`
 - Test: `Tests/AnglesiteP2PTests/SmokeTests.swift`
 
@@ -75,7 +78,9 @@ Follow the SwiftGit2 Darwin-gating pattern already in the file. Add next to the 
 and inside the existing `#if canImport(Darwin)` dependency section:
 
 ```swift
-.package(url: "https://github.com/stasel/WebRTC.git", exact: "150.0.0")
+// Corresponds to release 150.0.0; pinned by revision per repo policy —
+// every third-party dependency here is bumped deliberately.
+.package(url: "https://github.com/stasel/WebRTC.git", revision: "6ed87f05368632f71dc95c89c14c051561710925")
 ```
 
 Append to `packageTargets` inside a `#if canImport(Darwin)` block (same mechanism as the `includeContainer` append):
@@ -471,7 +476,9 @@ public actor FetchBridgeServer {
 
 /// Serves GET requests from a directory root (index.html for "/", content-type by extension:
 /// html, css, js, mjs, json, svg, png, jpg, webp, txt; else application/octet-stream).
-/// Non-GET → 405; missing file → 404; path traversal ("..") → 400.
+/// Non-GET → 405; missing file → 404; traversal → 400 — percent-decode the raw path FIRST
+/// (undecodable → 400), then reject any ".." component, all before touching the filesystem;
+/// a raw-substring check alone is bypassable via %2e%2e encoding.
 public struct DirectoryHTTPExecutor: HTTPExecutor {
     public init(root: URL)
 }
@@ -582,7 +589,7 @@ import Foundation
 
 - [ ] **Step 2: Run to verify failure** — `swift test --filter FetchBridgeTests` → FAIL.
 
-- [ ] **Step 3: Implement.** `FetchBridgeClient.perform`: allocate id, register a pending-response continuation in actor state, send `requestHead` (+ `requestBody`/`requestEnd` when body non-nil, else bare `requestEnd`), await head; body stream yields `responseBody` payloads until `responseEnd` (finish) or `abort` (finish throwing). A single pump task (started on first use) demultiplexes `connection.inbound(.http)` by id. `FetchBridgeServer.run`: demultiplex inbound frames by id into per-request accumulators; on `requestEnd`, spawn a child task: `executor.execute` → strip hop-by-hop headers → send `responseHead`, then ≤64 KiB `responseBody` frames, then `responseEnd`; executor throws → `abort(id:reason:)`. `DirectoryHTTPExecutor`: reject non-GET (405) and any path component `..` (400) **before** touching the filesystem; resolve against root, map to 200/404; stream file contents in 64 KiB reads.
+- [ ] **Step 3: Implement.** `FetchBridgeClient.perform`: allocate id, register a pending-response continuation in actor state, send `requestHead` (+ `requestBody`/`requestEnd` when body non-nil, else bare `requestEnd`), await head; body stream yields `responseBody` payloads until `responseEnd` (finish) or `abort` (finish throwing). A single pump task (started on first use) demultiplexes `connection.inbound(.http)` by id. `FetchBridgeServer.run`: demultiplex inbound frames by id into per-request accumulators; on `requestEnd`, spawn a child task: `executor.execute` → strip hop-by-hop headers → send `responseHead`, then ≤64 KiB `responseBody` frames, then `responseEnd`; executor throws → `abort(id:reason:)`. `DirectoryHTTPExecutor`: reject non-GET (405); percent-decode the raw path (undecodable → 400), then reject any `..` component (400) — all **before** touching the filesystem; resolve against root, map to 200/404; stream file contents in 64 KiB reads.
 
 - [ ] **Step 4: Run to verify pass** — PASS.
 
@@ -629,7 +636,7 @@ public actor ControlHeartbeat {
 }
 ```
 
-- [ ] **Step 1: Write failing tests** — relay forwards `text`/`binary`/`closed` in order end-to-end over `InProcessP2PPair` (scripted `WebSocketSource` yielding three events; client collects three equal events); heartbeat answers a ping with a pong (drive `pair.a`'s control channel manually: send an encoded `ControlMessage.ping(seq: 1)`, expect a `pong(seq: 1)` frame back on `pair.a`'s inbound control stream); missed pongs invoke `onMiss` (construct with `interval: .milliseconds(20)`, `missLimit: 2`, no responder on the far end, expect `onMiss` called with ≥2 within 500 ms — use `confirmation(expectedCount: …)` and real short sleeps, **never** `Task.sleep(.zero)` (CI allocator crash — see memory)).
+- [ ] **Step 1: Write failing tests** — relay forwards `text`/`binary`/`closed` in order end-to-end over `InProcessP2PPair` (scripted `WebSocketSource` yielding three events; client collects three equal events); heartbeat answers a ping with a pong (drive `pair.a`'s control channel manually: send an encoded `ControlMessage.ping(seq: 1)`, expect a `pong(seq: 1)` frame back on `pair.a`'s inbound control stream); missed pongs invoke `onMiss` (construct with `interval: .milliseconds(20)`, `missLimit: 2`, no responder on the far end, expect ≥2 `onMiss` calls via **event-driven waiting with a generous cap** — tens of seconds, guarded by a `.timeLimit` trait; loaded CI runners see multi-second scheduling delays, so assert *liveness, not latency*, and **never** use `Task.sleep(.zero)` (CI allocator crash on macos-26 runners — see `CLAUDE.md` ▸ Build / PRs #644/#646)).
 
 - [ ] **Step 2: Run to verify failure** — `swift test --filter HMRRelayTests` → FAIL.
 
