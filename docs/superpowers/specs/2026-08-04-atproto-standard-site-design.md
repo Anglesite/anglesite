@@ -53,7 +53,7 @@ Most of the plumbing exists:
 | Need | Existing code |
 |---|---|
 | atproto session + record writes | [BlueskyPOSSEClient](../../../Sources/AnglesiteCore/POSSEClients.swift) — `com.atproto.server.createSession`, `com.atproto.repo.createRecord`, deterministic `rkey` + 409-dedupe |
-| Site-scoped atproto credential | `SecretStore.blueskyAppPassword(siteID:)` + `POSSECredentials.Bluesky` (PDS URL, identifier, app password) |
+| Site-scoped atproto credential | `SecretAccounts.blueskyAppPassword(siteID:)` + `POSSECredentials.Bluesky` (PDS URL, identifier, app password) |
 | Idempotency keys | [POSSEStableKey](../../../Sources/AnglesiteCore/POSSEClients.swift) FNV-1a — proven in production for Bluesky rkeys |
 | Post-deploy pass shape (ledger in `Config/`, best-effort, debug-pane logging) | [POSSESyndicationCommand](../../../Sources/AnglesiteCore/POSSESyndicationCommand.swift) |
 | `/.well-known/` ownership | Well-known claims machinery (`WellKnownInventory`, template `well-known.ts`; spec `2026-07-14-well-known-support-design.md`) |
