@@ -154,10 +154,10 @@ public enum DeployCoordinator {
     public static func syncWorkerActivationToAnglesiteJSON(
         configStore: SiteConfigStore, sourceDirectory: URL, settings: SiteSettings
     ) async -> SiteSettings {
-        let domainStore = DomainConfigStore(sourceDirectory: sourceDirectory)
-        var domainConfig = (try? domainStore.load()) ?? DomainConfig()
-        domainConfig.workers = DomainConfig.Workers(active: settings.activeWorkerIDs)
-        guard (try? domainStore.save(domainConfig)) != nil else { return settings }
+        let saved = DomainConfigStore.update(sourceDirectory: sourceDirectory) { config in
+            config.workers = DomainConfig.Workers(active: settings.activeWorkerIDs)
+        }
+        guard saved else { return settings }
         var updated = settings
         updated.activeWorkerIDsMigratedToAnglesiteJSON = settings.activeWorkerIDs
         try? await configStore.save(updated)

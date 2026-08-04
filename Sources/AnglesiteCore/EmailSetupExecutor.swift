@@ -66,10 +66,9 @@ public struct EmailSetupExecutor: Sendable {
         }
 
         if let sourceDirectory {
-            let store = DomainConfigStore(sourceDirectory: sourceDirectory)
-            var config = (try? store.load()) ?? DomainConfig()
-            config.email = DomainConfig.Email(provider: plan.provider.rawValue, dmarcReportEmail: dmarcReportEmail)
-            try? store.save(config)
+            DomainConfigStore.update(sourceDirectory: sourceDirectory) { config in
+                config.email = DomainConfig.Email(provider: plan.provider.rawValue, dmarcReportEmail: dmarcReportEmail)
+            }
         }
 
         return Result(addedCount: added, failures: failures)

@@ -20,12 +20,11 @@ public enum DomainIntentRecorder {
     /// `""` does get encoded and so does overwrite the merge; `ConnectDomainModel.loadRegistrarInfo`
     /// normalizes a blank string back to `nil` at the read boundary.
     public static func recordTransferIntent(hostname: String, siteDirectory: URL) {
-        let store = DomainConfigStore(sourceDirectory: siteDirectory)
-        var config = (try? store.load()) ?? DomainConfig()
-        config.domain = DomainConfig.Domain(
-            hostname: hostname, choice: NewSiteDomainChoice.transfer.rawValue, attach: true,
-            registrar: "", expiresAt: "")
-        try? store.save(config)
+        DomainConfigStore.update(sourceDirectory: siteDirectory) { config in
+            config.domain = DomainConfig.Domain(
+                hostname: hostname, choice: NewSiteDomainChoice.transfer.rawValue, attach: true,
+                registrar: "", expiresAt: "")
+        }
     }
 
     /// Declares a buy-a-domain intent: no hostname exists yet, so `attach` is `false` — there is
@@ -44,11 +43,10 @@ public enum DomainIntentRecorder {
     /// to look up a registrar for, so any registrar/expiration cached under a previous transfer
     /// declaration must not survive into this one.
     public static func recordBuyIntent(siteDirectory: URL) {
-        let store = DomainConfigStore(sourceDirectory: siteDirectory)
-        var config = (try? store.load()) ?? DomainConfig()
-        config.domain = DomainConfig.Domain(
-            hostname: "", choice: NewSiteDomainChoice.buy.rawValue, attach: false,
-            registrar: "", expiresAt: "")
-        try? store.save(config)
+        DomainConfigStore.update(sourceDirectory: siteDirectory) { config in
+            config.domain = DomainConfig.Domain(
+                hostname: "", choice: NewSiteDomainChoice.buy.rawValue, attach: false,
+                registrar: "", expiresAt: "")
+        }
     }
 }
