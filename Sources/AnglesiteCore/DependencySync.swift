@@ -100,3 +100,19 @@ public enum DependencySync {
         return DependencySyncOffers(updates: updates, additions: additions)
     }
 }
+
+extension DependencySync {
+    /// Bridges a Dependabot alert to an already-computed `DependencySyncOffers`, for the
+    /// Security Reports tab's "Update available" action (#975). `nil` when no fix is known
+    /// (`alert.patchedVersion == nil`), the package isn't in the current sync offers, or the
+    /// offered range doesn't reach the patched version — including when the version comparison
+    /// itself can't be parsed, per `DependencyVersionComparator`'s own "never guess" contract.
+    public static func fixOffer(for alert: DependabotAlert, in offers: DependencySyncOffers) -> DependencyUpdateOffer? {
+        guard let patchedVersion = alert.patchedVersion else { return nil }
+        guard let offer = offers.updates.first(where: { $0.name == alert.packageName }) else { return nil }
+        // The offered range must not be *older* than the patch — i.e. it's newer or equal.
+        // If the comparison returns nil (unparseable), treat it as "never guess" — no confirmed fix.
+        guard let isNewer = DependencyVersionComparator.isNewer(patchedVersion, than: offer.offeredRange), !isNewer else { return nil }
+        return offer
+    }
+}
