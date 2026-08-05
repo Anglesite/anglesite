@@ -1,0 +1,14 @@
+---
+// Community timeline page (#907, design doc §4.2) — mounts CommunityTimeline.astro, which
+// shipped in #908 ("the actual timeline page that mounts it is #907's group-preset scope").
+// Renders "Nothing published yet" on every ordinary site, since data/community-posts/ is only
+// ever populated once a hosted-community provisioning flow sets SiteSettings.communityOutboxURL
+// and AnnouncedPostSync starts snapshotting.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CommunityTimeline from "../../components/CommunityTimeline.astro";
+---
+
+<BaseLayout title="Community Timeline" description="What this community's members have shared.">
+  <h1>Community Timeline</h1>
+  <CommunityTimeline />
+</BaseLayout>

@@ -121,14 +121,22 @@ export interface WorkerEnv extends IndieAuthEnv {
    * app-generated — see `ActivityPubKeyProvisioning.swift`). `AP_PUBLISH_TOKEN` gates the
    * owner-only publish endpoint the Micropub fan-out below calls internally.
    * `AP_DISPLAY_NAME` is the actor's `Person.name`, threaded from `SiteSettings.displayName`;
-   * falls back to a generic name when unset. See `WorkerComposition.generateWranglerToml`
-   * (Swift) for the binding generation.
+   * falls back to a generic name when unset. `AP_ACTOR_TYPE` selects the AS2 actor type
+   * (V-5.1b, #907): `"Group"` hosts a community (member posts wrapped in `Announce` and fanned
+   * out, moderation activities honored from `AP_MODERATORS`); anything else — including unset —
+   * is an ordinary `Person`. `AP_MODERATORS` is a comma-joined list of moderator actor IRIs
+   * (`SiteSettings.moderators`), ignored for a `Person` actor; comma-joined because Wrangler vars
+   * have no native list type — a moderator IRI containing a literal comma is excluded entirely on
+   * the Swift side (`WorkerComposition.generateWranglerToml`) rather than corrupting the join.
+   * See `WorkerComposition.generateWranglerToml` (Swift) for the binding generation.
    */
   ACTOR?: DurableObjectNamespace<ActivityPubObject>;
   AP_PRIVATE_KEY?: string;
   AP_PUBLIC_KEY?: string;
   AP_PUBLISH_TOKEN?: string;
   AP_DISPLAY_NAME?: string;
+  AP_ACTOR_TYPE?: string;
+  AP_MODERATORS?: string;
   /**
    * Solid-OIDC signing key (V-storage, identity layer for `@dwk/solid-pod`). Optional: a site
    * that hasn't provisioned Solid-OIDC has none of it bound, and every `/oidc/*` route degrades
@@ -1077,16 +1085,28 @@ async function fanOutMicropubCreateToActivityPub(
  */
 const ACTIVITYPUB_USERNAME = "site";
 
-function activityPubConfig(request: Request, env: WorkerEnv): ActivityPubConfig | null {
+/**
+ * Exported for `worker.test.ts` — a pure, synchronous mapping from `env` to
+ * `@dwk/activitypub`'s config shape, so the `AP_ACTOR_TYPE`/`AP_MODERATORS` wiring (V-5.1b, #907)
+ * is testable without standing up a real Durable Object.
+ */
+export function activityPubConfig(request: Request, env: WorkerEnv): ActivityPubConfig | null {
   if (!env.ACTOR || !env.AP_PRIVATE_KEY || !env.AP_PUBLIC_KEY) return null;
   const baseUrl = new URL(request.url).origin;
+  const isGroup = env.AP_ACTOR_TYPE === "Group";
   return {
     baseUrl,
     actor: {
       username: ACTIVITYPUB_USERNAME,
       name: env.AP_DISPLAY_NAME ?? new URL(baseUrl).hostname,
       summary: `Posts from ${new URL(baseUrl).hostname}`,
+      type: isGroup ? "Group" : undefined,
     },
+    // Only meaningful for a Group actor — @dwk/activitypub ignores this for a Person, but the
+    // check here also guards against a stray AP_MODERATORS on an otherwise-Person site.
+    moderators: isGroup && env.AP_MODERATORS
+      ? env.AP_MODERATORS.split(",").filter((iri) => iri.length > 0)
+      : undefined,
     publicKeyPem: env.AP_PUBLIC_KEY,
     privateKeyPem: env.AP_PRIVATE_KEY,
     publishToken: env.AP_PUBLISH_TOKEN,

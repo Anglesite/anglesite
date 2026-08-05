@@ -1,0 +1,83 @@
+---
+// CommunityMembers.astro — renders a hosted community's current-membership snapshots (members =
+// followers, per design doc §2 D3). This is the render half of V-5.1b (#907) — static, updated
+// on rebuild. The snapshots are JSON files in `data/community-members/` (root-level, per
+// CommunityMember.gitPath).
+//
+// Sanitisation contract (CommunityMember.swift): rendered via Astro's default escaping — never
+// `set:html`.
+import { parseCommunityMembers, roster, type CommunityMember } from "../lib/communityMembers.ts";
+
+const mods = import.meta.glob("../../data/community-members/*.json", { eager: true });
+const members = roster(parseCommunityMembers(mods as Record<string, unknown>));
+
+function initial(member: CommunityMember): string {
+  const name = member.name ?? new URL(member.actorURL).hostname;
+  return name.trim().charAt(0).toUpperCase() || "?";
+}
+---
+
+{
+  members.length > 0 ? (
+    <ul class="community-members">
+      {members.map((member) => (
+        <li class="h-card community-member">
+          {member.photo ? (
+            <img
+              class="avatar u-photo"
+              src={member.photo}
+              alt=""
+              loading="lazy"
+              referrerpolicy="no-referrer"
+            />
+          ) : (
+            <span class="avatar avatar-fallback">{initial(member)}</span>
+          )}
+          <a class="p-name u-url" href={member.actorURL} rel="nofollow ugc">
+            {member.name ?? new URL(member.actorURL).hostname}
+          </a>
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p>No members yet.</p>
+  )
+}
+
+<style>
+  .community-members {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 1rem;
+  }
+  .community-member {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-fallback {
+    background: var(--color-surface, #f8fafc);
+    color: var(--color-text-muted, #64748b);
+    font-family: var(--font-heading, system-ui);
+    font-size: 1rem;
+  }
+  .community-member a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>

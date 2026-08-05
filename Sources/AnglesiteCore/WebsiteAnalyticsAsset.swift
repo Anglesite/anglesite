@@ -293,6 +293,13 @@ public enum WebsiteAnalyticsAsset {
         let customTag = settings.customHeadTag.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if !cloudflareToken.isEmpty {
+            // Deliberately no `integrity=`: the beacon URL is unversioned and Cloudflare
+            // rotates its content routinely, so a pinned hash would break analytics fleet-wide
+            // on the next rotation with no build-time signal. `pre-deploy-check.ts`'s
+            // `sri-missing` warning on this tag is expected, not a gap — the compensating
+            // control is the CSP `SCRIPT_ALLOW` scoping this method adds for
+            // `cloudflareCSPDomains` while the beacon is enabled. See #1165 for the full
+            // investigation and disposition.
             let beacon = cloudflareBeaconAttributeValue(token: cloudflareToken)
             lines.append(#"<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='\#(beacon)'></script>"#)
         }
