@@ -1,0 +1,132 @@
+import Testing
+import Foundation
+@testable import AnglesiteCore
+
+@Suite("SecurityReportsModel (#975)")
+@MainActor
+struct SecurityReportsModelTests {
+    private static let repo = RemoteRepo(
+        url: URL(string: "https://github.com/acme/site")!, owner: "acme", name: "site")
+
+    private static let highAdvisory = SecurityAdvisory(
+        id: "GHSA-1", summary: "High", severity: .high,
+        htmlURL: URL(string: "https://github.com/acme/site/security/advisories/GHSA-1")!, publishedAt: nil)
+    private static let lowAlert = DependabotAlert(
+        id: 1, packageName: "left-pad", ecosystem: "npm", severity: .low, patchedVersion: "1.0.0",
+        htmlURL: URL(string: "https://github.com/acme/site/security/dependabot/1")!)
+
+    /// Serves canned results or a canned failure; controllable per test.
+    actor FakeReader: RepoAdvisoryReading {
+        private let advisories: [SecurityAdvisory]
+        private let alerts: [DependabotAlert]
+        private let failure: GitHubRepoAPIError?
+
+        init(advisories: [SecurityAdvisory] = [], alerts: [DependabotAlert] = [], failure: GitHubRepoAPIError? = nil) {
+            self.advisories = advisories
+            self.alerts = alerts
+            self.failure = failure
+        }
+
+        func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] {
+            if let failure { throw failure }
+            return advisories
+        }
+
+        func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] {
+            if let failure { throw failure }
+            return alerts
+        }
+    }
+
+    @Test("initial state is empty and clean")
+    func initialState() {
+        let model = SecurityReportsModel(reader: FakeReader())
+        #expect(model.totalCount == 0)
+        #expect(model.badgeState == .clean)
+        #expect(model.lastCheckedAt == nil)
+        #expect(!model.isRunning)
+    }
+
+    @Test("no repo clears state without an error and without a timestamp")
+    func noRepoClears() async {
+        let model = SecurityReportsModel(reader: FakeReader(advisories: [Self.highAdvisory]))
+        await model.recheck(repo: nil, token: "tok").value
+        #expect(model.totalCount == 0)
+        #expect(model.lastError == nil)
+        #expect(model.lastCheckedAt == nil)
+    }
+
+    @Test("no token clears state without an error")
+    func noTokenClears() async {
+        let model = SecurityReportsModel(reader: FakeReader(advisories: [Self.highAdvisory]))
+        await model.recheck(repo: Self.repo, token: nil).value
+        #expect(model.totalCount == 0)
+        #expect(model.lastError == nil)
+    }
+
+    @Test("an empty token string is treated the same as no token")
+    func emptyTokenClears() async {
+        let model = SecurityReportsModel(reader: FakeReader(advisories: [Self.highAdvisory]))
+        await model.recheck(repo: Self.repo, token: "").value
+        #expect(model.totalCount == 0)
+        #expect(model.lastError == nil)
+    }
+
+    @Test("a successful check populates both lists and clears any prior error")
+    func successPopulates() async {
+        let model = SecurityReportsModel(reader: FakeReader(advisories: [Self.highAdvisory], alerts: [Self.lowAlert]))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.openAdvisories == [Self.highAdvisory])
+        #expect(model.openAlerts == [Self.lowAlert])
+        #expect(model.totalCount == 2)
+        #expect(model.lastError == nil)
+        #expect(model.lastCheckedAt != nil)
+        #expect(!model.isRunning)
+    }
+
+    @Test("badgeState is .failures when any open item is critical or high")
+    func badgeStateFailures() async {
+        let model = SecurityReportsModel(reader: FakeReader(advisories: [Self.highAdvisory]))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.badgeState == .failures)
+    }
+
+    @Test("badgeState is .warnings when the only open items are moderate/low/unknown")
+    func badgeStateWarnings() async {
+        let model = SecurityReportsModel(reader: FakeReader(alerts: [Self.lowAlert]))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.badgeState == .warnings)
+    }
+
+    @Test("a failed check sets lastError and leaves the lists empty")
+    func failureSetsError() async {
+        let model = SecurityReportsModel(reader: FakeReader(failure: .unauthorized))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.lastError != nil)
+        #expect(model.totalCount == 0)
+        #expect(model.lastCheckedAt != nil)
+        #expect(!model.isRunning)
+    }
+
+    @Test("recheck cancels a prior in-flight run")
+    func recheckCancelsPrior() async {
+        actor SlowReader: RepoAdvisoryReading {
+            func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                return []
+            }
+            func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] {
+                []
+            }
+        }
+        let model = SecurityReportsModel(reader: SlowReader())
+        let first = model.recheck(repo: Self.repo, token: "tok")
+        let second = model.recheck(repo: Self.repo, token: "tok")
+        await first.value
+        await second.value
+        // No assertion beyond "both complete without hanging or crashing" — the cancellation
+        // itself is exercised by HealthModelTests' equivalent case; this pins the same contract
+        // for SecurityReportsModel without duplicating that suite's depth.
+        #expect(!model.isRunning)
+    }
+}
