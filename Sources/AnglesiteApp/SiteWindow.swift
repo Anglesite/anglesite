@@ -348,6 +348,15 @@ struct SiteWindow: View {
                 SyncStatusView(model: model.sync)
             }
 
+            // Open GitHub security advisories/Dependabot alerts (#975). Renders nothing (an
+            // EmptyView) for a clean site — see SecurityReportsBadgeView's doc comment.
+            ToolbarItem(id: SiteToolbarItemID.securityReports.rawValue, placement: .primaryAction) {
+                SecurityReportsBadgeView(
+                    model: model.securityReports,
+                    onRecheck: { model.recheckSecurityReports() }
+                )
+            }
+
             ToolbarItem(id: SiteToolbarItemID.backup.rawValue, placement: .primaryAction) {
                 Button {
                     model.backupSite()
