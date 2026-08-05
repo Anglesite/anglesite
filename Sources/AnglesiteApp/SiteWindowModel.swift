@@ -157,6 +157,10 @@ final class SiteWindowModel {
     var connectDomain = ConnectDomainModel()
     var buyDomain = BuyDomainModel()
     var health = HealthModel(runner: DefaultHealthCheckRunner())
+    /// Open GitHub security advisories and Dependabot alerts for this site's repo (#975, the
+    /// inbound half of #843). Drives `SecurityReportsBadgeView` in the toolbar and the "Open
+    /// reports" section of Website Settings ▸ Security Reports — both read this one instance.
+    var securityReports = SecurityReportsModel()
     /// Drives the determinate startup progress bar shown in `mainPane` while the dev server boots.
     var startup = StartupProgressModel()
     /// Observed so an already-open window reacts to a `PreviewSiteIntent` navigation request.
@@ -170,6 +174,11 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the dependency-update-offer sheet is presented (`.sheet(item:)`), set by the
     /// detection hook in `loadAndStart()` when `DependencySyncChecker` finds offers to show.
     var dependencyUpdateModel: DependencyUpdateModel?
+    /// The most recent `DependencySyncChecker.check` result from `loadAndStart()`, kept even
+    /// when empty so the Security Reports tab's Dependabot-alert rows can offer the same fix
+    /// (`DependencySync.fixOffer`, #975) without a second `package.json` read. Set once per site
+    /// open; not re-derived reactively.
+    private(set) var dependencySyncOffers = DependencySyncOffers()
     /// Non-nil ⟺ the scripts/-divergence sheet is presented (`.sheet(item:)`), set by the
     /// detection hook in `loadAndStart()` when `TemplateScriptsSyncChecker` finds files the owner
     /// customized that the template has also moved on past (#1053).
@@ -242,14 +251,24 @@ final class SiteWindowModel {
         return nil
     }
 
+    private let gitRunner: BackupCommand.GitRunner
+    private let githubToken: @Sendable () throws -> String?
+    private let runningAppVersion: () -> String?
+
     init(
         contentGraph: SiteContentGraph,
         knowledgeIndex: SiteKnowledgeIndex,
         semanticRanker: SemanticRanker?,
         conventionsEngine: ProjectConventionsEngine,
         runtimeFactory: any SiteRuntimeFactory,
-        contentIndexerStore: ContentIndexerStore
+        contentIndexerStore: ContentIndexerStore,
+        gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
+        githubToken: @escaping @Sendable () throws -> String? = { try KeychainStore().readGitHubToken() },
+        runningAppVersion: @escaping () -> String? = { AppVersion.current() }
     ) {
+        self.gitRunner = gitRunner
+        self.githubToken = githubToken
+        self.runningAppVersion = runningAppVersion
         self.contentGraph = contentGraph
         self.deploy = DeployModel(
             contentGraph: contentGraph,
@@ -680,6 +699,65 @@ final class SiteWindowModel {
     func recheckHealth() {
         guard let site else { return }
         health.recheck(siteID: site.id, siteDirectory: site.sourceDirectory)
+    }
+
+    /// Resolves this site's GitHub origin via the injected `gitRunner`, mirroring
+    /// `PlistEditorModel.currentRemoteRepo()` — a separate small lookup rather than a shared
+    /// dependency, consistent with how `PublishModel` already resolves the same fact its own way
+    /// via `RepoBootstrap`. `nil` for no remote, a non-GitHub remote, or a failed git call.
+    private func currentGitHubRemote() async -> RemoteRepo? {
+        guard let site else { return nil }
+        guard let result = try? await gitRunner(site.sourceDirectory, ["remote", "get-url", "origin"]),
+              result.exitCode == 0 else { return nil }
+        return RemoteRepo.parse(remoteURL: result.stdout)
+    }
+
+    /// Kicks off a `securityReports` check and returns the settling `Task` so callers (and
+    /// tests) can await completion; production callers other than tests discard it. Called from
+    /// `loadAndStart()` on every site open (not awaited there, so it never delays open) and from
+    /// the badge popover / Settings-tab "Check for reports" action — one code path, many triggers.
+    @discardableResult
+    func recheckSecurityReports() -> Task<Void, Never> {
+        Task { [weak self] in
+            guard let self else { return }
+            let repo = await self.currentGitHubRemote()
+            let token = (try? self.githubToken()) ?? nil
+            await self.securityReports.recheck(repo: repo, token: token).value
+        }
+    }
+
+    /// Writes `offers` (bumps + additions) into the site's `package.json`. Shared by
+    /// `loadAndStart()`'s automatic offer sheet and `presentDependencyFixSheet(_:)`'s
+    /// single-offer sheet (#975), so both apply through the identical path. Uses the injected
+    /// `runningAppVersion` (not a direct `AppVersion.current()` call) so tests can supply a
+    /// non-nil version — a plain SwiftPM test host has no `CFBundleShortVersionString`.
+    private func applyDependencySyncOffers(_ offers: DependencySyncOffers, sourceDirectory: URL, configDirectory: URL) {
+        guard let runningVersion = runningAppVersion() else { return }
+        do {
+            try DependencySyncApplier.apply(
+                offers, sourceDirectory: sourceDirectory, configDirectory: configDirectory,
+                runningAppVersion: runningVersion)
+            preview.isUpdatingDependencies = true
+        } catch {
+            // package.json rewrite failed — nothing was written, so the site keeps its
+            // unchanged files; this boot/action is not treated as a post-update one.
+        }
+    }
+
+    /// Opens the dependency-update sheet pre-scoped to a single package bump — the Security
+    /// Reports tab's "Update available" action (#975) for a Dependabot alert
+    /// `DependencySync.fixOffer` already matched against the bundled template. Reuses the same
+    /// apply path as the automatic offer sheet, just for one offer instead of the full set.
+    func presentDependencyFixSheet(_ offer: DependencyUpdateOffer) {
+        guard let site else { return }
+        let offers = DependencySyncOffers(updates: [offer])
+        dependencyUpdateModel = DependencyUpdateModel(offers: offers) { [weak self] accepted in
+            guard let self else { return }
+            if accepted {
+                self.applyDependencySyncOffers(offers, sourceDirectory: site.sourceDirectory, configDirectory: site.configDirectory)
+            }
+            self.dependencyUpdateModel = nil
+        }
     }
 
     func openPreviewInBrowser() {
@@ -1739,6 +1817,9 @@ final class SiteWindowModel {
         // #881: pull on site open. `SyncModel.start` no-ops entirely for a package that isn't in
         // iCloud Drive, so a plain local site sees zero sync activity here.
         sync.start(package: AnglesitePackage(url: resolved.packageURL))
+        // #975: fired here (not awaited) so a slow/offline GitHub check never delays site open —
+        // the toolbar badge and Settings tab populate whenever it settles.
+        recheckSecurityReports()
 
         #if ANGLESITE_MAS
         await grantController.acquireGrant(for: resolved, in: store)
@@ -1766,25 +1847,14 @@ final class SiteWindowModel {
                 templateDirectory: templateURL,
                 runningAppVersion: runningVersion
             )
+            dependencySyncOffers = offers
             if !offers.isEmpty {
                 await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                     dependencyUpdateModel = DependencyUpdateModel(offers: offers) { [weak self] accepted in
                         guard let self else { continuation.resume(); return }
                         if accepted {
-                            do {
-                                try DependencySyncApplier.apply(
-                                    offers,
-                                    sourceDirectory: resolved.sourceDirectory,
-                                    configDirectory: resolved.configDirectory,
-                                    runningAppVersion: runningVersion
-                                )
-                                self.preview.isUpdatingDependencies = true
-                            } catch {
-                                // package.json rewrite failed — nothing was written, so
-                                // the site opens against its unchanged files. Leave
-                                // isUpdatingDependencies false: this boot is a normal
-                                // one, not a post-update one.
-                            }
+                            self.applyDependencySyncOffers(
+                                offers, sourceDirectory: resolved.sourceDirectory, configDirectory: resolved.configDirectory)
                         }
                         self.dependencyUpdateModel = nil
                         continuation.resume()
