@@ -10,7 +10,10 @@ Implement Phase A of the software factory epic: the three `🏭` state labels, a
 (intake triage) running automatically against every open issue that hasn't been triaged yet.
 Exit criteria (per #1259): % of new issues correctly area- and state-labeled without human
 correction, plus a per-issue triage cost measurement, plus a one-time backlog composition
-audit sizing Phase C.
+audit sizing Phase C. Only the backlog audit (§6) is delivered by this spec/PR — the labeling
+accuracy and per-issue cost criteria need real usage data collected over time from the live
+routine, which isn't available at Phase A's close; they're tracked in follow-up issue #1268
+instead of being measured (or fabricated) here.
 
 ## 2. Decision: routine, not a GitHub Action
 
@@ -51,11 +54,17 @@ design, unchanged by this phase.
 - **Model:** `claude-sonnet-5` — chosen over a cheaper model because dedupe/classification
   judgment calls are Stage 0's actual job; a wrong call here (false-positive duplicate,
   mislabeled state) is more costly than the per-run token savings of a smaller model.
-- **Tools:** `["Bash", "Read", "Grep", "Glob"]` — no `Write`/`Edit`. The routine can read
-  repo files for context (CONTRIBUTING.md, CLAUDE.md, existing label conventions) and run
-  shell commands (`gh issue ...`), but cannot modify any file in its own checkout. This is
-  the closest structural equivalent, on this substrate, to the Action-based design's
-  tool-allowlist sandboxing.
+- **Tools:** `["Read", "Grep", "Glob"]` plus `Bash` scoped to only
+  `Bash(gh issue list:*)`, `Bash(gh issue view:*)`, `Bash(gh issue edit:*)`, and
+  `Bash(gh issue comment:*)` — no `Write`/`Edit`, and no unscoped shell access. The routine
+  can read repo files for context (CONTRIBUTING.md, CLAUDE.md, existing label conventions)
+  and run exactly those four `gh issue` subcommands, but cannot modify any file in its own
+  checkout and cannot run arbitrary shell commands. This is scoped to `gh issue`
+  read/label/comment subcommands specifically — not just "no Write/Edit" — because an
+  unscoped `Bash` would still be unrestricted shell access under a `gh` session authenticated
+  as the repo owner, processing untrusted public issue-body text hourly. That subcommand
+  scoping, not the absence of `Write`/`Edit` alone, is what makes this the closest structural
+  equivalent, on this substrate, to the Action-based design's tool-allowlist sandboxing.
 
 ## 5. Stage 0 algorithm (routine prompt)
 
@@ -63,9 +72,12 @@ Each run:
 
 1. **Find untriaged issues**: `gh issue list --repo Anglesite/Anglesite --state open --json
    number,title,body,labels,createdAt`, filtered to issues with none of: any `🏭`-prefixed
-   label, `➕ Duplicate`, `🎢 Epic`, `❌ Won't Fix`, `🚫 Blocked`. Process oldest-first,
-   capped at 10 per run — a backlog burst doesn't blow the run's cost/time budget; anything
-   past the cap is picked up on the next hourly run.
+   label, `➕ Duplicate`, `🎢 Epic`, `❌ Won't Fix`, `🚫 Blocked`, `🛠️ In Progress`,
+   `✅ Manual QA`. The last two are included here — not just in Step 3's guardrail below — so
+   that issues Step 3 already forbids touching can never sort to the head of the
+   oldest-first queue and consume the per-run cap on issues the routine then refuses to act
+   on. Process oldest-first, capped at 10 per run — a backlog burst doesn't blow the run's
+   cost/time budget; anything past the cap is picked up on the next hourly run.
 2. **Per issue:**
    - **Dedupe check** — search existing issues (open and closed) for likely duplicates by
      title/body similarity. If found: post one comment linking the original and explaining
@@ -129,3 +141,10 @@ routine configuration and its prompt. Verification is:
   resolving a missing-info request; that's sufficient for Phase A's scope.
 - No changes to Stage 1–5 (reproduce/diagnose/fix/verify/feedback) — those are Phases B–E,
   separately tracked (#1260–#1263).
+- No per-issue verification-tier tagging. #1259's task list called for tagging the highest
+  reachable verification tier from affected paths (per the parent design's §4.4 table) on
+  each triaged issue. The recurring routine's Stage 0 algorithm (§5 above) doesn't do this —
+  no tier labels exist yet, and creating four more labels plus the path-to-tier inference
+  logic needed to apply them was out of scope for Phase A. Deferred to a later phase; noted
+  as a comment on #1259 so its closure via this PR doesn't silently misrepresent this as
+  done.
