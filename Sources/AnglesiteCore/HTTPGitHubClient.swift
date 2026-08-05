@@ -168,3 +168,78 @@ extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
             method: "PUT", path: "/repos/\(owner)/\(name)/private-vulnerability-reporting", token: token))
     }
 }
+
+extension HTTPGitHubClient: RepoAdvisoryReading {
+    private struct AdvisoryResponse: Decodable {
+        let ghsaID: String
+        let summary: String
+        let severity: SecurityAdvisory.Severity
+        let htmlURL: String
+        let publishedAt: String?
+        let state: String
+        enum CodingKeys: String, CodingKey {
+            case ghsaID = "ghsa_id", summary, severity, htmlURL = "html_url"
+            case publishedAt = "published_at", state
+        }
+    }
+
+    private struct AlertResponse: Decodable {
+        struct Dependency: Decodable {
+            struct Package: Decodable { let name: String; let ecosystem: String }
+            let package: Package
+        }
+        struct SecurityAdvisoryInfo: Decodable { let severity: SecurityAdvisory.Severity }
+        struct SecurityVulnerability: Decodable {
+            struct FirstPatchedVersion: Decodable { let identifier: String }
+            let firstPatchedVersion: FirstPatchedVersion?
+            enum CodingKeys: String, CodingKey { case firstPatchedVersion = "first_patched_version" }
+        }
+        let number: Int
+        let dependency: Dependency
+        let securityAdvisory: SecurityAdvisoryInfo
+        let securityVulnerability: SecurityVulnerability
+        let htmlURL: String
+        enum CodingKeys: String, CodingKey {
+            case number, dependency
+            case securityAdvisory = "security_advisory"
+            case securityVulnerability = "security_vulnerability"
+            case htmlURL = "html_url"
+        }
+    }
+
+    /// `GET /repos/{owner}/{repo}/security-advisories` — fetched unfiltered (the endpoint's own
+    /// `state` query param isn't used) and filtered here to `triage`/`published`, matching
+    /// ``RepoAdvisoryReading/openSecurityAdvisories(owner:name:token:)``'s contract.
+    public func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] {
+        let data = try await send(repoRequest(
+            method: "GET", path: "/repos/\(owner)/\(name)/security-advisories", token: token))
+        guard let items = try? JSONDecoder().decode([AdvisoryResponse].self, from: data) else {
+            throw GitHubRepoAPIError.malformedResponse
+        }
+        let dateFormatter = ISO8601DateFormatter()
+        return items
+            .filter { $0.state == "triage" || $0.state == "published" }
+            .compactMap { item in
+                guard let url = URL(string: item.htmlURL) else { return nil }
+                return SecurityAdvisory(
+                    id: item.ghsaID, summary: item.summary, severity: item.severity, htmlURL: url,
+                    publishedAt: item.publishedAt.flatMap { dateFormatter.date(from: $0) })
+            }
+    }
+
+    /// `GET /repos/{owner}/{repo}/dependabot/alerts?state=open`.
+    public func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] {
+        let data = try await send(repoRequest(
+            method: "GET", path: "/repos/\(owner)/\(name)/dependabot/alerts?state=open", token: token))
+        guard let items = try? JSONDecoder().decode([AlertResponse].self, from: data) else {
+            throw GitHubRepoAPIError.malformedResponse
+        }
+        return items.compactMap { item in
+            guard let url = URL(string: item.htmlURL) else { return nil }
+            return DependabotAlert(
+                id: item.number, packageName: item.dependency.package.name,
+                ecosystem: item.dependency.package.ecosystem, severity: item.securityAdvisory.severity,
+                patchedVersion: item.securityVulnerability.firstPatchedVersion?.identifier, htmlURL: url)
+        }
+    }
+}

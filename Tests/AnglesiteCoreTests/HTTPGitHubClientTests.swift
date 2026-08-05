@@ -192,4 +192,89 @@ struct HTTPGitHubClientTests {
             _ = try await client.isPrivate(owner: "acme", name: "site", token: "tok")
         }
     }
+
+    // MARK: - RepoAdvisoryReading (#975)
+
+    @Test("open security advisories decode, keeping only triage/published state")
+    func openSecurityAdvisoriesFiltersState() async throws {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
+            [
+              {"ghsa_id":"GHSA-1111-1111-1111","summary":"Triage report","severity":"high",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-1111-1111-1111",
+               "published_at":null,"state":"triage"},
+              {"ghsa_id":"GHSA-2222-2222-2222","summary":"Published report","severity":"critical",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-2222-2222-2222",
+               "published_at":"2026-07-01T00:00:00Z","state":"published"},
+              {"ghsa_id":"GHSA-3333-3333-3333","summary":"Owner's own draft","severity":"low",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-3333-3333-3333",
+               "published_at":null,"state":"draft"},
+              {"ghsa_id":"GHSA-4444-4444-4444","summary":"Already resolved","severity":"moderate",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-4444-4444-4444",
+               "published_at":"2026-01-01T00:00:00Z","state":"closed"}
+            ]
+            """))
+        let advisories = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        #expect(advisories.map(\.id) == ["GHSA-1111-1111-1111", "GHSA-2222-2222-2222"])
+        #expect(advisories[0].severity == .high)
+        #expect(advisories[1].severity == .critical)
+        #expect(advisories[1].publishedAt != nil)
+    }
+
+    @Test("open Dependabot alerts decode package, severity, patched version, and URL")
+    func openDependabotAlertsDecode() async throws {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
+            [
+              {"number":7,"dependency":{"package":{"name":"left-pad","ecosystem":"npm"}},
+               "security_advisory":{"severity":"moderate"},
+               "security_vulnerability":{"first_patched_version":{"identifier":"1.3.0"}},
+               "html_url":"https://github.com/acme/site/security/dependabot/7"},
+              {"number":9,"dependency":{"package":{"name":"left-pad-legacy","ecosystem":"npm"}},
+               "security_advisory":{"severity":"high"},
+               "security_vulnerability":{"first_patched_version":null},
+               "html_url":"https://github.com/acme/site/security/dependabot/9"}
+            ]
+            """))
+        let alerts = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        #expect(alerts.count == 2)
+        #expect(alerts[0].id == 7)
+        #expect(alerts[0].packageName == "left-pad")
+        #expect(alerts[0].ecosystem == "npm")
+        #expect(alerts[0].severity == .moderate)
+        #expect(alerts[0].patchedVersion == "1.3.0")
+        #expect(alerts[1].patchedVersion == nil)
+    }
+
+    @Test("a 401 on advisories maps to .unauthorized")
+    func openSecurityAdvisoriesUnauthorized() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 401, json: #"{"message":"Bad credentials"}"#))
+        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+            _ = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "bad")
+        }
+    }
+
+    @Test("a transport failure on alerts maps to .network")
+    func openDependabotAlertsNetworkFailure() async {
+        let client = HTTPGitHubClient(transport: { _ in throw URLError(.notConnectedToInternet) })
+        await #expect(throws: GitHubRepoAPIError.network) {
+            _ = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("an unparseable advisories body maps to .malformedResponse")
+    func openSecurityAdvisoriesMalformed() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: "not json"))
+        await #expect(throws: GitHubRepoAPIError.malformedResponse) {
+            _ = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("the alerts request targets the state=open query and sends the bearer token")
+    func alertsRequestShape() async {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(status: 200, json: "[]", into: box))
+        _ = try? await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        let request = await box.last
+        #expect(request?.url?.absoluteString == "https://api.github.com/repos/acme/site/dependabot/alerts?state=open")
+        #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
+    }
 }
