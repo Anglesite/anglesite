@@ -747,7 +747,10 @@ extension DependencySync {
         guard let patchedVersion = alert.patchedVersion else { return nil }
         guard let offer = offers.updates.first(where: { $0.name == alert.packageName }) else { return nil }
         // The offered range must not be *older* than the patch — i.e. it's newer or equal.
-        guard DependencyVersionComparator.isNewer(patchedVersion, than: offer.offeredRange) != true else { return nil }
+        // `guard let` (not `!= true`): `isNewer` returning nil means "unparseable" — `nil != true`
+        // is itself `true` in Swift, which would wrongly fall through and return the offer.
+        guard let isNewer = DependencyVersionComparator.isNewer(patchedVersion, than: offer.offeredRange),
+              !isNewer else { return nil }
         return offer
     }
 }
