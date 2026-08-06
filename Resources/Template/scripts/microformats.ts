@@ -215,13 +215,19 @@ function walkHtml(dir: string): string[] {
  * the h-feed list pages: each `FEED_COLLECTION_DIRS` collection's own index.html, plus the
  * combined `/timeline/` stream.
  *
- * Scanning zero built pages across all of `ENTRY_DIRS` is itself reported as a problem rather
- * than silently returning `[]`: this script only ever runs chained after `astro build`
- * (`npm run build`, immediately before `validate-html.ts`), so by the time it runs `dist/` must
- * exist and hold pages — scanning zero means something upstream is broken (a missing/empty
- * `dist/`, or the wrong `distDir` argument), not a legitimate empty site. Mirrors the
- * fail-open-on-empty fix `markup-validate.ts`'s `validateDist` applies to the HTML5 conformance
- * gate (#957, PR #1286).
+ * Scanning zero built pages at all is itself reported as a problem rather than silently
+ * returning `[]`: this script only ever runs chained after `astro build` (`npm run build`,
+ * immediately before `validate-html.ts`), so by the time it runs `dist/` must exist and hold
+ * pages — scanning zero means something upstream is broken (a missing/empty `dist/`, or the
+ * wrong `distDir` argument), not a legitimate empty site. Mirrors the fail-open-on-empty fix
+ * `markup-validate.ts`'s `validateDist` applies to the HTML5 conformance gate (#957, PR #1286).
+ *
+ * The "did we scan anything" check counts `ENTRY_DIRS` pages plus `timeline/index.html` and
+ * `resume/index.html` — both fixed Astro routes that a real `astro build` always emits (see
+ * `src/pages/timeline/index.astro`, `src/pages/resume.astro`), regardless of whether any
+ * collection has entries or a resume has been configured. That keeps a legitimate entry-less
+ * site (e.g. resume-only, or a bare homepage) from tripping the guard, while a wholesale
+ * missing/empty `dist/` still has none of these three page kinds and correctly fails loudly.
  */
 export function validateDist(distDir: string): string[] {
   const problems: string[] = [];
@@ -249,15 +255,17 @@ export function validateDist(distDir: string): string[] {
     }
   }
 
-  if (filesScanned === 0) {
-    return [
-      `${distDir}: no built pages found under ${ENTRY_DIRS.join(", ")} — nothing was validated (missing/empty dist/, or the wrong distDir argument)`,
-    ];
-  }
-
   // /timeline/ combines all eight feed collections into one h-feed page. It has no per-entry
   // subpages of its own, so it isn't walked via ENTRY_DIRS above — check its single file directly.
   const timelineFile = join(distDir, "timeline", "index.html");
+  const resumeFile = join(distDir, "resume", "index.html");
+
+  if (filesScanned === 0 && !existsSync(timelineFile) && !existsSync(resumeFile)) {
+    return [
+      `${distDir}: no built pages found (no ENTRY_DIRS pages, timeline/index.html, or resume/index.html) — nothing was validated (missing/empty dist/, or the wrong distDir argument)`,
+    ];
+  }
+
   try {
     const timelineHtml = readFileSync(timelineFile, "utf8");
     problems.push(...validateFeedHtml(timelineHtml, "timeline/index.html"));
@@ -272,9 +280,8 @@ export function validateDist(distDir: string): string[] {
     if (!seenAny.has(t)) problems.push(`coverage: no ${t} page found in ${distDir}`);
   }
 
-  const resumePage = join(distDir, "resume", "index.html");
-  if (existsSync(resumePage)) {
-    problems.push(...validateResumeHtml(readFileSync(resumePage, "utf8"), "resume/index.html"));
+  if (existsSync(resumeFile)) {
+    problems.push(...validateResumeHtml(readFileSync(resumeFile, "utf8"), "resume/index.html"));
   }
 
   return problems;

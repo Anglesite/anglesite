@@ -282,3 +282,27 @@ test("validateDist: a single built entry page is enough to avoid the empty-scan 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("validateDist: a resume-only site (zero entries in every ENTRY_DIRS collection) does not trip the empty-scan guard", () => {
+  const dir = mkdtempSync(join(tmpdir(), "microformats-test-"));
+  try {
+    mkdirSync(join(dir, "resume"), { recursive: true });
+    writeFileSync(join(dir, "resume", "index.html"), GOOD_RESUME);
+    const problems = validateDist(dir);
+    assert.ok(!problems.some((p) => p.includes("no built pages found")), problems.join("; "));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("validateDist: a bare site with only the always-emitted timeline page does not trip the empty-scan guard", () => {
+  const dir = mkdtempSync(join(tmpdir(), "microformats-test-"));
+  try {
+    mkdirSync(join(dir, "timeline"), { recursive: true });
+    writeFileSync(join(dir, "timeline", "index.html"), EMPTY_FEED);
+    const problems = validateDist(dir);
+    assert.ok(!problems.some((p) => p.includes("no built pages found")), problems.join("; "));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
