@@ -84,14 +84,17 @@ actor ShellModel {
     }
 
     /// The edit-overlay JS to inject into the preview. On macOS this rides the app bundle
-    /// (`AnglesiteOverlayBundle`); the Linux executable has no bundle yet (Flatpak packaging is
-    /// a separate #567 item), so resolution is: `ANGLESITE_OVERLAY_JS` env override first (dev
-    /// loop), then the repo-relative `scripts/build-overlay.sh` output beside the binary's cwd.
-    /// Missing overlay is non-fatal — the preview loads without edit affordances, matching
-    /// `WebViewBridge`'s behavior when the bundle wasn't produced.
+    /// (`AnglesiteOverlayBundle`); on Linux resolution tries, in order: `ANGLESITE_OVERLAY_JS`
+    /// env override (dev loop); `/app/share/anglesite/edit-overlay/overlay.js`, the path the
+    /// Flatpak manifest installs it to (`packaging/flatpak/io.dwk.anglesite.linux.yml` — see
+    /// docs/superpowers/specs/2026-08-06-flatpak-packaging-investigation.md §7); then the
+    /// repo-relative `scripts/build-overlay.sh` output beside the binary's cwd, for an unpackaged
+    /// dev build run from the repo root. Missing overlay is non-fatal — the preview loads without
+    /// edit affordances, matching `WebViewBridge`'s behavior when the bundle wasn't produced.
     static func overlaySource(environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
         let candidates = [
             environment["ANGLESITE_OVERLAY_JS"],
+            "/app/share/anglesite/edit-overlay/overlay.js",
             "Resources/edit-overlay/overlay.js",
         ]
         for case let path? in candidates {
