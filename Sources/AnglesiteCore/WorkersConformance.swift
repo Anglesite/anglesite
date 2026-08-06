@@ -62,10 +62,25 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     ]
 
     /// `true` when this package has a known public conformance suite (see
-    /// `packagesWithKnownConformanceSuites`) but `status.json` reports no suite results for it —
-    /// evidence is missing, not failing.
+    /// `packagesWithKnownConformanceSuites`) but `status.json` doesn't report results for at
+    /// least one of its expected suite keys — evidence is missing (fully, if `suites` is empty,
+    /// or partially, if only some expected keys are present), not failing. Review feedback on
+    /// #1295: a *partial* report (e.g. `webmention.rocks/sender` present, `.../receiver` absent)
+    /// is the same "hasn't run yet" gap as a fully-empty `suites` dict, one key at a time — it
+    /// must classify the same way in `gateStatus`, not fall through to `blocked` just because
+    /// `suites` happens to be non-empty.
     public var isMissingRequiredSuite: Bool {
-        Self.packagesWithKnownConformanceSuites[name] != nil && suites.isEmpty
+        guard let expectedKeys = Self.packagesWithKnownConformanceSuites[name] else { return false }
+        guard !suites.isEmpty else { return true }
+        return !expectedKeys.isSubset(of: Set(suites.keys))
+    }
+
+    /// `true` when this package has at least one reported suite result that isn't `"passing"` —
+    /// a genuine failure, as distinct from `isMissingRequiredSuite`'s "hasn't reported at all"
+    /// (#1295). `gateStatus` checks this so a real failure alongside a missing key (e.g. sender
+    /// failing, receiver never reported) still classifies as `blocked`, not `unverified`.
+    public var hasFailingReportedSuite: Bool {
+        suites.values.contains { $0.status != "passing" }
     }
 
     /// `true` when all external suites pass. An empty `suites` dict passes vacuously only for
@@ -78,9 +93,7 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     /// *is* reported happens to say `"passing"` (#1295).
     public var areAllSuitesPassing: Bool {
         guard !suites.isEmpty else { return !isMissingRequiredSuite }
-        guard suites.values.allSatisfy({ $0.status == "passing" }) else { return false }
-        let expectedKeys = Self.packagesWithKnownConformanceSuites[name] ?? []
-        return expectedKeys.isSubset(of: Set(suites.keys))
+        return suites.values.allSatisfy { $0.status == "passing" } && !isMissingRequiredSuite
     }
 
     /// `true` when both the integration tests and all external suites are passing.
@@ -126,12 +139,15 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
         public let phase: Phase
         /// Packages that are release-ready.
         public let ready: [String]
-        /// Packages that are missing from the status, or failing their integration tests or an
-        /// external suite that actually ran.
+        /// Packages that are missing from the status, or failing their integration tests or a
+        /// reported suite (a suite result that isn't `"passing"` always lands here, even
+        /// alongside a missing expected key elsewhere on the same package — #1295).
         public let blocked: [String]
-        /// Packages whose integration tests pass but whose known public conformance suite has
-        /// reported no results yet — distinct from `blocked`: this is missing evidence, not a
-        /// known failure (#957).
+        /// Packages whose integration tests pass but whose known public conformance suite is
+        /// missing evidence for at least one expected suite key — fully (an empty `suites` dict)
+        /// or partially (some expected keys reported, at least one absent) — with no genuine
+        /// failure reported elsewhere. Distinct from `blocked`: this is missing evidence, not a
+        /// known failure (#957, refined for partial reports by #1295).
         public let unverified: [String]
         /// `true` when no packages are blocked or unverified — the phase may be activated.
         public var isUnblocked: Bool { blocked.isEmpty && unverified.isEmpty }
@@ -151,7 +167,7 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
             }
             if pkg.isReleaseReady {
                 ready.append(name)
-            } else if pkg.isIntegrationPassing && pkg.isMissingRequiredSuite {
+            } else if pkg.isIntegrationPassing && pkg.isMissingRequiredSuite && !pkg.hasFailingReportedSuite {
                 unverified.append(name)
             } else {
                 blocked.append(name)

@@ -310,7 +310,9 @@ struct WorkersConformanceTests {
 
         let status = try WorkersConformanceReader.parse(json)
         let indieauth = try #require(status.packages["@dwk/indieauth"])
-        #expect(!indieauth.isMissingRequiredSuite) // suites isn't empty
+        // The real indieauth.rocks suite has reported nothing, same as an empty suites dict —
+        // this is missing evidence, not a verified pass.
+        #expect(indieauth.isMissingRequiredSuite)
         #expect(!indieauth.areAllSuitesPassing)
         #expect(!indieauth.isReleaseReady)
     }
@@ -333,9 +335,67 @@ struct WorkersConformanceTests {
 
         let status = try WorkersConformanceReader.parse(json)
         let webmention = try #require(status.packages["@dwk/webmention"])
-        #expect(!webmention.isMissingRequiredSuite) // suites isn't empty
+        // receiver's evidence is missing (not failing) — same bucket as a fully-empty suites dict.
+        #expect(webmention.isMissingRequiredSuite)
+        #expect(!webmention.hasFailingReportedSuite)
         #expect(!webmention.areAllSuitesPassing)
         #expect(!webmention.isReleaseReady)
+    }
+
+    @Test("gateStatus reports a partial suite report as unverified, not blocked (#1295 review feedback)")
+    func gateStatusPartialSuiteReportIsUnverified() throws {
+        // Review feedback on #1295: a partial report (sender present, receiver absent) is missing
+        // evidence for the receiver suite, same as a fully-empty suites dict — it must land in
+        // `unverified`, not fall through to `blocked` just because `suites` is non-empty.
+        let json = """
+        {
+          "packages": {
+            "@dwk/webmention": {
+              "standard": "Webmention",
+              "suites": { "webmention.rocks/sender": { "status": "passing" } },
+              "integration": { "status": "passing", "cases": [] }
+            },
+            "@dwk/indieauth": {
+              "standard": "IndieAuth",
+              "suites": { "indieauth.rocks": { "status": "passing" } },
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let v2Gate = status.gateStatus(for: .v2)
+        #expect(v2Gate.unverified.contains("@dwk/webmention"))
+        #expect(!v2Gate.blocked.contains("@dwk/webmention"))
+        #expect(!v2Gate.ready.contains("@dwk/webmention"))
+    }
+
+    @Test("a real failure alongside a missing suite key still blocks, not unverified (#1295 review feedback)")
+    func gateStatusFailingSuiteAlongsideMissingKeyIsBlocked() throws {
+        // sender genuinely failed (not just absent) and receiver was never reported — the real
+        // failure must take priority over the "missing evidence" classification.
+        let json = """
+        {
+          "packages": {
+            "@dwk/webmention": {
+              "standard": "Webmention",
+              "suites": { "webmention.rocks/sender": { "status": "failing" } },
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let webmention = try #require(status.packages["@dwk/webmention"])
+        #expect(webmention.isMissingRequiredSuite) // receiver still never reported
+        #expect(webmention.hasFailingReportedSuite) // sender genuinely failed
+        #expect(!webmention.areAllSuitesPassing)
+
+        let gate = WorkersConformanceStatus(packages: ["@dwk/webmention": webmention]).gateStatus(for: .v2)
+        #expect(gate.blocked.contains("@dwk/webmention"))
+        #expect(!gate.unverified.contains("@dwk/webmention"))
     }
 
     @Test("activitypub with an empty expected-key set still passes on any reported passing suite (#1295)")
