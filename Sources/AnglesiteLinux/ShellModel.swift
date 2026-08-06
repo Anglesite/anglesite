@@ -88,12 +88,12 @@ actor ShellModel {
     /// env override (dev loop); `/app/share/anglesite/edit-overlay/overlay.js`, the path the
     /// Flatpak manifest installs it to (`packaging/flatpak/io.dwk.anglesite.linux.yml` — see
     /// docs/superpowers/specs/2026-08-06-flatpak-packaging-investigation.md §7), tried only when
-    /// `FLATPAK_ID` indicates a Flatpak sandbox — same detection `PodmanContainerControl.
-    /// flatpakHostSpawn` uses, so a stray `/app` directory on a non-Flatpak Linux box can't
-    /// silently shadow the dev-relative fallback below it; then the repo-relative
-    /// `scripts/build-overlay.sh` output beside the binary's cwd, for an unpackaged dev build run
-    /// from the repo root. Missing overlay is non-fatal — the preview loads without edit
-    /// affordances, matching `WebViewBridge`'s behavior when the bundle wasn't produced. The
+    /// `FLATPAK_ID` indicates a Flatpak sandbox — same detection
+    /// `PodmanContainerControl.flatpakHostSpawn` uses, so a stray `/app` directory on a
+    /// non-Flatpak Linux box can't silently shadow the dev-relative fallback below it; then the
+    /// repo-relative `scripts/build-overlay.sh` output beside the binary's cwd, for an unpackaged
+    /// dev build run from the repo root. Missing overlay is non-fatal — the preview loads without
+    /// edit affordances, matching `WebViewBridge`'s behavior when the bundle wasn't produced. The
     /// ordering/gating itself lives in `overlayCandidates(environment:)`, a pure function kept
     /// separate from this one's file I/O so `Tests/AnglesiteLinuxTests` can exercise it directly.
     static func overlaySource(environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {

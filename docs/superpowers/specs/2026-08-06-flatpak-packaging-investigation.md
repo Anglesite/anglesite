@@ -169,26 +169,36 @@ picked path through `xdg-document-portal`'s FUSE filesystem, typically surfaced 
 
 `PodmanContainerControl.start()` then bind-mounts that path into the container:
 `-v "\(cloneSource.path):/run/anglesite-source:ro"`. Under `flatpak-spawn --host`, podman itself
-runs as a normal host process (outside the sandbox) — the question is whether the **document
-portal's FUSE path is visible to that host process** at all, since `xdg-document-portal` is itself
-a host/system service (not sandbox-namespace-scoped), so in principle a same-session host process
-should see the same `/run/user/$UID/doc/...` mount non-sandboxed processes already do. This is
-plausible but **not verified** here — no live Flatpak+podman environment was available to test the
-actual bind-mount succeeding end-to-end.
+runs as a normal host process, entirely outside any Flatpak sandbox — and that's specifically why
+the naive path is likely to fail, not just an open question: `xdg-document-portal`'s FUSE grants
+are recorded per **sandboxed app instance** (the identity a Flatpak sandbox presents to the
+portal), not per Unix UID. A `flatpak-spawn --host`-launched `podman` isn't running as that
+identity — it's a plain host process — so it's plausibly not the caller the grant was issued to,
+even though it's the same user and the sandboxed app itself can read the path fine. This is a
+reportedly common failure mode for exactly this "spawn-to-host, then hand the host process a
+document-portal path" shape (`EACCES`/`ENOENT` from the host-side process). **Not verified here**
+— no live Flatpak+podman environment was available to test the actual bind-mount — but treated as
+the *expected* outcome rather than a coin-flip, which changes the fallback ordering below.
 
-Two fallbacks if it doesn't hold, to try in this order when a real Flatpak build is verified:
+Two approaches to try when a real Flatpak build is verified, **in this priority order** (reversed
+from an earlier draft of this doc, which listed the narrower-grant option second only as a
+fallback "if plan A fails" — on reflection plan A has a real chance of failing this exact way on
+the very first live test, so it shouldn't be the thing tried first in production):
 
-1. Have the app resolve the **real** host path for a document-portal file via
-   `org.freedesktop.portal.Documents`'s host-path-resolution affordances (available to processes
-   with the right access) instead of passing the FUSE path to `podman -v`.
-2. If that's not viable, scope a narrower `--filesystem=` grant to a known Sites directory (e.g.
-   `xdg-data/anglesite/Sites:create`, mirroring how the macOS app defaults new sites into an
-   app-owned location) so at least the common "new site" path never needs the document portal's
-   FUSE indirection, while `.folderImporter`-picked sites elsewhere keep depending on (1).
+1. **Primary: resolve the real host path before handing it to podman.**
+   `org.freedesktop.portal.Documents`'s path-resolution affordances can return the actual host
+   filesystem path backing a document-portal grant (to a caller with the right access), rather
+   than the FUSE path. Have the app do that resolution itself and pass the resolved host path to
+   `podman -v`, instead of the FUSE path.
+2. **Fallback: a narrower `--filesystem=` grant for the common case.** If (1) isn't viable, scope
+   a grant to a known Sites directory (e.g. `xdg-data/anglesite/Sites:create`, mirroring how the
+   macOS app defaults new sites into an app-owned location) so at least the common "new site" path
+   never needs the document portal's FUSE indirection at all — `.folderImporter`-picked sites
+   elsewhere would still depend on (1) working.
 
-This risk is independent of §5 and should be tested first, since a failed bind-mount blocks the
-Exit Criterion entirely (open → edit → preview), while a `conmon`-detach hang is "boot is slow" at
-worst.
+This risk is independent of §5/§5b and should be tested first, since a failed bind-mount blocks
+the Exit Criterion entirely (open → edit → preview), while a `conmon`-detach hang or an
+interactive-exec stdio hiccup are "boot is slow" / "the ACP shell path is flaky" at worst.
 
 ## 7. Implemented: resource bundling + the manifest scaffold
 
@@ -239,7 +249,8 @@ non-fatal in every case, matching the existing behavior.
 Consistent with the design doc's own "Open questions (deferred, non-blocking)" framing for items
 that don't block the phase they're filed under:
 
-- **End-user dev-server image distribution.** `PodmanContainerControl` boots
+- **End-user dev-server image distribution**, tracked in
+  [#1291](https://github.com/Anglesite/Anglesite/issues/1291). `PodmanContainerControl` boots
   `localhost/anglesite-dev:latest`, which today only exists after a developer runs
   `scripts/build-podman-image.sh` against a sibling MCP-sidecar checkout
   (`scripts/lib/stage-dev-image-context.sh`). A Flathub end user has neither the sibling repo nor
@@ -248,16 +259,17 @@ that don't block the phase they're filed under:
   pipeline in `scripts/build-container-image.sh`, vs. vendoring a prebuilt OCI layout the way
   macOS's `Resources/container-image/` does) and is a large enough change to warrant its own
   tracked issue rather than folding it into this one silently.
-- **A Flatpak-based CI lane.** Package.swift's own comment names this as the blocker for
-  un-gating `AnglesiteLinux` from `ANGLESITE_LINUX_SHELL=1` in the default Linux CI leg. Building
-  one (and deciding whether it also becomes the `PodmanContainerControlTests`/`AnglesiteCoreTests`
-  Linux runner — see the CI-target gap noted in §4) is follow-up work once the manifest itself is
-  live-verified per §9's checklist.
-- **Actual Flathub submission and review.** Everything here targets a locally-buildable
-  `flatpak-builder` manifest, not a submitted-and-reviewed Flathub listing (icon art, screenshots,
-  a stable release/update channel, and Flathub's own manifest-review process — including likely
-  scrutiny of `--talk-name=org.freedesktop.Flatpak`'s breadth, see §3(b) — all still need to
-  happen).
+- **Live-verifying the manifest, a Flatpak-based CI lane, and actual Flathub submission**, tracked
+  in [#1293](https://github.com/Anglesite/Anglesite/issues/1293). Everything here targets a
+  locally-buildable `flatpak-builder` manifest, not a live-tested build or a
+  submitted-and-reviewed Flathub listing: §9's verification checklist (the bind-mount, the
+  `conmon`/`flatpak-spawn` interaction, interactive-exec stdio) still needs a real Ubuntu/Fedora
+  box; the CI lane Package.swift's own comment names as the blocker for un-gating `AnglesiteLinux`
+  from `ANGLESITE_LINUX_SHELL=1` (and deciding whether it also becomes the
+  `PodmanContainerControlTests`/`AnglesiteCoreTests` Linux runner — see the CI-target gap noted in
+  §4) still needs building; and Flathub's own manifest-review process (icon art, screenshots, a
+  stable release/update channel, and likely scrutiny of `--talk-name=org.freedesktop.Flatpak`'s
+  breadth, see §3(a)) hasn't started.
 
 ## 9. What still needs a real Flatpak/podman/GTK environment to verify
 
@@ -273,7 +285,9 @@ verification"). Before treating this design as load-bearing, a real Ubuntu/Fedor
    research in this doc, not confirmed against this repo's exact dependency pins).
 2. Run the installed Flatpak, open a `.anglesite` package via the folder picker, and confirm the
    bind-mount in §6 actually works end-to-end (this is the highest-priority unknown — it blocks
-   the Exit Criterion entirely if it fails).
+   the Exit Criterion entirely if it fails). Per §6's reprioritization, implement and test the
+   Documents-portal path-resolution approach (§6 option 1) first, not the FUSE path passed
+   straight through — it's the one expected to work, not just the one tried first for convenience.
 3. Confirm `podman run -d` boots promptly through `flatpak-spawn --host` (§5) rather than hanging.
 4. Confirm the overlay JS actually loads from `/app/share/anglesite/edit-overlay/overlay.js` (§7).
 5. Open an interactive `exec` session (the ACP-agent path, `PodmanContainerControl.
