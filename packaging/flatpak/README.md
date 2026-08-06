@@ -31,23 +31,30 @@ written in.
    ```sh
    scripts/build-overlay.sh
    ```
-3. From the repo root:
+3. From the repo root (the manifest's `build-args: [--share=network]` lets this build resolve
+   SwiftPM's git-pinned dependencies — see the manifest's own comment; this makes local
+   verification builds work but is **not** Flathub-submittable as-is, see "Known gaps" below):
    ```sh
    flatpak-builder --user --install --force-clean \
      packaging/flatpak/build-dir packaging/flatpak/io.dwk.anglesite.linux.yml
    ```
 4. `flatpak run io.dwk.anglesite.linux`, open a `.anglesite` package via the folder picker, and
-   confirm the preview actually boots — this exercises the two unverified risks the investigation
-   doc calls out: whether the document-portal-picked path resolves for the host-side podman
-   bind-mount (§6), and whether `podman run -d` boots promptly through `flatpak-spawn --host`
-   rather than hanging (§5).
+   confirm the preview actually boots — this exercises the unverified risks the investigation doc
+   calls out: whether the document-portal-picked path resolves for the host-side podman
+   bind-mount (§6), whether `podman run -d` boots promptly through `flatpak-spawn --host` rather
+   than hanging (§5), and whether an interactive `exec` session's stdio survives the same D-Bus
+   proxy (§5b).
 
 ## Known gaps (see the investigation doc §8-9 for the full list)
 
 - No CI lane builds this manifest yet.
+- Not Flathub-submittable as-is: both the SwiftPM build step (`--share=network` in `build-options`,
+  needed to fetch git-pinned dependencies) and the overlay JS's npm dependencies (built outside
+  the sandboxed build step entirely, per step 2 above) need their dependencies vendored ahead of
+  time for a real hermetic Flathub build — tracked in #1293.
 - No path exists yet for an end user to obtain the `localhost/anglesite-dev:latest` image this
   app requires — today it's only produced by a developer running
-  `scripts/build-podman-image.sh` against a sibling checkout.
+  `scripts/build-podman-image.sh` against a sibling checkout — tracked in #1291.
 - No MIME-type association for `.anglesite` packages is registered (Linux has no direct
   equivalent of macOS's `io.dwk.anglesite.site` package UTI without a separate
   `shared-mime-info` XML registration) — "Open Site…" via the in-app folder picker works

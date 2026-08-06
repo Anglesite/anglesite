@@ -46,6 +46,18 @@ finish-args:
 build-options:
   append-path: /usr/lib/sdk/swift6/bin
   prepend-ld-library-path: /usr/lib/sdk/swift6/lib
+  # flatpak-builder sandboxes the BUILD step itself with no network access by default (a Flathub
+  # hermeticity requirement) — but `swift build` below needs to resolve/fetch SwiftPM's git-pinned
+  # dependencies (adwaita-swift, plus whatever AnglesiteCore's graph pulls in) unless
+  # .build/checkouts is already populated from a prior unsandboxed build. Without this,
+  # `flatpak-builder --force-clean` (the command packaging/flatpak/README.md tells a verifier to
+  # run) fails on the first `swift build` invocation. --share=network here makes local
+  # verification builds actually work; it is NOT Flathub-submittable as-is — Flathub requires
+  # hermetic builds, so a real submission needs SwiftPM's dependencies vendored ahead of time the
+  # same way the overlay JS's npm dependencies do (see the build-commands comment below), which is
+  # exactly the kind of gap #1293 (live manifest verification + Flathub submission) tracks.
+  build-args:
+    - --share=network
 
 cleanup:
   - /include

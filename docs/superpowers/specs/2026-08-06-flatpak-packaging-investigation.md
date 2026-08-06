@@ -282,7 +282,13 @@ verification"). Before treating this design as load-bearing, a real Ubuntu/Fedor
 1. `flatpak-builder --user --install --force-clean build-dir packaging/flatpak/io.dwk.anglesite.linux.yml`
    and confirm it actually builds (Swift SDK extension version, GNOME runtime version, and
    webkitgtk-6.0 pkg-config availability are all inferred from the adwaita-swift precedent and web
-   research in this doc, not confirmed against this repo's exact dependency pins).
+   research in this doc, not confirmed against this repo's exact dependency pins). The manifest's
+   `build-options.build-args: [--share=network]` (added after review — `flatpak-builder` sandboxes
+   the build step itself with no network by default, and `swift build` needs to fetch SwiftPM's
+   git-pinned dependencies) makes this **local verification** build possible, but it is not
+   Flathub-submittable as-is: a hermetic build needs those dependencies vendored ahead of time,
+   the same unresolved gap the overlay JS's npm dependencies already have (§7) — both tracked in
+   #1293, not solved here.
 2. Run the installed Flatpak, open a `.anglesite` package via the folder picker, and confirm the
    bind-mount in §6 actually works end-to-end (this is the highest-priority unknown — it blocks
    the Exit Criterion entirely if it fails). Per §6's reprioritization, implement and test the
