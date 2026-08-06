@@ -86,15 +86,12 @@ final class OnionRoutingModel {
 
     // MARK: - Private
 
-    private func apiToken() -> String? {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
-            return env
-        }
-        return try? keychain.readCloudflareToken()
+    private func apiToken() async -> String? {
+        try? await CloudflareAPICredentials.resolve(secretStore: keychain)
     }
 
     private func loadOnionRouting(domain: String) async {
-        guard let token = apiToken() else {
+        guard let token = await apiToken() else {
             phase = .error(message: "No Cloudflare API token found. Add one in Settings → Credentials.")
             return
         }
@@ -115,7 +112,7 @@ final class OnionRoutingModel {
     }
 
     private func saveOnionRouting(domain: String, enabled: Bool) async {
-        guard let token = apiToken() else {
+        guard let token = await apiToken() else {
             phase = .error(message: "No Cloudflare API token found.")
             return
         }

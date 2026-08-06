@@ -674,25 +674,13 @@ public actor DeployCommand {
         ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
     }
 
-    /// Default `TokenSource` for production: env var first (so a developer's shell still wins),
-    /// then a stored OAuth credential (refreshing it first if expired), then the legacy pasted
-    /// token — read-only now that `CloudflareTokenPromptView` has been replaced by OAuth sign-in
-    /// (#1204), kept so a token a user already pasted keeps working. A store error is surfaced to
-    /// the caller — we'd rather show the user "couldn't read token" than silently fall through to
-    /// `nil` and prompt for a re-sign-in when a token is actually stored fine.
+    /// Default `TokenSource` for production: thin forwarding wrapper around
+    /// ``CloudflareAPICredentials/resolve(secretStore:)`` (#1211) — env var first (so a
+    /// developer's shell still wins), then a stored OAuth credential (refreshing it first if
+    /// expired), then the legacy pasted token, kept so a token a user already pasted keeps
+    /// working.
     public static let keychainTokenSource: TokenSource = {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
-            return env
-        }
-        let store = PlatformSecretStore.make()
-        let oauthSource = CloudflareOAuthTokenSource(secretStore: store, refresh: { refreshToken, tokenEndpoint in
-            try await CloudflareOAuthClient(scope: AnglesiteTokenTemplate.oauthScope)
-                .refresh(refreshToken: refreshToken, tokenEndpoint: tokenEndpoint)
-        })
-        if let oauthToken = try await oauthSource.resolve() {
-            return oauthToken
-        }
-        return try store.readCloudflareToken()
+        try await CloudflareAPICredentials.resolve()
     }
 
     /// Default `WorkerScriptNamesSource` for production: the account's Worker script names via

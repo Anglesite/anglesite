@@ -101,15 +101,12 @@ final class HardenModel {
 
     // MARK: - Private
 
-    private func apiToken() -> String? {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
-            return env
-        }
-        return try? keychain.readCloudflareToken()
+    private func apiToken() async -> String? {
+        try? await CloudflareAPICredentials.resolve(secretStore: keychain)
     }
 
     private func runResolveAndPlan(domain: String) async {
-        guard let token = apiToken() else {
+        guard let token = await apiToken() else {
             phase = .failed(reason: "No Cloudflare API token found. Add one in Settings → Credentials.")
             return
         }
@@ -133,7 +130,7 @@ final class HardenModel {
     }
 
     private func runApply(plan: HardenPlan, domain: String, zoneID: String) async {
-        guard let token = apiToken() else {
+        guard let token = await apiToken() else {
             phase = .failed(reason: "No Cloudflare API token found.")
             return
         }

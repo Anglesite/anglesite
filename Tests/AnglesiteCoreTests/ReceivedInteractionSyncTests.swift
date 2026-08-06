@@ -147,6 +147,11 @@ struct ReceivedInteractionSyncTests {
 
     @Test("pullAndCommitIfConfigured no-ops (with no network call) when a D1 database is provisioned but no token is stored")
     func noOpsWithNoToken() async throws {
+        // `CloudflareAPICredentials.resolve()` (#1211) checks this env var before falling back to
+        // `secretStore` — clear it so a leak from another suite's bare `setenv` (#1282) can't turn
+        // this into a false pass. Restored afterward regardless of outcome.
+        let restoreEnv = Self.clearCloudflareAPITokenEnvForTest()
+        defer { restoreEnv() }
         let fm = FileManager.default
         let configDir = fm.temporaryDirectory.appendingPathComponent("interactions-sync-config-\(UUID().uuidString)", isDirectory: true)
         defer { try? fm.removeItem(at: configDir) }
@@ -197,6 +202,17 @@ struct ReceivedInteractionSyncTests {
         #expect(count == 1)
         let written = siteDirectory.appendingPathComponent("data/interactions/wm-abc123.json")
         #expect(FileManager.default.fileExists(atPath: written.path))
+    }
+
+    /// Save/restore idiom for `CLOUDFLARE_API_TOKEN`, mirroring `DeployModelTests`'
+    /// `clearCloudflareAPITokenEnvForTest()` — see that helper's doc comment for the cross-suite
+    /// leak (#1282) this guards against.
+    private static func clearCloudflareAPITokenEnvForTest() -> () -> Void {
+        let previous = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
+        unsetenv("CLOUDFLARE_API_TOKEN")
+        return {
+            if let previous { setenv("CLOUDFLARE_API_TOKEN", previous, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
+        }
     }
 
     private static func makeThrowawayGitRepo() throws -> URL {

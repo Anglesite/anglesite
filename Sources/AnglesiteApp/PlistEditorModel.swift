@@ -803,37 +803,10 @@ final class PlistEditorModel {
         return (WebsiteAnalyticsAsset.parseMigratingLegacySettings(layoutSource: source, config: config), config)
     }
 
+    /// Env → OAuth (refresh-aware) → legacy-token, via the shared resolver (#1211) — the same
+    /// order every other production Cloudflare call site now uses.
     private func cloudflareToken() async throws -> String? {
-        do {
-            if let token = try keychain.readCloudflareToken(), !token.isEmpty {
-                return token
-            }
-        } catch {
-            if cloudflareEnvironmentToken() == nil {
-                throw error
-            }
-            await LogCenter.shared.append(
-                source: "analytics",
-                stream: .stderr,
-                text: "Could not read Cloudflare API token from Keychain; falling back to CLOUDFLARE_API_TOKEN."
-            )
-        }
-        if let env = cloudflareEnvironmentToken() {
-            await LogCenter.shared.append(
-                source: "analytics",
-                stream: .stderr,
-                text: "Using CLOUDFLARE_API_TOKEN environment fallback for Cloudflare Analytics."
-            )
-            return env
-        }
-        return nil
-    }
-
-    private func cloudflareEnvironmentToken() -> String? {
-        let token = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let token, !token.isEmpty else { return nil }
-        return token
+        try await CloudflareAPICredentials.resolve(secretStore: keychain)
     }
 
     private static func isWebsiteTitleEntry(_ entry: PlistDocumentIO.PlistEntry) -> Bool {
