@@ -722,9 +722,7 @@ final class PlistEditorModel {
     }
 
     private func currentRemoteRepo() async -> RemoteRepo? {
-        guard let result = try? await gitRunner(sourceDirectory, ["remote", "get-url", "origin"]),
-              result.exitCode == 0 else { return nil }
-        return RemoteRepo.parse(remoteURL: result.stdout)
+        await GitRemoteResolver.origin(in: sourceDirectory, runner: gitRunner)
     }
 
     private func repoSecurityMessage(for error: any Error) -> String {

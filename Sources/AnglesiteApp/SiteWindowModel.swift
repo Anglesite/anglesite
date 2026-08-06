@@ -701,15 +701,13 @@ final class SiteWindowModel {
         health.recheck(siteID: site.id, siteDirectory: site.sourceDirectory)
     }
 
-    /// Resolves this site's GitHub origin via the injected `gitRunner`, mirroring
-    /// `PlistEditorModel.currentRemoteRepo()` — a separate small lookup rather than a shared
-    /// dependency, consistent with how `PublishModel` already resolves the same fact its own way
-    /// via `RepoBootstrap`. `nil` for no remote, a non-GitHub remote, or a failed git call.
+    /// Resolves this site's GitHub origin via the injected `gitRunner`, sharing
+    /// `GitRemoteResolver.origin(in:runner:)` with `PlistEditorModel.currentRemoteRepo()` — see
+    /// that type's doc comment for why `PublishModel`'s `RepoBootstrap`-based resolution stays
+    /// separate. `nil` for no remote, a non-GitHub remote, or a failed git call.
     private func currentGitHubRemote() async -> RemoteRepo? {
         guard let site else { return nil }
-        guard let result = try? await gitRunner(site.sourceDirectory, ["remote", "get-url", "origin"]),
-              result.exitCode == 0 else { return nil }
-        return RemoteRepo.parse(remoteURL: result.stdout)
+        return await GitRemoteResolver.origin(in: site.sourceDirectory, runner: gitRunner)
     }
 
     /// Kicks off a `securityReports` check and returns the settling `Task` so callers (and
