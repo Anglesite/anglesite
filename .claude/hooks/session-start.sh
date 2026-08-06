@@ -12,6 +12,8 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+: "${CLAUDE_ENV_FILE:?CLAUDE_ENV_FILE must be set}"
+
 SWIFTLY_ENV="$HOME/.local/share/swiftly/env.sh"
 [ -f "$SWIFTLY_ENV" ] && . "$SWIFTLY_ENV"
 
@@ -23,12 +25,36 @@ swift_version_ok() {
   [ "${minor:-0}" -ge 603 ]
 }
 
+# Verifies the downloaded swiftly tarball against swift.org's published PGP
+# signature (https://www.swift.org/install/linux/swiftly/), in an isolated
+# GNUPGHOME so this doesn't touch any real user keyring. Runs unattended on
+# every qualifying web session, unlike the manual install instructions this
+# mirrors, so skipping verification here would be a bigger risk than there.
+# Best-effort: if gpg isn't available, warn and fall through rather than
+# blocking session bootstrap on an optional tool.
+verify_swiftly_tarball() {
+  local tarball="$1" sig="$2"
+  if ! command -v gpg >/dev/null 2>&1; then
+    echo "warning: gpg not found — skipping swiftly signature verification" >&2
+    return 0
+  fi
+  local gpg_home
+  gpg_home=$(mktemp -d)
+  # shellcheck disable=SC2064 (expand gpg_home now, not at trap time)
+  trap "rm -rf '$gpg_home'" RETURN
+  curl -fsSL --compressed https://www.swift.org/keys/all-keys.asc \
+    | gpg --homedir "$gpg_home" --quiet --import -
+  gpg --homedir "$gpg_home" --quiet --verify "$sig" "$tarball"
+}
+
 if ! swift_version_ok; then
   if ! command -v swiftly >/dev/null 2>&1; then
     curl -fsSL -o /tmp/swiftly.tar.gz "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz"
+    curl -fsSL -o /tmp/swiftly.tar.gz.sig "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz.sig"
+    verify_swiftly_tarball /tmp/swiftly.tar.gz /tmp/swiftly.tar.gz.sig
     tar zxf /tmp/swiftly.tar.gz -C /tmp
     /tmp/swiftly init -y --no-modify-profile --skip-install
-    rm -f /tmp/swiftly.tar.gz /tmp/swiftly
+    rm -f /tmp/swiftly.tar.gz /tmp/swiftly.tar.gz.sig /tmp/swiftly
     . "$SWIFTLY_ENV"
   fi
   swiftly install latest -y
