@@ -62,7 +62,7 @@ function walkHtml(dir: string): string[] {
   try {
     names = readdirSync(dir);
   } catch {
-    return out; // dir absent — not an error here
+    return out; // dir absent — validateDist turns the resulting empty list into an error
   }
   for (const name of names) {
     const full = join(dir, name);
