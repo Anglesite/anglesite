@@ -727,7 +727,8 @@ final class DeployModel {
             knownResources: settings.provisionedWorkerResources ?? .init(),
             siteURL: siteURL,
             displayName: settings.displayName,
-            acknowledgesPaidPlan: acknowledgesPaidPlan
+            acknowledgesPaidPlan: acknowledgesPaidPlan,
+            inboxCaptureEnabled: settings.inboxCaptureEnabled ?? false
         )
 
         if case .webmentionPaidPlanConfirmationNeeded = provisionResult {
