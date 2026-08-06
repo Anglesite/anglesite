@@ -38,12 +38,21 @@ public enum SecurityTxtMigrationApplier {
             let fileURL = sourceDirectory.appendingPathComponent("public/.well-known/security.txt")
             var fileExists = false
             if let existing = try? String(contentsOf: fileURL, encoding: .utf8) {
-                let marked = GeneratedEndpoints.securityTxtMarker + "\n" + existing
-                if (try? marked.write(to: fileURL, atomically: true, encoding: .utf8)) != nil {
-                    touched.append("public/.well-known/security.txt")
+                // Only prepend the marker if it isn't already there — this branch is also reached
+                // for an already-marker-owned file (`SecurityTxtMigrationChecker`'s `.silentAdopt`
+                // for a file the current generator already owns), and prepending unconditionally
+                // would duplicate the marker line on every such call.
+                if !isMarkerOwned(existing) {
+                    let marked = GeneratedEndpoints.securityTxtMarker + "\n" + existing
+                    _ = try? marked.write(to: fileURL, atomically: true, encoding: .utf8)
                 }
                 fileExists = true
             }
+            // The file itself is never added to `touched`: once adopted, it's build output the
+            // next generator run owns (that's what `.gitignore` below encodes), so it never needs
+            // to be part of the git commit — only `.site-config` and `.gitignore` do. Committing it
+            // anyway would also stage a path this same call is gitignoring, which fails the whole
+            // batch commit on the non-Darwin `git add` path.
             if fileExists {
                 touched += updateGitignore(sourceDirectory: sourceDirectory, adopt: true)
             }
@@ -65,6 +74,14 @@ public enum SecurityTxtMigrationApplier {
             return [WebsiteAnalyticsAsset.configRelativePath]
         }
         return []
+    }
+
+    /// True when `content`'s first line is exactly the current generator's marker — mirrors
+    /// `SecurityTxtMigrationChecker.isMarkerOwned` (and, on the TypeScript side,
+    /// `isSecurityTxtMarkerOwned`).
+    private static func isMarkerOwned(_ content: String) -> Bool {
+        content.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first
+            == GeneratedEndpoints.securityTxtMarker[...]
     }
 
     private static func updateGitignore(sourceDirectory: URL, adopt: Bool) -> [String] {

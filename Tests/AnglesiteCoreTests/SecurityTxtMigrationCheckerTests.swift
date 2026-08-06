@@ -25,10 +25,13 @@ import Foundation
         #expect(SecurityTxtMigrationChecker.check(sourceDirectory: source) == .nothingToDo)
     }
 
-    @Test func noFileNoContactBackfillsDisabled() throws {
+    @Test func noFileNoContactIsNothingToDo() throws {
         let source = tmpSite()
         try writeConfig("", to: source)
-        #expect(SecurityTxtMigrationChecker.check(sourceDirectory: source) == .silentBackfillMode(.disabled))
+        // Explicitly pinning `SECURITY_TXT_MODE=disabled` here would defeat
+        // `resolveSecurityTxtMode`'s inference from `SECURITY_CONTACT` if the owner later
+        // hand-adds a contact — leave the mode unset instead (design doc case 1).
+        #expect(SecurityTxtMigrationChecker.check(sourceDirectory: source) == .nothingToDo)
     }
 
     @Test func noFileWithContactBackfillsGenerated() throws {

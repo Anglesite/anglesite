@@ -4,6 +4,12 @@ import Foundation
 /// refresh/divergence-resolve, and `SecurityTxtMigrationApplier`) to the site's `Source/` git
 /// repo, and retries a commit that didn't happen last time (design doc "Resumability without a
 /// transaction log").
+///
+/// `touchedPaths` is only what gets `git add`-ed, not necessarily all of what gets committed:
+/// `InboxSubmissionCommitter.processGitCommitBatch` isn't strictly path-scoped on Darwin — it
+/// stages the named paths but ultimately commits whatever the index has staged. If the owner's
+/// `Source/` repo already has unrelated changes staged through an external tool (VS Code, a bare
+/// `git add`) at the moment a site opens, those would be swept into this migration commit too.
 public enum ExistingSiteMigrationCommitter {
     /// Commits `touchedPaths` (deduplicated and filtered to paths that actually exist on disk —
     /// a path a failed write never produced would abort the whole batch commit in

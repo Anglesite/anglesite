@@ -36,11 +36,17 @@ public enum SecurityTxtMigrationChecker {
         let siteURL = SiteConfigFile.value(forKey: "SITE_URL", in: config)
         let fileURL = sourceDirectory.appendingPathComponent("public/.well-known/security.txt")
         guard let existingContent = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            // No file at all: the mode is unambiguous from whether a contact is configured,
-            // matching `resolveSecurityTxtMode`'s existing inference — nothing here for an owner
-            // to lose, so this backfills silently.
+            // No file, no contact: nothing to migrate, and `SECURITY_TXT_MODE` is left unset
+            // rather than pinned to `.disabled` — an explicit mode always wins over
+            // `resolveSecurityTxtMode`'s inference from `SECURITY_CONTACT` on the TS side, so
+            // backfilling `.disabled` here would permanently defeat that inference even after the
+            // owner later hand-adds a contact to `.site-config` (a normal, supported workflow).
+            // No file, WITH a contact configured: still unambiguous and safe to backfill silently,
+            // matching `resolveSecurityTxtMode`'s existing inference — nothing here for an owner to
+            // lose.
             let hasContact = !(rawContact ?? "").trimmingCharacters(in: .whitespaces).isEmpty
-            return .silentBackfillMode(hasContact ? .generated : .disabled)
+            guard hasContact else { return .nothingToDo }
+            return .silentBackfillMode(.generated)
         }
 
         if isMarkerOwned(existingContent) {

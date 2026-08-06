@@ -1831,18 +1831,24 @@ final class SiteWindowModel {
                 configDirectory: resolved.configDirectory,
                 templateDirectory: templateURL
             )
-            if !plan.toApply.isEmpty {
+            // Applied one action at a time, not as a single batch: `applyQueued` throws on the
+            // first file it can't process but leaves every earlier write (and its baseline entry)
+            // intact — batching the call would silently drop those already-landed files from
+            // `migrationTouchedPaths`, so they'd never reach the committer (their baselines are
+            // already reconciled, so the checker wouldn't re-flag them either). Matches the fix
+            // already applied to the headless orchestrator, `ExistingSiteMigration.swift`.
+            for action in plan.toApply {
                 do {
                     try TemplateScriptsSyncApplier.applyQueued(
-                        plan.toApply,
+                        [action],
                         sourceDirectory: resolved.sourceDirectory,
                         configDirectory: resolved.configDirectory,
                         templateDirectory: templateURL
                     )
-                    migrationTouchedPaths += plan.toApply.map(\.relativePath)
+                    migrationTouchedPaths.append(action.relativePath)
                 } catch {
                     Self.logger.error(
-                        "scripts/ silent refresh failed for \(resolved.id, privacy: .public): \(String(describing: error), privacy: .public)"
+                        "scripts/ silent refresh failed for \(action.relativePath, privacy: .public) in \(resolved.id, privacy: .public): \(String(describing: error), privacy: .public)"
                     )
                 }
             }
@@ -1883,6 +1889,14 @@ final class SiteWindowModel {
                 }
             }
         }
+
+        // Same mitigation, same reasoning, as the `settle()` call above between the dependency-sync
+        // and scripts-sync sheets: this security.txt sheet is a THIRD `.sheet(item:)` +
+        // `.interactiveDismissDisabled()` presentation that can follow the scripts-sync sheet in
+        // the same synchronous continuation-resumption stack, and without settling here a
+        // silently-failed presentation would leave this method's `CheckedContinuation` unresumed
+        // forever — hanging the site open with no way to dismiss.
+        await AppKitConstraintStormMitigation.settle()
 
         switch SecurityTxtMigrationChecker.check(sourceDirectory: resolved.sourceDirectory) {
         case .nothingToDo:
