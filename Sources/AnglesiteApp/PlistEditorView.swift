@@ -664,8 +664,19 @@ struct PlistEditorView: View {
         }
     }
 
+    /// Only rendered for a site with a resolved GitHub remote — the same gate
+    /// `securityReportsGitHubCallout` uses, and for the same reason. `SecurityReportsModel.recheck`
+    /// deliberately doesn't set `lastCheckedAt` on the no-repo path (nothing was checked), so
+    /// without this gate a non-GitHub site would show "Not checked yet." forever and a
+    /// "Check for Reports" button that can't change it.
     @ViewBuilder
     private var openSecurityReportsSection: some View {
+        if model.securityReportingRepo != nil {
+            openReportsBox
+        }
+    }
+
+    private var openReportsBox: some View {
         SettingsBox(title: "Open Reports") {
             VStack(alignment: .leading, spacing: 10) {
                 if model.securityReports.isRunning && model.securityReports.totalCount == 0 && model.securityReports.lastCheckedAt == nil {
@@ -704,13 +715,27 @@ struct PlistEditorView: View {
         }
     }
 
+    // The leading glyph in these two rows distinguishes *kind* (advisory vs. dependency alert),
+    // so severity can't ride on its tint: each row states the tier in words next to the title and
+    // leads its accessibility label with it (`SecurityAdvisory.Severity.reportLabel`, shared with
+    // `SecurityReportsBadgeView`'s popover rows).
     private func advisoryRow(_ advisory: SecurityAdvisory) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(severityColor(advisory.severity))
+                .foregroundStyle(advisory.severity.reportColor)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(advisory.summary).font(.callout)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(advisory.severity.reportLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(advisory.severity.reportColor)
+                        // Already spoken by the summary's label below; announcing it twice would
+                        // make every row read its severity out of order.
+                        .accessibilityHidden(true)
+                    Text(advisory.summary)
+                        .font(.callout)
+                        .accessibilityLabel(advisory.severity.spokenLabel(for: advisory.summary))
+                }
                 HStack(spacing: 10) {
                     Link("View on GitHub", destination: advisory.htmlURL)
                         .font(.caption)
@@ -726,10 +751,19 @@ struct PlistEditorView: View {
     private func alertRow(_ alert: DependabotAlert) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "shippingbox.fill")
-                .foregroundStyle(severityColor(alert.severity))
+                .foregroundStyle(alert.severity.reportColor)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(alert.packageName) (\(alert.ecosystem))").font(.callout)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(alert.severity.reportLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(alert.severity.reportColor)
+                        .accessibilityHidden(true)
+                    Text("\(alert.packageName) (\(alert.ecosystem))")
+                        .font(.callout)
+                        .accessibilityLabel(alert.severity.spokenLabel(
+                            for: "\(alert.packageName) (\(alert.ecosystem))"))
+                }
                 if let offer = model.fixOffer(for: alert) {
                     Button("Update Available") { model.requestDependencyFix(for: alert) }
                         .font(.caption)
@@ -744,24 +778,16 @@ struct PlistEditorView: View {
         }
     }
 
-    private func severityColor(_ severity: SecurityAdvisory.Severity) -> Color {
-        switch severity {
-        case .critical, .high: return .red
-        case .moderate: return .orange
-        case .low, .unknown: return .yellow
-        }
-    }
-
     /// Copies a plain-text summary of `advisory` to the pasteboard and opens
     /// `Anglesite/Anglesite`'s advisory form — never an API call (#975, see
-    /// `AdvisoryForwarding`'s doc comment for why). Requires `model.securityReportingRepo` to be
-    /// known (it always is here: this row only renders once `securityReports` has populated,
-    /// which only happens for a resolved GitHub remote).
+    /// `AdvisoryForwarding`'s doc comment for why). The composition itself lives on
+    /// `PlistEditorModel` so it's testable; this wrapper is only the AppKit side effects, and
+    /// does nothing when the model can't name the site's repo yet.
     private func forwardToAnglesite(_ advisory: SecurityAdvisory) {
-        guard let repo = model.securityReportingRepo else { return }
+        guard let payload = model.forwardingPayload(for: advisory) else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(AdvisoryForwarding.clipboardText(for: advisory, siteRepo: repo), forType: .string)
-        NSWorkspace.shared.open(AdvisoryForwarding.anglesiteAdvisoryFormURL)
+        NSPasteboard.general.setString(payload.text, forType: .string)
+        NSWorkspace.shared.open(payload.formURL)
     }
 
     private var workersTab: some View {

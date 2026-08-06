@@ -1077,6 +1077,9 @@
     "Credentials" : {
 
     },
+    "Critical" : {
+
+    },
     "Custom" : {
 
     },
@@ -1566,6 +1569,9 @@
     "Hide this banner — the site stays fully editable; reopen it from the sync status icon" : {
 
     },
+    "High" : {
+
+    },
     "Highlight" : {
 
     },
@@ -1785,6 +1791,9 @@
     "Looking up registrar info…" : {
 
     },
+    "Low" : {
+
+    },
     "Lower numbers are preferred mail servers, e.g. 10." : {
 
     },
@@ -1813,6 +1822,9 @@
 
     },
     "Model" : {
+
+    },
+    "Moderate" : {
 
     },
     "Move To…" : {
@@ -3233,6 +3245,9 @@
 
     },
     "Unpublish" : {
+
+    },
+    "Unrated" : {
 
     },
     "Unsaved changes" : {

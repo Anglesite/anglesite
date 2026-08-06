@@ -62,36 +62,65 @@ public final class SecurityReportsModel {
         }
         isRunning = true
         let task = Task { @MainActor [weak self, reader] in
-            do {
-                async let advisories = reader.openSecurityAdvisories(owner: repo.owner, name: repo.name, token: token)
-                async let alerts = reader.openDependabotAlerts(owner: repo.owner, name: repo.name, token: token)
-                let (fetchedAdvisories, fetchedAlerts) = try await (advisories, alerts)
-                guard !Task.isCancelled else { return }
-                self?.commit(advisories: fetchedAdvisories, alerts: fetchedAlerts, error: nil)
-            } catch is CancellationError {
-                return  // a newer recheck superseded us; drop the result silently
-            } catch {
-                guard !Task.isCancelled else { return }
-                self?.commit(advisories: nil, alerts: nil, error: error)
-            }
+            // The two endpoints are awaited independently, not as one `try await (a, b)` tuple:
+            // GitHub answers `GET /repos/{o}/{r}/dependabot/alerts` with a 403 whenever Dependabot
+            // alerts are simply *disabled* for the repository — a normal state, not a token
+            // problem. Combining the awaits would let that ordinary 403 discard security
+            // advisories that fetched perfectly well, and blame the token for it.
+            async let advisoriesFetch = reader.openSecurityAdvisories(
+                owner: repo.owner, name: repo.name, token: token)
+            async let alertsFetch = reader.openDependabotAlerts(
+                owner: repo.owner, name: repo.name, token: token)
+
+            var advisories: [SecurityAdvisory]?
+            var alerts: [DependabotAlert]?
+            var advisoriesError: (any Error)?
+            var alertsError: (any Error)?
+            do { advisories = try await advisoriesFetch } catch { advisoriesError = error }
+            do { alerts = try await alertsFetch } catch { alertsError = error }
+
+            // A newer recheck superseded us; drop both results silently.
+            guard !Task.isCancelled else { return }
+            if let advisoriesError, advisoriesError is CancellationError { return }
+            if let alertsError, alertsError is CancellationError { return }
+
+            self?.commit(advisories: advisories, alerts: alerts,
+                         advisoriesError: advisoriesError, alertsError: alertsError)
         }
         inFlight = task
         return task
     }
 
-    private func commit(advisories: [SecurityAdvisory]?, alerts: [DependabotAlert]?, error: Error?) {
-        if let advisories, let alerts {
-            openAdvisories = advisories
-            openAlerts = alerts
-            lastError = nil
-        } else {
-            lastError = Self.message(for: error)
-        }
+    /// Commits whichever halves succeeded. A half that failed leaves its list empty and is
+    /// explained by `lastError` — never silently blank.
+    private func commit(advisories: [SecurityAdvisory]?, alerts: [DependabotAlert]?,
+                        advisoriesError: (any Error)?, alertsError: (any Error)?) {
+        openAdvisories = advisories ?? []
+        openAlerts = alerts ?? []
+        lastError = Self.message(advisoriesError: advisoriesError, alertsError: alertsError)
         lastCheckedAt = Date()
         isRunning = false
     }
 
-    private static func message(for error: Error?) -> String {
+    /// The user-facing explanation for a check where one or both halves failed, or `nil` when
+    /// both succeeded. A single failed half never claims the token is at fault — a repository
+    /// setting is the likelier cause, and the other half's results are on screen next to it.
+    private static func message(advisoriesError: (any Error)?, alertsError: (any Error)?) -> String? {
+        switch (advisoriesError, alertsError) {
+        case (nil, nil):
+            return nil
+        case (.some(let error), .some):
+            // Both halves failed, so a shared cause (invalid token, offline) is the likely one and
+            // the whole-check message — including its token remedy — is accurate again.
+            return wholeCheckMessage(for: error)
+        case (.some(let error), nil):
+            return "Couldn't check this repository's security advisories (\(reason(for: error))). Its open Dependabot alerts are still shown."
+        case (nil, .some(let error)):
+            return "Couldn't check this repository's Dependabot alerts (\(reason(for: error))) — they may be turned off for it. Its open security advisories are still shown."
+        }
+    }
+
+    private static func wholeCheckMessage(for error: any Error) -> String {
         guard let apiError = error as? GitHubRepoAPIError else {
             return "Couldn't check this repository's security reports."
         }
@@ -106,6 +135,20 @@ public final class SecurityReportsModel {
             return "GitHub rejected the request: \(message)"
         case .malformedResponse, .nameAlreadyExists:
             return "GitHub returned an unexpected response."
+        }
+    }
+
+    /// A short parenthetical cause, for the half-failed messages above.
+    private static func reason(for error: any Error) -> String {
+        guard let apiError = error as? GitHubRepoAPIError else {
+            return error.localizedDescription
+        }
+        switch apiError {
+        case .unauthorized: return "GitHub refused the request"
+        case .network: return "couldn't reach GitHub"
+        case .http(let status): return "HTTP \(status)"
+        case .api(let message): return message
+        case .malformedResponse, .nameAlreadyExists: return "unexpected response from GitHub"
         }
     }
 }

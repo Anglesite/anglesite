@@ -88,15 +88,16 @@ struct SecurityReportsBadgeView: View {
             }
             Divider()
             VStack(alignment: .leading, spacing: 6) {
+                // The leading glyph distinguishes *kind* (advisory vs. dependency alert); severity
+                // is carried by the word next to it, never by its tint alone — so this doesn't need
+                // `differentiateWithoutColor` gating the way the badge indicator above does.
                 ForEach(model.openAdvisories.prefix(5)) { advisory in
-                    Label(advisory.summary, systemImage: "exclamationmark.triangle.fill")
-                        .font(.callout)
-                        .lineLimit(1)
+                    reportRow(severity: advisory.severity, symbol: "exclamationmark.triangle.fill",
+                              text: advisory.summary)
                 }
                 ForEach(model.openAlerts.prefix(5)) { alert in
-                    Label("\(alert.packageName): dependency alert", systemImage: "shippingbox.fill")
-                        .font(.callout)
-                        .lineLimit(1)
+                    reportRow(severity: alert.severity, symbol: "shippingbox.fill",
+                              text: String(localized: "\(alert.packageName): dependency alert"))
                 }
             }
             Divider()
@@ -119,5 +120,52 @@ struct SecurityReportsBadgeView: View {
                 .disabled(model.isRunning)
             }
         }
+    }
+
+    /// One popover row: kind glyph, severity in words, then the report's own text. The row is a
+    /// single accessibility element whose label leads with the severity, so VoiceOver announces
+    /// it rather than leaving it to the glyph's tint.
+    private func reportRow(severity: SecurityAdvisory.Severity, symbol: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .foregroundStyle(severity.reportColor)
+            Text(severity.reportLabel)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(severity.reportColor)
+            Text(text)
+                .font(.callout)
+        }
+        .lineLimit(1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(severity.spokenLabel(for: text))
+    }
+}
+
+/// Non-color severity presentation for an open security report (#975), shared by the toolbar
+/// badge's popover rows and Website Settings ▸ Security Reports' own rows. Severity is never
+/// carried by tint alone: every row states the tier in words and repeats it in the row's
+/// accessibility label, so both VoiceOver and Differentiate Without Color get it.
+extension SecurityAdvisory.Severity {
+    var reportLabel: String {
+        switch self {
+        case .critical: return String(localized: "Critical")
+        case .high: return String(localized: "High")
+        case .moderate: return String(localized: "Moderate")
+        case .low: return String(localized: "Low")
+        case .unknown: return String(localized: "Unrated")
+        }
+    }
+
+    var reportColor: Color {
+        switch self {
+        case .critical, .high: return .red
+        case .moderate: return .orange
+        case .low, .unknown: return .yellow
+        }
+    }
+
+    /// `"Critical: Prototype pollution in left-pad"` — the row's spoken form.
+    func spokenLabel(for text: String) -> String {
+        "\(reportLabel): \(text)"
     }
 }

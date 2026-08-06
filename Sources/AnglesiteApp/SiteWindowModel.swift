@@ -1133,7 +1133,10 @@ final class SiteWindowModel {
             mainPaneMode = .editor(file)
             return
         }
-        Task {
+        // `[self]` is explicit rather than implicit so the `onOpenDependencyFix` closure below can
+        // spell its own `[weak self]` capture without the compiler flagging the mismatch against an
+        // implicitly-captured strong `self` in this outer scope.
+        Task { [self] in
             guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
             let kind = EditorKind.resolve(for: file)
             switch kind {
@@ -1144,8 +1147,12 @@ final class SiteWindowModel {
                 // wired in at the call site — see `SiteWindow.mainPaneContent`.
                 activeEditor = .text(FileEditorModel(file: file))
             case .plist:
-                // Captures the per-window child models directly (both outlive any editor and are
-                // never replaced), not `self` — no ownership cycle: neither owns the editor model.
+                // The data-providing closures capture the per-window child models directly (they
+                // outlive any editor and are never replaced) rather than `self` — no ownership
+                // cycle, since none of them owns the editor model. `onOpenDependencyFix` is the
+                // deliberate exception: presenting the fix sheet is window-level state, so it
+                // routes back through `presentDependencyFixSheet(_:)` on `self`, captured weakly
+                // so a closed window's model isn't kept alive by an editor that outlives it.
                 let graphExplorer = graphExplorer
                 let preview = preview
                 let securityReports = securityReports

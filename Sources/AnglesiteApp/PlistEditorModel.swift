@@ -641,6 +641,18 @@ final class PlistEditorModel {
         onOpenDependencyFix(offer)
     }
 
+    /// What "Forward to Anglesite" needs in order to hand an advisory to `Anglesite/Anglesite`'s
+    /// own advisory form: the clipboard text and the form's URL. `nil` when this site's GitHub
+    /// repo isn't known yet — advisories can be on screen from the site-open check before the
+    /// Security Reports tab's own `refreshRepoSecurityState()` has resolved the remote, and the
+    /// clipboard text names that repo. The view does the pasteboard/browser work; composing it
+    /// lives here so it's testable without AppKit.
+    func forwardingPayload(for advisory: SecurityAdvisory) -> (text: String, formURL: URL)? {
+        guard let repo = securityReportingRepo else { return nil }
+        return (AdvisoryForwarding.clipboardText(for: advisory, siteRepo: repo),
+                AdvisoryForwarding.anglesiteAdvisoryFormURL)
+    }
+
     /// Publishes the repo's advisory form as the most-preferred contact, enabling private
     /// vulnerability reporting first when it's off. The view confirms before calling this —
     /// enabling PVR changes a GitHub repository setting.

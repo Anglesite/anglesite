@@ -15,25 +15,30 @@ struct SecurityReportsModelTests {
         id: 1, packageName: "left-pad", ecosystem: "npm", severity: .low, patchedVersion: "1.0.0",
         htmlURL: URL(string: "https://github.com/acme/site/security/dependabot/1")!)
 
-    /// Serves canned results or a canned failure; controllable per test.
+    /// Serves canned results or canned failures; each endpoint is controllable on its own so a
+    /// test can fail one half of the check and leave the other succeeding.
     actor FakeReader: RepoAdvisoryReading {
         private let advisories: [SecurityAdvisory]
         private let alerts: [DependabotAlert]
-        private let failure: GitHubRepoAPIError?
+        private let advisoriesFailure: GitHubRepoAPIError?
+        private let alertsFailure: GitHubRepoAPIError?
 
-        init(advisories: [SecurityAdvisory] = [], alerts: [DependabotAlert] = [], failure: GitHubRepoAPIError? = nil) {
+        init(advisories: [SecurityAdvisory] = [], alerts: [DependabotAlert] = [],
+             failure: GitHubRepoAPIError? = nil,
+             advisoriesFailure: GitHubRepoAPIError? = nil, alertsFailure: GitHubRepoAPIError? = nil) {
             self.advisories = advisories
             self.alerts = alerts
-            self.failure = failure
+            self.advisoriesFailure = advisoriesFailure ?? failure
+            self.alertsFailure = alertsFailure ?? failure
         }
 
         func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] {
-            if let failure { throw failure }
+            if let advisoriesFailure { throw advisoriesFailure }
             return advisories
         }
 
         func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] {
-            if let failure { throw failure }
+            if let alertsFailure { throw alertsFailure }
             return alerts
         }
     }
@@ -104,6 +109,34 @@ struct SecurityReportsModelTests {
         await model.recheck(repo: Self.repo, token: "tok").value
         #expect(model.lastError != nil)
         #expect(model.totalCount == 0)
+        #expect(model.lastCheckedAt != nil)
+        #expect(!model.isRunning)
+    }
+
+    @Test("a failed Dependabot check still shows the advisories that fetched fine")
+    func alertsFailureKeepsAdvisories() async {
+        // GitHub answers the Dependabot endpoint with 403 whenever alerts are disabled for the
+        // repository — an ordinary setting, which must not take the advisories down with it.
+        let model = SecurityReportsModel(reader: FakeReader(
+            advisories: [Self.highAdvisory], alerts: [Self.lowAlert], alertsFailure: .unauthorized))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.openAdvisories == [Self.highAdvisory])
+        #expect(model.openAlerts.isEmpty)
+        #expect(model.lastError != nil)
+        // The remedy for a half-failure is never "recreate your token".
+        #expect(model.lastError?.contains("Recreate it") != true)
+        #expect(model.lastCheckedAt != nil)
+        #expect(!model.isRunning)
+    }
+
+    @Test("a failed advisories check still shows the Dependabot alerts that fetched fine")
+    func advisoriesFailureKeepsAlerts() async {
+        let model = SecurityReportsModel(reader: FakeReader(
+            advisories: [Self.highAdvisory], alerts: [Self.lowAlert], advisoriesFailure: .http(status: 500)))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.openAlerts == [Self.lowAlert])
+        #expect(model.openAdvisories.isEmpty)
+        #expect(model.lastError != nil)
         #expect(model.lastCheckedAt != nil)
         #expect(!model.isRunning)
     }
