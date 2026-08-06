@@ -71,7 +71,7 @@ struct DomainSheetView: View {
         case .addingRecord(let draft, _, _):
             switch draft.context {
             case .bluesky:
-                return "Paste the DID Bluesky showed you (starts with \"did=did:plc:\")."
+                return "Paste the DID Bluesky showed you (starts with \"did=did:plc:\") to verify this domain on Atmosphere."
             case .google:
                 return "Paste the exact record Google's verification page gave you."
             case .generic:
@@ -138,7 +138,7 @@ struct DomainSheetView: View {
                 Button {
                     model.beginAddRecord(context: .bluesky)
                 } label: {
-                    Label("Add Bluesky verification", systemImage: "at")
+                    Label("Add Atmosphere verification", systemImage: "at")
                 }
                 Button {
                     model.beginAddRecord(context: .google)
@@ -234,6 +234,10 @@ struct DomainSheetView: View {
                     set: { var d = draft; d.priority = $0; model.updateDraft(d) }
                 ), format: .number)
                 .help("Lower numbers are preferred mail servers, e.g. 10.")
+            }
+            if draft.context == .bluesky {
+                Link("Learn more about Atmosphere", destination: URL(string: "https://atmosphereaccount.com")!)
+                    .font(.callout)
             }
         }
         .padding(16)

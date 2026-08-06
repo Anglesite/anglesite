@@ -292,7 +292,7 @@
     "Add Agent…" : {
 
     },
-    "Add Bluesky verification" : {
+    "Add Atmosphere verification" : {
 
     },
     "Add DNS Records" : {
@@ -1735,6 +1735,9 @@
 
     },
     "Last checked %@" : {
+
+    },
+    "Learn more about Atmosphere" : {
 
     },
     "Learning %@’s conventions…" : {
