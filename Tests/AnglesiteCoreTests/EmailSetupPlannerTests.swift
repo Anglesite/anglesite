@@ -108,6 +108,32 @@ import Foundation
         #expect(merged == "v=spf1 include:zoho.com ~all")
     }
 
+    // MARK: - Existing-SPF reconciliation (wizard-facing)
+
+    @Test func reconcilingExistingSPFLeavesPlanAloneWhenNoExistingRecord() {
+        let plan = EmailSetupPlanner.dnsPlan(for: .fastmail, domain: "example.com", dmarcReportEmail: "o@example.com")
+        let reconciled = EmailSetupPlanner.reconcilingExistingSPF(in: plan, existingSPFRecordContent: nil)
+        #expect(reconciled == plan)
+    }
+
+    @Test func reconcilingExistingSPFMergesIntoAnotherProvidersRecord() {
+        let plan = EmailSetupPlanner.dnsPlan(for: .icloudPlus, domain: "example.com", dmarcReportEmail: "o@example.com")
+        let reconciled = EmailSetupPlanner.reconcilingExistingSPF(
+            in: plan, existingSPFRecordContent: "v=spf1 include:_spf.mx.cloudflare.net ~all")
+        let spf = reconciled.records.first { $0.type == "TXT" && $0.name == "@" }
+        #expect(spf?.content == "v=spf1 include:icloud.com include:_spf.mx.cloudflare.net ~all")
+        // Every other record (MX, manual steps) is untouched.
+        #expect(reconciled.records.filter { $0.type == "MX" } == plan.records.filter { $0.type == "MX" })
+        #expect(reconciled.manualSteps == plan.manualSteps)
+    }
+
+    @Test func reconcilingExistingSPFIsIdempotentWhenIncludeAlreadyPresent() {
+        let plan = EmailSetupPlanner.dnsPlan(for: .zohoMail, domain: "example.com", dmarcReportEmail: "o@example.com")
+        let reconciled = EmailSetupPlanner.reconcilingExistingSPF(
+            in: plan, existingSPFRecordContent: "v=spf1 include:zoho.com ~all")
+        #expect(reconciled == plan)
+    }
+
     // MARK: - Owner-facing copy
 
     @Test func explanationsUseSkillLanguage() {

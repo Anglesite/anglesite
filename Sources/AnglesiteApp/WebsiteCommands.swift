@@ -79,6 +79,9 @@ struct WebsiteCommands: Commands {
             Button("Connect a Domain…") { model?.connectDomain.openSheet() }
                 .disabled(model?.site == nil)
 
+            Button("Email Setup…") { model?.presentEmailSetup() }
+                .disabled(model?.canOpenEmailSetup != true)
+
             Button("Add Integration…") { model?.openIntegrationWizard() }
                 .disabled(model?.canOpenIntegrationWizard != true)
 
@@ -94,6 +97,9 @@ struct WebsiteCommands: Commands {
 
                 Button("Design Interview…") { model?.presentDesignInterview() }
                     .disabled(model?.canOpenDesignInterview != true)
+
+                Button("Experiment Results…") { model?.presentExperimentStats() }
+                    .disabled(model?.canOpenExperimentStats != true)
             }
 
             Menu("GitHub") {

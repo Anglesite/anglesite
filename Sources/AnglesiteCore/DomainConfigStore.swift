@@ -12,6 +12,16 @@ import Foundation
 /// exact fields `DomainConfig` declares are ever overwritten; everything else in the existing
 /// file rides along untouched.
 public struct DomainConfigStore: Sendable {
+    /// Per-file-path locks that serialize access to `anglesite.json` to prevent concurrent writes from
+    /// dropping updates (#1189). Multiple producers (DomainOperations, HardenExecutor,
+    /// CustomDomainAttachCommand, EmailSetupExecutor, and others) may call `save()`
+    /// concurrently; locks ensure the read-modify-write sequence is atomic. Scoped per file path so
+    /// concurrent saves to different sites' configs don't block each other.
+    /// Note: Uses `NSLock` (OS-thread blocking) rather than Swift `actor` (cooperative suspension),
+    /// which is acceptable here due to the short critical section. An actor-based store may be
+    /// reconsidered if contention becomes a concern (#1189).
+    private static let fileLocks = SharedInstanceCache<NSLock>()
+
     private let fileURL: URL
     private let fileManager: FileManager
 
@@ -35,8 +45,8 @@ public struct DomainConfigStore: Sendable {
 
     /// Writes `config`, merging it over whatever is already on disk so unknown keys survive.
     /// Pretty-printed and sorted (matching `RedirectsStore`/`RobotsConfigStore`) so re-saving
-    /// unchanged content produces a minimal git diff, and atomic so a crash mid-write can never
-    /// leave a truncated `anglesite.json` behind.
+    /// unchanged content produces a minimal git diff. The read-modify-write sequence is protected
+    /// by a per-file lock to ensure atomicity when multiple producers call `save()` concurrently (#1189).
     ///
     /// This merge cannot distinguish "this field is unknown to the current app version" from
     /// "this field is known but the caller passed `nil` for it" — both look identical to `merge`
@@ -60,6 +70,10 @@ public struct DomainConfigStore: Sendable {
     /// as any other non-object value. A hand-added array element, or an unknown field inside one,
     /// does not survive a save that touches the containing array.
     public func save(_ config: DomainConfig) throws {
+        let lock = Self.fileLocks.instance(forKey: fileURL.path) { NSLock() }
+        lock.lock()
+        defer { lock.unlock() }
+
         let newData = try JSONEncoder().encode(config)
         var newFields = Self.objectFields(fromJSONData: newData)
 

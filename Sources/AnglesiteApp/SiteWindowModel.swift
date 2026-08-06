@@ -110,6 +110,15 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the Design Interview sheet is presented (`.sheet(item:)`), same fresh-
     /// construction-from-`site` pattern as `copyEditModel`/`socialPlanModel`/`repurposeModel` (#631).
     var designInterviewModel: DesignInterviewModel?
+    /// Non-nil ⟺ the Email Setup wizard is presented (`.sheet(item:)`), same fresh-construction-
+    /// from-`site` pattern as `copyEditModel`/`socialPlanModel` (#769). Reachable both from
+    /// Website ▸ Email Setup… (grouped with Domain/Connect a Domain — it writes DNS records,
+    /// same as those two, not a content-assistant tool) and from the "Set up email" button in
+    /// the Domain sheet.
+    var emailSetupModel: EmailSetupModel?
+    /// Non-nil ⟺ the Experiment Results sheet is presented (`.sheet(item:)`), same fresh-
+    /// construction-from-`site` pattern as `copyEditModel`/`emailSetupModel` (#769).
+    var experimentStatsModel: ExperimentStatsModel?
     /// The window's `UndoManager`, published down from `SiteWindow`'s
     /// `@Environment(\.undoManager)` so applied edits register for Edit ▸ Undo (#527). Weak +
     /// `@ObservationIgnored`: the window owns it and it isn't render state. Forwarded on set
@@ -524,6 +533,27 @@ final class SiteWindowModel {
         )
     }
 
+    var canOpenEmailSetup: Bool { site != nil }
+
+    /// Presents the Email Setup wizard (#769), same fresh-construction pattern as
+    /// `presentCopyEdit`. Prefills the domain field from `anglesite.json`'s declared hostname
+    /// when the owner has already gone through Domain/Connect a Domain; leaves it blank
+    /// otherwise (the wizard itself doesn't require the site to be attached to a domain yet).
+    func presentEmailSetup() {
+        guard emailSetupModel == nil, let site else { return }
+        let hostname = try? DomainConfigStore(sourceDirectory: site.sourceDirectory).load().domain?.hostname
+        emailSetupModel = EmailSetupModel(siteID: site.id, sourceDirectory: site.sourceDirectory, domain: hostname ?? "")
+    }
+
+    var canOpenExperimentStats: Bool { site != nil }
+
+    /// Presents the Experiment Results sheet (#769), same fresh-construction pattern as
+    /// `presentCopyEdit`.
+    func presentExperimentStats() {
+        guard experimentStatsModel == nil, let site else { return }
+        experimentStatsModel = ExperimentStatsModel(siteID: site.id)
+    }
+
     /// Presents the Repurpose Post sheet (#465), same pattern as `presentCopyEdit`/`presentSocialPlan`.
     func presentRepurpose(slug: String) {
         guard repurposeModel == nil, let site else { return }
@@ -608,6 +638,8 @@ final class SiteWindowModel {
         copyEditModel = nil
         socialPlanModel = nil
         repurposeModel = nil
+        emailSetupModel = nil
+        experimentStatsModel = nil
         navigator?.stop()
         navigator = nil
         graphExplorer.stop()

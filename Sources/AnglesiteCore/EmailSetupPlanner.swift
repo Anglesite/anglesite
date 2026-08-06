@@ -34,7 +34,7 @@ public enum EmailSetupPlanner {
     /// The closed set of email providers the planner knows DNS records for — the providers
     /// from the retired skill's reference doc, no more. Raw values are stable kebab-case
     /// identifiers, safe to persist or put in URLs.
-    public enum Provider: String, Sendable, CaseIterable, Equatable {
+    public enum Provider: String, Sendable, CaseIterable, Equatable, Hashable {
         /// iCloud+ Custom Email Domain — the Apple personal-tier pick.
         case icloudPlus = "icloud-plus"
         /// Apple Business Essentials — the Apple registered-business pick. Same mail
@@ -295,6 +295,31 @@ public enum EmailSetupPlanner {
         guard !mechanisms.contains(include) else { return existing }
         mechanisms.insert(include, at: 1)
         return mechanisms.joined(separator: " ")
+    }
+
+    /// Folds a provider's `include:` mechanism into the domain's *existing* SPF record instead
+    /// of adding `plan`'s own SPF TXT record verbatim — the wizard-facing counterpart to
+    /// ``mergedSPF(existing:adding:)``, used when the owner already has an SPF record (from a
+    /// prior provider, or another service like a marketing tool) that this plan would otherwise
+    /// duplicate. Returns `plan` unchanged when it has no SPF record of its own, or when the
+    /// merge produces the same content the plan already had (no existing record, or the
+    /// existing record already includes this provider's mechanism).
+    ///
+    /// - Parameters:
+    ///   - plan: The plan from ``dnsPlan(for:domain:dmarcReportEmail:)``.
+    ///   - existingSPFRecordContent: The domain's current apex SPF TXT record content, or `nil`
+    ///     if it has none.
+    public static func reconcilingExistingSPF(in plan: DNSPlan, existingSPFRecordContent: String?) -> DNSPlan {
+        guard let index = plan.records.firstIndex(where: {
+            $0.type == "TXT" && $0.name == "@" && $0.content.lowercased().hasPrefix("v=spf1")
+        }) else {
+            return plan
+        }
+        let merged = mergedSPF(existing: existingSPFRecordContent, adding: plan.provider.spfInclude)
+        guard merged != plan.records[index].content else { return plan }
+        var records = plan.records
+        records[index] = RecordTemplate(type: "TXT", name: "@", content: merged)
+        return DNSPlan(provider: plan.provider, records: records, manualSteps: plan.manualSteps)
     }
 
     // MARK: - Owner-facing education

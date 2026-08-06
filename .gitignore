@@ -94,9 +94,12 @@ Resources/Anglesite.help/**/*.helpindex
 *~
 
 # Claude Code harness state (worktrees, local state) — but share the
-# project permission allowlist so parallel agents prompt less
+# project permission allowlist and the SessionStart hook so parallel agents
+# and fresh web sessions both get a working Swift toolchain
 .claude/*
 !.claude/settings.json
+!.claude/hooks/
+!.claude/hooks/**
 
 # Codex harness state (worktrees, agent scratch)
 .Codex/

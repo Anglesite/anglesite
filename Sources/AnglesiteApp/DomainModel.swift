@@ -50,6 +50,10 @@ final class DomainModel {
     private(set) var phase: Phase = .idle
     var sheetPresented: Bool = false
     var domainInput: String = ""
+    /// Set by `openEmailSetup()`, read by `SiteWindow`'s domain-sheet `onDismiss` to sequence
+    /// the Email Setup wizard's presentation after this sheet finishes dismissing — same
+    /// handoff pattern as `ConnectDomainModel.pendingBuyDomain`.
+    var pendingEmailSetup: Bool = false
 
     private let ops: any DomainOperationsService
     private var inFlight: Task<Void, Never>?
@@ -86,6 +90,13 @@ final class DomainModel {
         inFlight = nil
         sheetPresented = false
         phase = .idle
+    }
+
+    /// The "Set up Email…" affordance in the loaded record list (#769): closes this sheet and
+    /// flags the handoff so `SiteWindow` opens the Email Setup wizard once dismissal finishes.
+    func openEmailSetup() {
+        pendingEmailSetup = true
+        dismissSheet()
     }
 
     /// Like `openSheet()` but preserves `domainInput` — matches `HardenModel.retryFromFailed()`,

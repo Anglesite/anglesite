@@ -17,6 +17,7 @@ import {
   handleSolidPod,
   handleWebdav,
   handleWebdavCredentials,
+  activityPubConfig,
   type InboxKV,
   type WorkerEnv,
 } from "./worker";
@@ -1622,4 +1623,63 @@ test("scheduled dispatch: \"*/5 * * * *\" routes to solid-pod GC, \"*/15 * * * *
   await expect(
     worker.scheduled!(microsubController, testEnv, createExecutionContext()),
   ).resolves.toBeUndefined();
+});
+
+// activityPubConfig: AP_ACTOR_TYPE/AP_MODERATORS wiring (V-5.1b, #907). A plain mock env/request
+// is enough — activityPubConfig is a pure, synchronous mapping that never touches the ACTOR
+// Durable Object, so no real binding is needed.
+function makeActivityPubEnv(overrides: Partial<WorkerEnv> = {}): WorkerEnv {
+  return {
+    ACTOR: {} as WorkerEnv["ACTOR"],
+    AP_PRIVATE_KEY: "private-key",
+    AP_PUBLIC_KEY: "public-key",
+    ...overrides,
+  } as WorkerEnv;
+}
+
+test("activityPubConfig: returns null when ActivityPub isn't fully provisioned", () => {
+  const request = new Request("https://example.com/");
+  expect(activityPubConfig(request, makeActivityPubEnv({ ACTOR: undefined }))).toBeNull();
+  expect(activityPubConfig(request, makeActivityPubEnv({ AP_PRIVATE_KEY: undefined }))).toBeNull();
+  expect(activityPubConfig(request, makeActivityPubEnv({ AP_PUBLIC_KEY: undefined }))).toBeNull();
+});
+
+test("activityPubConfig: defaults to a Person actor with no moderators when AP_ACTOR_TYPE is unset", () => {
+  const request = new Request("https://example.com/");
+  const config = activityPubConfig(request, makeActivityPubEnv());
+  expect(config?.actor.type).toBeUndefined();
+  expect(config?.moderators).toBeUndefined();
+});
+
+test("activityPubConfig: AP_ACTOR_TYPE=Group sets actor.type to Group", () => {
+  const request = new Request("https://example.com/");
+  const config = activityPubConfig(request, makeActivityPubEnv({ AP_ACTOR_TYPE: "Group" }));
+  expect(config?.actor.type).toBe("Group");
+});
+
+test("activityPubConfig: a non-Group AP_ACTOR_TYPE value is treated as Person", () => {
+  const request = new Request("https://example.com/");
+  const config = activityPubConfig(request, makeActivityPubEnv({ AP_ACTOR_TYPE: "Person" }));
+  expect(config?.actor.type).toBeUndefined();
+});
+
+test("activityPubConfig: splits AP_MODERATORS on commas into the moderators list for a Group actor", () => {
+  const request = new Request("https://example.com/");
+  const config = activityPubConfig(
+    request,
+    makeActivityPubEnv({
+      AP_ACTOR_TYPE: "Group",
+      AP_MODERATORS: "https://mod1.example/actor,https://mod2.example/actor",
+    }),
+  );
+  expect(config?.moderators).toEqual(["https://mod1.example/actor", "https://mod2.example/actor"]);
+});
+
+test("activityPubConfig: AP_MODERATORS is ignored (undefined) for a Person actor", () => {
+  const request = new Request("https://example.com/");
+  const config = activityPubConfig(
+    request,
+    makeActivityPubEnv({ AP_MODERATORS: "https://mod1.example/actor" }),
+  );
+  expect(config?.moderators).toBeUndefined();
 });
