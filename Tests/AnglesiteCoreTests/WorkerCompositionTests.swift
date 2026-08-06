@@ -634,4 +634,12 @@ struct WorkerCompositionTests {
         #expect(!toml.contains("BLOBS"))
         #expect(!toml.contains("*/5 * * * *"))
     }
+
+    @Test("ProvisionedResources' inbox fields round-trip through Codable")
+    func provisionedResourcesInboxFieldsCodable() throws {
+        let resources = WorkerComposition.ProvisionedResources(inboxKVNamespaceID: "ns-1", inboxAccountID: "acct-1")
+        let data = try PropertyListEncoder().encode(resources)
+        let decoded = try PropertyListDecoder().decode(WorkerComposition.ProvisionedResources.self, from: data)
+        #expect(decoded == resources)
+    }
 }

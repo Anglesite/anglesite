@@ -13,15 +13,6 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// Owner-facing display name override. `nil` falls back to the package marker's displayName.
     public var displayName: String?
 
-    /// Cloudflare account id owning this site's `INBOX_KV` namespace (#587). `nil` until a
-    /// provisioning flow sets it — `InboxSubmissionSync` no-ops without both this and
-    /// `inboxCaptureKVNamespaceID`.
-    public var inboxCaptureAccountID: String?
-
-    /// The provisioned `INBOX_KV` namespace id for this site (#587). See
-    /// `inboxCaptureAccountID`.
-    public var inboxCaptureKVNamespaceID: String?
-
     /// Mastodon server origin used for POSSE, for example `https://mastodon.social`.
     /// The access token is stored separately in the platform secret store.
     public var mastodonBaseURL: String?
@@ -87,13 +78,20 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// parameter), which is inert until that wiring lands.
     public var moderators: [String]?
 
+    /// Whether inbox capture's `/inbox` route should be live in the composed Worker (#764).
+    /// Kept separate from `provisionedWorkerResources` (resource existence) so "provisioned but
+    /// paused" and "never provisioned" are distinguishable — mirrors how `activeWorkerIDs`
+    /// (routing) is kept separate from `provisionedWorkerResources` for the `@dwk/workers`
+    /// catalog. `nil`/`false` = off; `provisionedWorkerResources`'s inbox fields are left
+    /// populated when paused so re-enabling reuses the same namespace instead of creating a new
+    /// one.
+    public var inboxCaptureEnabled: Bool?
+
     /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
     /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
     public init(
         displayName: String? = nil,
-        inboxCaptureAccountID: String? = nil,
-        inboxCaptureKVNamespaceID: String? = nil,
         mastodonBaseURL: String? = nil,
         blueskyIdentifier: String? = nil,
         blueskyPDSURL: String? = nil,
@@ -105,11 +103,10 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         webmentionReceivePaidPlanAcknowledged: Bool? = nil,
         communityOutboxURL: URL? = nil,
         communityActorURL: URL? = nil,
-        moderators: [String]? = nil
+        moderators: [String]? = nil,
+        inboxCaptureEnabled: Bool? = nil
     ) {
         self.displayName = displayName
-        self.inboxCaptureAccountID = inboxCaptureAccountID
-        self.inboxCaptureKVNamespaceID = inboxCaptureKVNamespaceID
         self.mastodonBaseURL = mastodonBaseURL
         self.blueskyIdentifier = blueskyIdentifier
         self.blueskyPDSURL = blueskyPDSURL
@@ -122,6 +119,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.communityOutboxURL = communityOutboxURL
         self.communityActorURL = communityActorURL
         self.moderators = moderators
+        self.inboxCaptureEnabled = inboxCaptureEnabled
     }
 }
 
