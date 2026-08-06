@@ -755,23 +755,25 @@ git commit -m "feat(#745): add SecurityTxtMigrationChecker"
 
 **Interfaces:**
 - Consumes: `SecurityTxtGitignoreSync.addingIgnoreEntry(to:)`/`.removingIgnoreEntry(from:)` (Task 2); existing `SecurityReportingAsset.Mode`; existing `GeneratedEndpoints.securityTxtMarker`; existing `SiteConfigFile.upsert(_:into:)` (`Sources/AnglesiteCore/SiteConfigFile.swift`); existing `WebsiteAnalyticsAsset.configRelativePath`.
-- Produces: `public enum SecurityTxtMigrationApplier { public enum ApplyError: Error, Equatable { case writeFailed(relativePath: String) }; public enum Decision: Sendable, Equatable { case adopt; case preserve }; public static func applyBackfill(mode: SecurityReportingAsset.Mode, sourceDirectory: URL) throws -> [String]; public static func applyDecision(_ decision: Decision, sourceDirectory: URL) throws -> [String] }` — both functions return the relative paths actually changed (`[]` if nothing needed writing, e.g. a re-run). Task 8 (`ExistingSiteMigration`), Task 9 (`SecurityTxtMigrationModel`), and Task 10 (`SiteWindowModel` wiring) call both by these exact names.
+- Produces: `public enum SecurityTxtMigrationApplier { public enum Decision: Sendable, Equatable { case adopt; case preserve }; public static func applyBackfill(mode: SecurityReportingAsset.Mode, sourceDirectory: URL) -> [String]; public static func applyDecision(_ decision: Decision, sourceDirectory: URL) -> [String] }` — both functions are **non-throwing** and return exactly the relative paths actually changed (`[]` if nothing needed writing, e.g. a re-run). Task 8 (`ExistingSiteMigration`), Task 9 (`SecurityTxtMigrationModel`), and Task 10 (`SiteWindowModel` wiring) call both by these exact names.
 
 **Note on why `applyDecision`'s Adopt case doesn't rebuild the file's content:** the classifier (Task 1/5) already confirmed the existing content matches what regenerating from current settings would produce; Adopt only needs to make the file marker-owned (prepend the current marker line) and set the mode. `edge-artifacts.ts`'s own `applySecurityTxtPlan` already unconditionally rewrites a marker-owned file with fresh content (including a new `Expires`) on every subsequent build — so the very next `prebuild` finishes the job with the exact current generator, and this task never needs a Swift port of `buildSecurityTxt`.
+
+**Note on why this is non-throwing, best-effort per sub-write (fixed during task review — an earlier throwing draft had a real bug):** a throwing design where a *later* step's failure discards the return value for the *whole* call would silently lose the record of an earlier sub-write that already landed on disk (e.g. `.site-config`'s `SECURITY_TXT_MODE` gets written successfully, then the file write fails, and the caller's `try?` throws away the entire `touched` array — including the real, already-committed-to-disk `.site-config` mutation, which then never reaches `ExistingSiteMigrationCommitter` and never gets git-added). Worse, since `SecurityTxtMigrationChecker.check` gates entirely on whether `SECURITY_TXT_MODE` is already set, that stranded mutation would make every future check return `.nothingToDo` forever, even though the file was never actually adopted. Each private helper (`writeMode`/`updateGitignore`) now swallows its own write failure via `try?` and simply returns `[]` for that one step (matching the established `DependencySyncApplier` "narrow failure modes, otherwise best-effort" precedent in this codebase, `Sources/AnglesiteCore/DependencySyncApplier.swift`) — so every sub-write that *did* land is always reflected in the return value, regardless of what happens to any other step.
 
 - [ ] **Step 1: Write `SecurityTxtMigrationApplier.swift`**
 
 ```swift
 import Foundation
 
-/// Applies what `SecurityTxtMigrationChecker` found (design doc "Apply"). Three entry points:
+/// Applies what `SecurityTxtMigrationChecker` found (design doc "Apply"). Two entry points:
 /// `applyBackfill` for the two silently-appliable outcomes (no owner consent needed), and
 /// `applyDecision` for the owner's (or a noninteractive caller's) Adopt/Preserve choice.
+/// Non-throwing and best-effort per sub-write: each private write helper swallows its own
+/// failure and returns `[]` for that one step, so a failure in one step never discards the
+/// record of an earlier step that already succeeded (see the task's design note on why an
+/// earlier throwing draft was wrong).
 public enum SecurityTxtMigrationApplier {
-    public enum ApplyError: Error, Equatable {
-        case writeFailed(relativePath: String)
-    }
-
     /// The owner's (or the noninteractive default's) answer to a `SecurityTxtMigrationPlan
     /// .needsDecision` — the only decision this mechanism ever delegates.
     public enum Decision: Sendable, Equatable {
@@ -784,68 +786,60 @@ public enum SecurityTxtMigrationApplier {
     }
 
     /// Writes only `SECURITY_TXT_MODE` (contacts are left exactly as they are — this never
-    /// touches `SECURITY_CONTACT`). Returns `[".site-config"]` if the value changed, `[]` if it
-    /// was already correct (idempotent re-run).
+    /// touches `SECURITY_CONTACT`). Returns `[".site-config"]` if the value changed and the
+    /// write succeeded, `[]` if it was already correct (idempotent re-run) or the write failed.
     public static func applyBackfill(
         mode: SecurityReportingAsset.Mode, sourceDirectory: URL
-    ) throws -> [String] {
-        try writeMode(mode, sourceDirectory: sourceDirectory)
+    ) -> [String] {
+        writeMode(mode, sourceDirectory: sourceDirectory)
     }
 
     /// Applies the owner's (or the noninteractive default's) Adopt/Preserve decision for an
-    /// unmarked legacy `security.txt` (design doc "Apply" step 2-5).
+    /// unmarked legacy `security.txt` (design doc "Apply" step 2-5). Each sub-step is
+    /// independent: if the file write fails after the mode write already succeeded, the
+    /// returned array still includes `.site-config` (it really did change) — it just omits
+    /// whichever step failed.
     public static func applyDecision(
         _ decision: Decision, sourceDirectory: URL
-    ) throws -> [String] {
+    ) -> [String] {
         var touched: [String] = []
         switch decision {
         case .adopt:
-            touched += try writeMode(.generated, sourceDirectory: sourceDirectory)
+            touched += writeMode(.generated, sourceDirectory: sourceDirectory)
             let fileURL = sourceDirectory.appendingPathComponent("public/.well-known/security.txt")
             if let existing = try? String(contentsOf: fileURL, encoding: .utf8) {
                 let marked = GeneratedEndpoints.securityTxtMarker + "\n" + existing
-                do {
-                    try marked.write(to: fileURL, atomically: true, encoding: .utf8)
-                } catch {
-                    throw ApplyError.writeFailed(relativePath: "public/.well-known/security.txt")
+                if (try? marked.write(to: fileURL, atomically: true, encoding: .utf8)) != nil {
+                    touched.append("public/.well-known/security.txt")
                 }
-                touched.append("public/.well-known/security.txt")
             }
-            touched += try updateGitignore(sourceDirectory: sourceDirectory, adopt: true)
+            touched += updateGitignore(sourceDirectory: sourceDirectory, adopt: true)
         case .preserve:
-            touched += try writeMode(.manual, sourceDirectory: sourceDirectory)
-            touched += try updateGitignore(sourceDirectory: sourceDirectory, adopt: false)
+            touched += writeMode(.manual, sourceDirectory: sourceDirectory)
+            touched += updateGitignore(sourceDirectory: sourceDirectory, adopt: false)
         }
         return touched
     }
 
     private static func writeMode(
         _ mode: SecurityReportingAsset.Mode, sourceDirectory: URL
-    ) throws -> [String] {
+    ) -> [String] {
         let configURL = sourceDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         let updated = SiteConfigFile.upsert([("SECURITY_TXT_MODE", mode.rawValue)], into: config)
         guard updated != config else { return [] }
-        do {
-            try updated.write(to: configURL, atomically: true, encoding: .utf8)
-        } catch {
-            throw ApplyError.writeFailed(relativePath: WebsiteAnalyticsAsset.configRelativePath)
-        }
+        guard (try? updated.write(to: configURL, atomically: true, encoding: .utf8)) != nil else { return [] }
         return [WebsiteAnalyticsAsset.configRelativePath]
     }
 
-    private static func updateGitignore(sourceDirectory: URL, adopt: Bool) throws -> [String] {
+    private static func updateGitignore(sourceDirectory: URL, adopt: Bool) -> [String] {
         let gitignoreURL = sourceDirectory.appendingPathComponent(".gitignore")
         let contents = (try? String(contentsOf: gitignoreURL, encoding: .utf8)) ?? ""
         let updated = adopt
             ? SecurityTxtGitignoreSync.addingIgnoreEntry(to: contents)
             : SecurityTxtGitignoreSync.removingIgnoreEntry(from: contents)
         guard updated != contents else { return [] }
-        do {
-            try updated.write(to: gitignoreURL, atomically: true, encoding: .utf8)
-        } catch {
-            throw ApplyError.writeFailed(relativePath: ".gitignore")
-        }
+        guard (try? updated.write(to: gitignoreURL, atomically: true, encoding: .utf8)) != nil else { return [] }
         return [".gitignore"]
     }
 }
@@ -873,7 +867,7 @@ import Foundation
 
     @Test func applyBackfillWritesModeAndReturnsTouchedPath() throws {
         let source = tmpSite()
-        let touched = try SecurityTxtMigrationApplier.applyBackfill(mode: .disabled, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyBackfill(mode: .disabled, sourceDirectory: source)
         #expect(touched == [".site-config"])
         let config = try String(contentsOf: source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(config.contains("SECURITY_TXT_MODE=disabled"))
@@ -882,7 +876,7 @@ import Foundation
     @Test func applyBackfillIsANoOpWhenAlreadyCorrect() throws {
         let source = tmpSite()
         try "SECURITY_TXT_MODE=generated\n".write(to: source.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
-        let touched = try SecurityTxtMigrationApplier.applyBackfill(mode: .generated, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyBackfill(mode: .generated, sourceDirectory: source)
         #expect(touched.isEmpty)
     }
 
@@ -890,7 +884,7 @@ import Foundation
         let source = tmpSite()
         try writeSecurityTxt("Contact: mailto:security@example.com\nExpires: 2027-01-01T00:00:00.000Z\n", to: source)
 
-        let touched = try SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: source)
 
         #expect(Set(touched) == Set([".site-config", "public/.well-known/security.txt", ".gitignore"]))
         let content = try String(contentsOf: source.appendingPathComponent("public/.well-known/security.txt"), encoding: .utf8)
@@ -909,7 +903,7 @@ import Foundation
             to: source.appendingPathComponent(".gitignore"), atomically: true, encoding: .utf8
         )
 
-        let touched = try SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
 
         #expect(Set(touched) == Set([".site-config", ".gitignore"]))
         let content = try String(contentsOf: source.appendingPathComponent("public/.well-known/security.txt"), encoding: .utf8)
@@ -924,10 +918,20 @@ import Foundation
         let source = tmpSite()
         try writeSecurityTxt("Contact: mailto:someone-else@example.com\n", to: source)
 
-        let touched = try SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
 
         #expect(touched == [".site-config"])
         #expect(!FileManager.default.fileExists(atPath: source.appendingPathComponent(".gitignore").path))
+    }
+
+    @Test func applyDecisionAdoptStillReportsAModeChangeEvenWhenTheFileDoesNotExist() throws {
+        // No security.txt file on disk at all — the file-write branch is skipped entirely
+        // (there's nothing to prepend the marker to), but the mode write is independent and
+        // must still be reported, exercising the "one step's absence doesn't suppress another
+        // step's real result" contract this task's design note describes.
+        let source = tmpSite()
+        let touched = SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: source)
+        #expect(touched == [".site-config"])
     }
 }
 ```
@@ -935,7 +939,7 @@ import Foundation
 - [ ] **Step 3: Run the tests to verify they pass**
 
 Run: `swift test --package-path . --filter SecurityTxtMigrationApplierTests`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 4: Commit**
 
@@ -1196,24 +1200,18 @@ public enum ExistingSiteMigration {
         case .nothingToDo:
             break
         case .silentBackfillMode(let mode):
-            if let paths = try? SecurityTxtMigrationApplier.applyBackfill(mode: mode, sourceDirectory: sourceDirectory) {
-                touched += paths
-            }
+            touched += SecurityTxtMigrationApplier.applyBackfill(mode: mode, sourceDirectory: sourceDirectory)
         case .silentAdopt:
             // The app already positively resolved this — marker-owned, or an unmarked file that
             // exactly matches the old generator's shape — so it applies the same way an
             // unmodified `scripts/` file silently refreshes, no decision needed even
             // interactively.
-            if let paths = try? SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: sourceDirectory) {
-                touched += paths
-            }
+            touched += SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: sourceDirectory)
         case .needsDecision:
             // Noninteractive default: Preserve. `SECURITY_TXT_MODE=manual` is still an explicit,
             // durable decision — it just never rewrites the file or touches `.gitignore` toward
             // "ignored."
-            if let paths = try? SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: sourceDirectory) {
-                touched += paths
-            }
+            touched += SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: sourceDirectory)
             unresolved.append("public/.well-known/security.txt")
         }
 
@@ -1647,29 +1645,23 @@ Replace it with:
         case .nothingToDo:
             break
         case .silentBackfillMode(let mode):
-            if let paths = try? SecurityTxtMigrationApplier.applyBackfill(
+            migrationTouchedPaths += SecurityTxtMigrationApplier.applyBackfill(
                 mode: mode, sourceDirectory: resolved.sourceDirectory
-            ) {
-                migrationTouchedPaths += paths
-            }
+            )
         case .silentAdopt:
             // Already positively resolved by the checker (marker-owned, or an exact match against
             // the old generator's shape) — applies the same way an unmodified `scripts/` file
             // silently refreshes above, no decision needed even interactively.
-            if let paths = try? SecurityTxtMigrationApplier.applyDecision(
+            migrationTouchedPaths += SecurityTxtMigrationApplier.applyDecision(
                 .adopt, sourceDirectory: resolved.sourceDirectory
-            ) {
-                migrationTouchedPaths += paths
-            }
+            )
         case .needsDecision:
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 securityTxtMigrationModel = SecurityTxtMigrationModel { [weak self] decision in
                     guard let self else { continuation.resume(); return }
-                    if let paths = try? SecurityTxtMigrationApplier.applyDecision(
+                    migrationTouchedPaths += SecurityTxtMigrationApplier.applyDecision(
                         decision, sourceDirectory: resolved.sourceDirectory
-                    ) {
-                        migrationTouchedPaths += paths
-                    }
+                    )
                     self.securityTxtMigrationModel = nil
                     continuation.resume()
                 }
