@@ -56,6 +56,13 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
 
 @Suite(.serialized)
 struct DomainConfigAuditModelTests {
+    /// A per-case scratch service (see `KeychainStore`'s own doc comment) so these tests never
+    /// touch the developer's real login keychain — every test sets `CLOUDFLARE_API_TOKEN` below,
+    /// so `apiToken()` should never fall through to the keychain at all, but a scratch service
+    /// keeps the model's `try? keychain.readCloudflareToken()` call from racing a concurrent
+    /// keychain read/prompt in another worktree if it ever does.
+    private let keychain = KeychainStore(service: "io.dwk.anglesite.tests.domainConfigAudit." + UUID().uuidString)
+
     init() {
         setenv("CLOUDFLARE_API_TOKEN", "test-token", 1)
     }
@@ -75,7 +82,7 @@ struct DomainConfigAuditModelTests {
     func runAuditNoDomainDeclared() async throws {
         let (site, cleanup) = try tempSite()
         defer { cleanup() }
-        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -94,7 +101,7 @@ struct DomainConfigAuditModelTests {
         let declared = DomainConfig(domain: .init(hostname: "example.com"))
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
-        let model = DomainConfigAuditModel(reader: StubReader(zoneID: nil), writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: nil), writer: StubWriter(), keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -116,7 +123,7 @@ struct DomainConfigAuditModelTests {
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
         let reader = StubReader(zoneID: "z1", state: StubReader.cleanState, records: [])
-        let model = DomainConfigAuditModel(reader: reader, writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: reader, writer: StubWriter(), keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -142,7 +149,7 @@ struct DomainConfigAuditModelTests {
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
         let writer = StubWriter()
-        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: writer)
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: writer, keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -162,7 +169,7 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("openSheet() resets phase")
     func openSheetResets() {
-        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: keychain)
         model.openSheet()
         #expect(model.sheetPresented == true)
         #expect(model.phase == .idle)
@@ -171,7 +178,7 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("dismissSheet() clears the presented flag")
     func dismissSheetClearsPresented() {
-        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: keychain)
         model.openSheet()
         model.dismissSheet()
         #expect(model.sheetPresented == false)
