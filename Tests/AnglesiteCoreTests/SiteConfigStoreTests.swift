@@ -261,7 +261,7 @@ struct SiteConfigStoreTests {
     }
 
     @Test("inboxCaptureEnabled and ProvisionedResources' inbox fields round-trip through plist encode/decode")
-    func inboxCaptureFieldsRoundTrip() throws {
+    func inboxCaptureFieldsRoundTrip() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("SiteConfigStoreTests-inbox-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -278,7 +278,7 @@ struct SiteConfigStoreTests {
     }
 
     @Test("a settings.plist with no inboxCaptureEnabled key decodes it as nil")
-    func inboxCaptureEnabledDefaultsNilOnOldFile() throws {
+    func inboxCaptureEnabledDefaultsNilOnOldFile() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("SiteConfigStoreTests-inbox-old-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: dir) }
