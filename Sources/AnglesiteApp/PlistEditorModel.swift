@@ -726,8 +726,25 @@ final class PlistEditorModel {
         return true
     }
 
+    /// Coalesces concurrent `currentRemoteRepo()` callers onto a single `git remote get-url
+    /// origin` spawn. `refreshRepoSecurityState()` and `refreshSecurityReports()` both call it
+    /// from `.task` modifiers that start together when the Security Reports tab loads; without
+    /// this, that's two subprocess spawns for the same answer on every site open. Cleared once
+    /// the in-flight resolution completes, so a later explicit recheck (e.g. the "Check for
+    /// Reports" button) still re-resolves rather than reusing a possibly-stale answer.
+    private var pendingRemoteRepoResolution: Task<RemoteRepo?, Never>?
+
     private func currentRemoteRepo() async -> RemoteRepo? {
-        await GitRemoteResolver.origin(in: sourceDirectory, runner: gitRunner)
+        if let pending = pendingRemoteRepoResolution {
+            return await pending.value
+        }
+        let task = Task<RemoteRepo?, Never> { [gitRunner, sourceDirectory] in
+            await GitRemoteResolver.origin(in: sourceDirectory, runner: gitRunner)
+        }
+        pendingRemoteRepoResolution = task
+        let repo = await task.value
+        pendingRemoteRepoResolution = nil
+        return repo
     }
 
     private func repoSecurityMessage(for error: any Error) -> String {

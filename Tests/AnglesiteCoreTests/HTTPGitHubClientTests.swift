@@ -37,7 +37,7 @@ struct HTTPGitHubClientTests {
     @Test("a 401 maps to .unauthorized")
     func unauthorized() async {
         let client = HTTPGitHubClient(transport: Self.transport(status: 401, json: #"{"message":"Bad credentials"}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 401)) {
             _ = try await client.createRepo(name: "site", isPrivate: true, token: "bad")
         }
     }
@@ -45,7 +45,7 @@ struct HTTPGitHubClientTests {
     @Test("a 403 also maps to .unauthorized")
     func forbidden() async {
         let client = HTTPGitHubClient(transport: Self.transport(status: 403, json: #"{"message":"Forbidden"}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 403)) {
             _ = try await client.createRepo(name: "site", isPrivate: true, token: "scoped-wrong")
         }
     }
@@ -172,7 +172,7 @@ struct HTTPGitHubClientTests {
     func enablePVRWithoutAdmin() async {
         let client = HTTPGitHubClient(transport: Self.transport(
             status: 403, json: #"{"message":"Must have admin rights to Repository."}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 403)) {
             try await client.enablePrivateVulnerabilityReporting(owner: "acme", name: "site", token: "tok")
         }
     }
@@ -247,7 +247,7 @@ struct HTTPGitHubClientTests {
     @Test("a 401 on advisories maps to .unauthorized")
     func openSecurityAdvisoriesUnauthorized() async {
         let client = HTTPGitHubClient(transport: Self.transport(status: 401, json: #"{"message":"Bad credentials"}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 401)) {
             _ = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "bad")
         }
     }
@@ -260,7 +260,7 @@ struct HTTPGitHubClientTests {
     @Test("a 403 on alerts (Dependabot disabled for the repo) also maps to .unauthorized")
     func openDependabotAlertsForbidden() async {
         let client = HTTPGitHubClient(transport: Self.transport(status: 403, json: #"{"message":"Dependabot alerts are disabled"}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 403)) {
             _ = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
         }
     }

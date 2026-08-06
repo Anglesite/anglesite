@@ -11,9 +11,10 @@ public enum GitHubRepoAPIError: Error, Equatable, Sendable {
     /// distinct from `.api`, which means GitHub responded with a rejection.
     case network
     /// GitHub returned 401 or 403 — the token is invalid, expired, or missing the required scope.
-    /// Both statuses collapse into one case because the user-facing remedy is identical: fix the
-    /// token in Settings.
-    case unauthorized
+    /// Carries the actual status so callers that need to tell the two apart (e.g. a 403 can mean
+    /// a repo feature is simply off, not a bad token) can — most callers still show the same
+    /// "fix the token in Settings" remedy either way and can ignore the associated value.
+    case unauthorized(status: Int)
     /// A 422 whose `errors[].message` says the repository name is taken. Split out from `.api`
     /// so callers can offer a rename instead of showing a raw API message.
     case nameAlreadyExists
@@ -61,7 +62,9 @@ public struct HTTPGitHubClient: Sendable {
             throw GitHubRepoAPIError.network
         }
 
-        if http.statusCode == 401 || http.statusCode == 403 { throw GitHubRepoAPIError.unauthorized }
+        if http.statusCode == 401 || http.statusCode == 403 {
+            throw GitHubRepoAPIError.unauthorized(status: http.statusCode)
+        }
         if http.statusCode == 422 {
             let envelope = try? JSONDecoder().decode(GitHubErrorResponse.self, from: data)
             // The name-conflict detail lives in `errors[].message`, not the top-level `message`
@@ -100,7 +103,9 @@ public struct HTTPGitHubClient: Sendable {
         } catch {
             throw GitHubRepoAPIError.network
         }
-        if http.statusCode == 401 || http.statusCode == 403 { throw GitHubRepoAPIError.unauthorized }
+        if http.statusCode == 401 || http.statusCode == 403 {
+            throw GitHubRepoAPIError.unauthorized(status: http.statusCode)
+        }
         guard (200..<300).contains(http.statusCode) else { throw GitHubRepoAPIError.http(status: http.statusCode) }
         return data
     }
