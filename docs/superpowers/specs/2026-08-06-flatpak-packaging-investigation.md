@@ -130,6 +130,24 @@ this is trusted.** If it doesn't hold, the fix is mechanical: apply the same raw
 `posix_spawn`+`waitpid` bypass to `flatpak-spawn` instead of `podman` directly — the code path
 already isolates this to `spawnDetachedPodmanRun`'s one caller.
 
+## 5b. Unverified risk: does interactive `exec` stdio survive `flatpak-spawn --host`?
+
+`execInteractive` launches `podman exec -i` as a long-running supervised process with
+`attachStdin: true` — the ACP-style path that keeps writing to the process's stdin after launch
+(`PodmanContainerControl.execInteractive`, and `InteractiveExecHandle.write`). Once routed through
+`podmanInvocation`, this becomes `flatpak-spawn --host podman exec -i ...`, which — unlike the
+one-shot `run -d`/`exec`/`port`/`stop` calls elsewhere in this file — depends on stdio staying
+live and bidirectional for the whole session, not just an exit code and captured output.
+
+`flatpak-spawn --host` proxies the child over a D-Bus call to `org.freedesktop.Flatpak` rather
+than being a direct local child process — a different I/O path than the one `ProcessSupervisor`
+was built against. Flatpak's own documentation says stdio is forwarded by default, so this should
+work, but per this doc's own standard for §5/§6 ("this is inference, not verification"), that
+claim hasn't been exercised here: no live Flatpak+podman environment was available to open an
+actual interactive `exec` session and confirm writes/reads round-trip correctly (latency, buffering,
+and EOF-on-terminate behavior are all plausible places a D-Bus-proxied pipe could diverge from a
+direct one). Added to the §9 verification checklist below.
+
 ## 6. Unverified risk: does the sandboxed app's picked-folder path resolve on the host?
 
 `AnglesiteLinuxApp`'s "Open Site…" button uses Adwaita's `.folderImporter`, which — like every
@@ -238,6 +256,9 @@ verification"). Before treating this design as load-bearing, a real Ubuntu/Fedor
    the Exit Criterion entirely if it fails).
 3. Confirm `podman run -d` boots promptly through `flatpak-spawn --host` (§5) rather than hanging.
 4. Confirm the overlay JS actually loads from `/app/share/anglesite/edit-overlay/overlay.js` (§7).
+5. Open an interactive `exec` session (the ACP-agent path, `PodmanContainerControl.
+   execInteractive`) and confirm stdin writes and stdout/stderr reads round-trip correctly through
+   `flatpak-spawn --host` for the life of the session, not just at launch/exit (§5b).
 
 None of this PR's Swift changes are behind a new feature flag — `flatpakHostSpawn` only activates
 when `FLATPAK_ID` is set, which is never true outside an actual Flatpak sandbox, so the existing
