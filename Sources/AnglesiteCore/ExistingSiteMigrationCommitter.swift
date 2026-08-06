@@ -24,7 +24,10 @@ public enum ExistingSiteMigrationCommitter {
         let paths = Array(Set(touchedPaths))
             .filter { FileManager.default.fileExists(atPath: sourceDirectory.appendingPathComponent($0).path) }
             .sorted()
-        guard !paths.isEmpty else { return true }
+        guard !paths.isEmpty else {
+            try? ExistingSiteMigrationPendingCommit().save(to: configDirectory)
+            return true
+        }
 
         try? ExistingSiteMigrationPendingCommit(pendingPaths: paths).save(to: configDirectory)
         guard await gitCommitBatch(sourceDirectory, paths, message) != nil else { return false }

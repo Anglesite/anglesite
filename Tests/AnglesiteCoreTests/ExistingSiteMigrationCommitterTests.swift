@@ -87,4 +87,17 @@ import Foundation
         #expect(result == true)
         #expect(ExistingSiteMigrationPendingCommit.load(from: config).pendingPaths.isEmpty)
     }
+
+    @Test func retryPendingCommitClearsStaleRecordWhenAllPathsHaveDisappeared() async throws {
+        let (source, config) = tmpDirs()
+        try ExistingSiteMigrationPendingCommit(pendingPaths: ["vanished.txt"]).save(to: config)
+
+        let result = await ExistingSiteMigrationCommitter.retryPendingCommit(
+            sourceDirectory: source, configDirectory: config, message: "test",
+            gitCommitBatch: { _, _, _ in "deadbeef" }
+        )
+
+        #expect(result == true)
+        #expect(ExistingSiteMigrationPendingCommit.load(from: config).pendingPaths.isEmpty)
+    }
 }
