@@ -258,6 +258,36 @@ struct SocialWorkerProvisionCommandTests {
         #expect(await recorder.arguments.isEmpty)
     }
 
+    @Test("a known namespace with a still-nil account id retries account resolution without re-creating the namespace")
+    func inboxCaptureRetriesStrandedAccountID() async throws {
+        // Regression coverage for the final-review finding: if a prior provisioning run created
+        // the KV namespace but `accountIDSource` returned nil that time (e.g. a transient
+        // Cloudflare API error), the account id must still be resolvable on a later run — it must
+        // not be permanently stranded just because the namespace already exists.
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in "acct-2" }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            knownResources: .init(inboxKVNamespaceID: "existing-ns", inboxAccountID: nil),
+            inboxCaptureEnabled: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.inboxKVNamespaceID == "existing-ns")
+        #expect(resources.inboxAccountID == "acct-2")
+        #expect(await recorder.arguments.isEmpty, "must not call wrangler kv namespace create again for a namespace that already exists")
+    }
+
     @Test("a KV creation failure for inbox capture is reported without corrupting resources")
     func inboxCapturePartialFailure() async throws {
         let site = try temporaryDirectory()
@@ -737,6 +767,7 @@ struct SocialWorkerProvisionCommandTests {
         [[d1_databases]]
         database_id = "d1-id"
         [[kv_namespaces]]
+        binding = "SOCIAL_KV"
         id = "kv-id"
         [[r2_buckets]]
         bucket_name = "my-site-media"
@@ -1357,6 +1388,40 @@ struct SocialWorkerProvisionCommandTests {
 
         #expect(resources.r2BucketName == "my-site-media")
         #expect(resources.podBlobsR2BucketName == "my-site-pod-blobs")
+    }
+
+    @Test("readPersistedResources with only INBOX_KV present leaves SOCIAL_KV nil and recovers the inbox id")
+    func persistedInboxOnlyKVNamespaceClassification() throws {
+        // Regression coverage for the final-review finding: a flat first-`id = "…"`-match scrape
+        // would wrongly attribute INBOX_KV's id to kvNamespaceID (SOCIAL_KV's field) when
+        // SOCIAL_KV isn't present at all.
+        let site = try temporaryDirectory()
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [], inboxCaptureEnabled: true, inboxKVNamespaceID: "inbox-only-id"
+        )
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.kvNamespaceID == nil)
+        #expect(resources.inboxKVNamespaceID == "inbox-only-id")
+    }
+
+    @Test("readPersistedResources with both SOCIAL_KV and INBOX_KV present classifies each by binding")
+    func persistedBothKVNamespacesClassification() throws {
+        let site = try temporaryDirectory()
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [webmentionWorker],
+            resources: .init(kvNamespaceID: "social-id"),
+            inboxCaptureEnabled: true,
+            inboxKVNamespaceID: "inbox-id"
+        )
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.kvNamespaceID == "social-id")
+        #expect(resources.inboxKVNamespaceID == "inbox-id")
     }
 
     @Test("provisions solid-pod's own BLOBS bucket, distinct from micropub's MEDIA bucket")

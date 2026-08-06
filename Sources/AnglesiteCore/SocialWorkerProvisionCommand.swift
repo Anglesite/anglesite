@@ -333,27 +333,39 @@ public actor SocialWorkerProvisionCommand {
             }
         }
 
-        if inboxCaptureEnabled, resources.inboxKVNamespaceID == nil {
-            let name = "\(siteName)-inbox"
-            let result = await runWrangler(
-                siteDirectory: siteDirectory,
-                arguments: ["kv", "namespace", "create", name, "--json"],
-                environment: environment,
-                source: source,
-                resources: resources
-            )
-            let output: String
-            switch result {
-            case .success(let value):
-                output = value
-            case .failure(let failure):
-                return failure
+        if inboxCaptureEnabled {
+            // Namespace creation and account-id resolution are independent, separately-retriable
+            // steps (final-review finding, #1173): `accountIDSource` can return nil on a
+            // transient failure (its production default swallows any transport/API error), and
+            // if the only re-entry guard were "namespace already exists" that nil would be
+            // permanently stranded — `InboxSubmissionSync` requires both ids, so the feature would
+            // silently never activate. Gating each step on its own nil-check means a future
+            // provisioning run retries account resolution without ever re-creating a namespace
+            // that already exists.
+            if resources.inboxKVNamespaceID == nil {
+                let name = "\(siteName)-inbox"
+                let result = await runWrangler(
+                    siteDirectory: siteDirectory,
+                    arguments: ["kv", "namespace", "create", name, "--json"],
+                    environment: environment,
+                    source: source,
+                    resources: resources
+                )
+                let output: String
+                switch result {
+                case .success(let value):
+                    output = value
+                case .failure(let failure):
+                    return failure
+                }
+                guard let id = Self.extractResourceID(from: output) else {
+                    return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
+                }
+                resources.inboxKVNamespaceID = id
             }
-            guard let id = Self.extractResourceID(from: output) else {
-                return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
+            if resources.inboxAccountID == nil {
+                resources.inboxAccountID = await accountIDSource(token)
             }
-            resources.inboxKVNamespaceID = id
-            resources.inboxAccountID = await accountIDSource(token)
             if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, inboxCaptureEnabled: inboxCaptureEnabled) {
                 return failure
             }
@@ -666,12 +678,21 @@ public actor SocialWorkerProvisionCommand {
         let bucketNames = extractAllTomlStrings(named: "bucket_name", from: toml)
         return .init(
             d1DatabaseID: extractTomlString(named: "database_id", from: toml),
-            kvNamespaceID: extractTomlString(named: "id", from: toml),
+            // KV namespace ids are opaque Cloudflare-assigned strings, not deterministic names
+            // like the queue/bucket names above — they can't be classified by suffix. Instead,
+            // `wrangler.toml` can carry up to two `[[kv_namespaces]]` blocks (SOCIAL_KV and
+            // INBOX_KV), each with its own `binding = "…"` line immediately followed by its own
+            // `id = "…"` line (see `generateWranglerToml`'s `[[kv_namespaces]]` emission), so
+            // `extractKVNamespaceID` scopes the match to the binding line that precedes it. A
+            // flat first-`id`-match scrape (the pre-#1173 behavior) would misattribute INBOX_KV's
+            // id to this field whenever SOCIAL_KV wasn't also present.
+            kvNamespaceID: extractKVNamespaceID(binding: "SOCIAL_KV", from: toml),
             r2BucketName: bucketNames.first(where: { $0.hasSuffix("-media") }),
             queueName: queueNames.first(where: { $0.hasSuffix("-webmention") }),
             websubQueueName: queueNames.first(where: { $0.hasSuffix("-websub") }),
             microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") }),
-            podBlobsR2BucketName: bucketNames.first(where: { $0.hasSuffix("-pod-blobs") })
+            podBlobsR2BucketName: bucketNames.first(where: { $0.hasSuffix("-pod-blobs") }),
+            inboxKVNamespaceID: extractKVNamespaceID(binding: "INBOX_KV", from: toml)
         )
     }
 
@@ -693,6 +714,23 @@ public actor SocialWorkerProvisionCommand {
 
     private static func extractTomlString(named key: String, from toml: String) -> String? {
         extractAllTomlStrings(named: key, from: toml).first
+    }
+
+    /// Finds a `[[kv_namespaces]]` block by its `binding = "<name>"` line and returns the
+    /// `id = "…"` value immediately following it in that same block. `generateWranglerToml`
+    /// always emits `binding` immediately followed by `id` within a `[[kv_namespaces]]` block, so
+    /// matching that adjacency is enough to scope the match to the right block without a full
+    /// TOML parser.
+    private static func extractKVNamespaceID(binding: String, from toml: String) -> String? {
+        let escaped = NSRegularExpression.escapedPattern(for: binding)
+        let pattern = ##"(?m)^\s*binding\s*=\s*"@@BINDING@@"\s*\n\s*id\s*=\s*"([^"]+)""##
+            .replacingOccurrences(of: "@@BINDING@@", with: escaped)
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: toml, range: NSRange(toml.startIndex..., in: toml)),
+              match.numberOfRanges > 1,
+              let range = Range(match.range(at: 1), in: toml)
+        else { return nil }
+        return String(toml[range])
     }
 
     private static func extractAllTomlStrings(named key: String, from toml: String) -> [String] {
