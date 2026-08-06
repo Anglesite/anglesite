@@ -945,7 +945,12 @@ final class PlistEditorModel {
         guard enabled else {
             var settings = (try? await store.load()) ?? workerSettings
             settings.inboxCaptureEnabled = false
-            try? await store.save(settings)
+            do {
+                try await store.save(settings)
+            } catch {
+                inboxCaptureError = String(localized: "Couldn't save the inbox capture setting: \(error.localizedDescription)")
+                return
+            }
             workerSettings = settings
             inboxCaptureEnabled = false
             inboxCaptureError = nil

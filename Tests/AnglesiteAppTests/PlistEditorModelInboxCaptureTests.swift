@@ -106,6 +106,28 @@ struct PlistEditorModelInboxCaptureTests {
         #expect(saved.provisionedWorkerResources?.inboxAccountID == "acct-1")
     }
 
+    @Test("a save failure on turn-off surfaces an error and leaves the toggle state unchanged")
+    func turnOffSaveFailure() async throws {
+        let fixture = try await makeFixture(settings: SiteSettings(inboxCaptureEnabled: true))
+        await fixture.model.loadWorkers()
+        #expect(fixture.model.inboxCaptureEnabled == true)
+
+        // Strip write permission from Config/ so `store.save`'s atomic write fails — same
+        // technique NativeContentOperationsTests uses to force a real I/O failure rather than a
+        // mocked one.
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o555], ofItemAtPath: fixture.configDirectory.path)
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o755], ofItemAtPath: fixture.configDirectory.path)
+        }
+
+        await fixture.model.setInboxCaptureEnabled(false)
+
+        #expect(fixture.model.inboxCaptureError != nil)
+        #expect(fixture.model.inboxCaptureEnabled == true)
+    }
+
     @Test("without a token, leaves the toggle off with an error and makes no capability-probe call")
     func turnOnWithoutToken() async throws {
         // `cloudflareToken()` falls back to the process-wide `CLOUDFLARE_API_TOKEN` env var when
