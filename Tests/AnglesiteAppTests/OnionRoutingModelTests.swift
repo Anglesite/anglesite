@@ -150,9 +150,8 @@ struct OnionRoutingModelTests {
 
     @MainActor
     @Test("openSheet() resets phase and clears any previously entered domain")
-    func openSheetResets() async {
-        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
-        defer { cfToken.release() }
+    func openSheetResets() {
+        // No CloudflareAPITokenTestEnvironment claim needed: openSheet() never calls apiToken().
         let model = OnionRoutingModel(reader: StubReader(), writer: StubWriter())
         model.domainInput = "leftover.com"
 
@@ -165,9 +164,8 @@ struct OnionRoutingModelTests {
 
     @MainActor
     @Test("dismissSheet() clears the presented flag")
-    func dismissSheetClearsPresented() async {
-        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
-        defer { cfToken.release() }
+    func dismissSheetClearsPresented() {
+        // No CloudflareAPITokenTestEnvironment claim needed: neither method calls apiToken().
         let model = OnionRoutingModel(reader: StubReader(), writer: StubWriter())
         model.openSheet()
 

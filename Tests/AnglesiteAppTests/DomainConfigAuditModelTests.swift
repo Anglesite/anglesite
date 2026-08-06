@@ -165,9 +165,8 @@ struct DomainConfigAuditModelTests {
 
     @MainActor
     @Test("openSheet() resets phase")
-    func openSheetResets() async {
-        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
-        defer { cfToken.release() }
+    func openSheetResets() {
+        // No CloudflareAPITokenTestEnvironment claim needed: openSheet() never calls apiToken().
         let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
         model.openSheet()
         #expect(model.sheetPresented == true)
@@ -176,9 +175,8 @@ struct DomainConfigAuditModelTests {
 
     @MainActor
     @Test("dismissSheet() clears the presented flag")
-    func dismissSheetClearsPresented() async {
-        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
-        defer { cfToken.release() }
+    func dismissSheetClearsPresented() {
+        // No CloudflareAPITokenTestEnvironment claim needed: neither method calls apiToken().
         let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
         model.openSheet()
         model.dismissSheet()
