@@ -62,13 +62,16 @@ struct StandardSiteRecordsTests {
         #expect(publication.name.count == StandardSiteText.titleGraphemeLimit)
         #expect(publication.description?.count == StandardSiteText.descriptionGraphemeLimit)
 
+        let longTag = String(repeating: "G", count: 200)
         let document = StandardSiteDocumentRecord(
             site: "at://did:plc:owner/site.standard.publication/anglesite-abc",
             title: longTitle, description: longDescription, path: "/notes/hello/",
-            publishedAt: "2026-01-01T00:00:00Z", updatedAt: nil, tags: [], textContent: nil
+            publishedAt: "2026-01-01T00:00:00Z", updatedAt: nil, tags: [longTag, "short"], textContent: nil
         )
         #expect(document.title.count == StandardSiteText.titleGraphemeLimit)
         #expect(document.description?.count == StandardSiteText.descriptionGraphemeLimit)
+        #expect(document.tags[0].count == StandardSiteText.tagGraphemeLimit)
+        #expect(document.tags[1] == "short")
     }
 
     @Test("rkeys are deterministic for the same site/path and differ across sites/paths")

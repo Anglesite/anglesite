@@ -1,14 +1,19 @@
 import Foundation
 
 /// Grapheme-limit truncation for Standard.site record text fields. The lexicon caps `title` at
-/// 500 graphemes and `description` at 3000 (https://standard.site/docs/lexicons/document).
-/// `String.count` already counts extended grapheme clusters, so `prefix` truncates on a grapheme
-/// boundary without any UTF-16/UTF-8 bookkeeping.
+/// 500 graphemes, `description` at 3000, and each `tags` item at 128
+/// (https://standard.site/docs/lexicons/document) — `textContent` has no stated limit, so it's
+/// left untruncated. `String.count` already counts extended grapheme clusters, so `prefix`
+/// truncates on a grapheme boundary without any UTF-16/UTF-8 bookkeeping.
 public enum StandardSiteText {
     /// `site.standard.publication`/`site.standard.document` `title` grapheme limit.
     public static let titleGraphemeLimit = 500
     /// `site.standard.document` `description` grapheme limit.
     public static let descriptionGraphemeLimit = 3000
+    /// `site.standard.document` `tags` per-item grapheme limit. The lexicon states no limit on
+    /// the array's item *count*, only each item's length, so callers aren't expected to cap how
+    /// many tags they send.
+    public static let tagGraphemeLimit = 128
 
     /// Truncates `value` to at most `graphemeLimit` graphemes; returns `value` unchanged when
     /// already within the limit.
@@ -97,7 +102,7 @@ public struct StandardSiteDocumentRecord: Encodable, Equatable, Sendable {
         self.path = path
         self.publishedAt = publishedAt
         self.updatedAt = updatedAt
-        self.tags = tags
+        self.tags = tags.map { StandardSiteText.truncate($0, graphemeLimit: StandardSiteText.tagGraphemeLimit) }
         self.textContent = textContent
     }
 }
