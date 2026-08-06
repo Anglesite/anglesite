@@ -1,0 +1,87 @@
+import Foundation
+
+/// Applies what `SecurityTxtMigrationChecker` found (design doc "Apply"). Three entry points:
+/// `applyBackfill` for the two silently-appliable outcomes (no owner consent needed), and
+/// `applyDecision` for the owner's (or a noninteractive caller's) Adopt/Preserve choice.
+public enum SecurityTxtMigrationApplier {
+    public enum ApplyError: Error, Equatable {
+        case writeFailed(relativePath: String)
+    }
+
+    /// The owner's (or the noninteractive default's) answer to a `SecurityTxtMigrationPlan
+    /// .needsDecision` — the only decision this mechanism ever delegates.
+    public enum Decision: Sendable, Equatable {
+        /// Adopt as generated: prepend the current marker so the next build's own generator
+        /// treats this as its own output, and gitignore it as build output going forward.
+        case adopt
+        /// Preserve as hand-authored: leave file content untouched; ensure it's not gitignored,
+        /// so it becomes normally git-trackable.
+        case preserve
+    }
+
+    /// Writes only `SECURITY_TXT_MODE` (contacts are left exactly as they are — this never
+    /// touches `SECURITY_CONTACT`). Returns `[".site-config"]` if the value changed, `[]` if it
+    /// was already correct (idempotent re-run).
+    public static func applyBackfill(
+        mode: SecurityReportingAsset.Mode, sourceDirectory: URL
+    ) throws -> [String] {
+        try writeMode(mode, sourceDirectory: sourceDirectory)
+    }
+
+    /// Applies the owner's (or the noninteractive default's) Adopt/Preserve decision for an
+    /// unmarked legacy `security.txt` (design doc "Apply" step 2-5).
+    public static func applyDecision(
+        _ decision: Decision, sourceDirectory: URL
+    ) throws -> [String] {
+        var touched: [String] = []
+        switch decision {
+        case .adopt:
+            touched += try writeMode(.generated, sourceDirectory: sourceDirectory)
+            let fileURL = sourceDirectory.appendingPathComponent("public/.well-known/security.txt")
+            if let existing = try? String(contentsOf: fileURL, encoding: .utf8) {
+                let marked = GeneratedEndpoints.securityTxtMarker + "\n" + existing
+                do {
+                    try marked.write(to: fileURL, atomically: true, encoding: .utf8)
+                } catch {
+                    throw ApplyError.writeFailed(relativePath: "public/.well-known/security.txt")
+                }
+                touched.append("public/.well-known/security.txt")
+            }
+            touched += try updateGitignore(sourceDirectory: sourceDirectory, adopt: true)
+        case .preserve:
+            touched += try writeMode(.manual, sourceDirectory: sourceDirectory)
+            touched += try updateGitignore(sourceDirectory: sourceDirectory, adopt: false)
+        }
+        return touched
+    }
+
+    private static func writeMode(
+        _ mode: SecurityReportingAsset.Mode, sourceDirectory: URL
+    ) throws -> [String] {
+        let configURL = sourceDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
+        let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        let updated = SiteConfigFile.upsert([("SECURITY_TXT_MODE", mode.rawValue)], into: config)
+        guard updated != config else { return [] }
+        do {
+            try updated.write(to: configURL, atomically: true, encoding: .utf8)
+        } catch {
+            throw ApplyError.writeFailed(relativePath: WebsiteAnalyticsAsset.configRelativePath)
+        }
+        return [WebsiteAnalyticsAsset.configRelativePath]
+    }
+
+    private static func updateGitignore(sourceDirectory: URL, adopt: Bool) throws -> [String] {
+        let gitignoreURL = sourceDirectory.appendingPathComponent(".gitignore")
+        let contents = (try? String(contentsOf: gitignoreURL, encoding: .utf8)) ?? ""
+        let updated = adopt
+            ? SecurityTxtGitignoreSync.addingIgnoreEntry(to: contents)
+            : SecurityTxtGitignoreSync.removingIgnoreEntry(from: contents)
+        guard updated != contents else { return [] }
+        do {
+            try updated.write(to: gitignoreURL, atomically: true, encoding: .utf8)
+        } catch {
+            throw ApplyError.writeFailed(relativePath: ".gitignore")
+        }
+        return [".gitignore"]
+    }
+}
