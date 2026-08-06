@@ -17,7 +17,7 @@ import Foundation
 
     @Test func applyBackfillWritesModeAndReturnsTouchedPath() throws {
         let source = tmpSite()
-        let touched = try SecurityTxtMigrationApplier.applyBackfill(mode: .disabled, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyBackfill(mode: .disabled, sourceDirectory: source)
         #expect(touched == [".site-config"])
         let config = try String(contentsOf: source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(config.contains("SECURITY_TXT_MODE=disabled"))
@@ -26,7 +26,7 @@ import Foundation
     @Test func applyBackfillIsANoOpWhenAlreadyCorrect() throws {
         let source = tmpSite()
         try "SECURITY_TXT_MODE=generated\n".write(to: source.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
-        let touched = try SecurityTxtMigrationApplier.applyBackfill(mode: .generated, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyBackfill(mode: .generated, sourceDirectory: source)
         #expect(touched.isEmpty)
     }
 
@@ -34,7 +34,7 @@ import Foundation
         let source = tmpSite()
         try writeSecurityTxt("Contact: mailto:security@example.com\nExpires: 2027-01-01T00:00:00.000Z\n", to: source)
 
-        let touched = try SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: source)
 
         #expect(Set(touched) == Set([".site-config", "public/.well-known/security.txt", ".gitignore"]))
         let content = try String(contentsOf: source.appendingPathComponent("public/.well-known/security.txt"), encoding: .utf8)
@@ -46,6 +46,14 @@ import Foundation
         #expect(gitignore.contains("public/.well-known/security.txt"))
     }
 
+    @Test func applyDecisionAdoptStillReportsAModeChangeEvenWhenTheFileDoesNotExist() throws {
+        let source = tmpSite()
+        let touched = SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory: source)
+        #expect(touched == [".site-config"])
+        let config = try String(contentsOf: source.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("SECURITY_TXT_MODE=generated"))
+    }
+
     @Test func applyDecisionPreserveLeavesFileUntouchedSetsManualModeAndUngitignoresIt() throws {
         let source = tmpSite()
         try writeSecurityTxt("Contact: mailto:someone-else@example.com\n", to: source)
@@ -53,7 +61,7 @@ import Foundation
             to: source.appendingPathComponent(".gitignore"), atomically: true, encoding: .utf8
         )
 
-        let touched = try SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
 
         #expect(Set(touched) == Set([".site-config", ".gitignore"]))
         let content = try String(contentsOf: source.appendingPathComponent("public/.well-known/security.txt"), encoding: .utf8)
@@ -68,7 +76,7 @@ import Foundation
         let source = tmpSite()
         try writeSecurityTxt("Contact: mailto:someone-else@example.com\n", to: source)
 
-        let touched = try SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
+        let touched = SecurityTxtMigrationApplier.applyDecision(.preserve, sourceDirectory: source)
 
         #expect(touched == [".site-config"])
         #expect(!FileManager.default.fileExists(atPath: source.appendingPathComponent(".gitignore").path))
