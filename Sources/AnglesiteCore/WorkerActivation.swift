@@ -161,6 +161,7 @@ public enum WorkerActivation {
             }
             messages.append(parts.joined(separator: "; "))
         }
-        return messages.isEmpty ? nil : messages.joined(separator: "; ")
+        guard !messages.isEmpty else { return nil }
+        return "conformance: " + messages.joined(separator: "; ")
     }
 }

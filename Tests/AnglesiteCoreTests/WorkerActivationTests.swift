@@ -169,6 +169,18 @@ struct WorkerActivationTests {
         #expect(advisory!.contains("@dwk/webmention"))
     }
 
+    @Test("conformanceAdvisory keeps the \"conformance: \" topic-label prefix (review feedback on #1275)")
+    func advisoryKeepsConformancePrefix() {
+        // Regression: the unverified/blocked message rebuild dropped the "conformance: " prefix
+        // the pre-#957 code always included — DeployModel logs this string to the debug pane
+        // verbatim, so losing the prefix made it harder to spot among other log lines.
+        let status = try! WorkersConformanceReader.parse("""
+        { "packages": { "@dwk/webmention": { "standard": "Webmention", "suites": {}, "integration": { "status": "pending" } } } }
+        """.data(using: .utf8)!)
+        let advisory = WorkerActivation.conformanceAdvisory(activeIDs: ["webmention"], conformance: status)
+        #expect(advisory?.hasPrefix("conformance: ") == true)
+    }
+
     @Test("conformanceAdvisory is nil when nothing phase-gated is active")
     func advisoryNilWithoutRelevantWorkers() {
         let status = WorkersConformanceStatus(packages: [:])
