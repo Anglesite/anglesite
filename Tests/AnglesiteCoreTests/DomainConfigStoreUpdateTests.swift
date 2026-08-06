@@ -78,10 +78,11 @@ struct DomainConfigStoreUpdateTests {
         // exactly the "two producers mutate the same top-level section" shape #1255 describes.
         // Before the fix, concurrent calls could both `load()` the same stale snapshot before
         // either `save()`d, so the second save would silently drop the first producer's entry.
-        // Kept small (matching the #1189 precedent test's producer count) — every producer here
-        // blocks on the same NSLock while doing synchronous file I/O, and a wider fan-out onto
-        // DispatchQueue.global() adds real contention to the shared GCD thread pool CI's full
-        // parallel test run is already tight on (see VsockTCPProxyTests's own flakiness notes).
+        // Kept small (same order of magnitude as the #1189 precedent test's 3 producers) — every
+        // producer here blocks on the same NSLock while doing synchronous file I/O, and a wider
+        // fan-out onto DispatchQueue.global() adds real contention to the shared GCD thread pool
+        // CI's full parallel test run is already tight on (see VsockTCPProxyTests's own
+        // flakiness notes).
         let producerCount = 4
         let group = DispatchGroup()
         for i in 0..<producerCount {
