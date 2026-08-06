@@ -196,7 +196,12 @@ worst.
 `"Resources/edit-overlay/overlay.js"` — meaningless once the binary runs from `/app/bin/` inside a
 Flatpak install. It now tries, in order: `ANGLESITE_OVERLAY_JS` env override (dev loop unchanged);
 `/app/share/anglesite/edit-overlay/overlay.js` (the Flatpak-installed location, below); then the
-original cwd-relative path (unpackaged dev builds run from the repo root). A missing overlay stays
+original cwd-relative path (unpackaged dev builds run from the repo root). The ordering/gating
+logic is split out into a pure `overlayCandidates(environment:)` function (no file I/O), covered
+by a new `Tests/AnglesiteLinuxTests` target (`ShellModelOverlaySourceTests`) added alongside it —
+unlike `PodmanContainerControlTests` (§4), this target *does* actually run: it depends on
+`AnglesiteLinux`, so it's gated the same `ANGLESITE_LINUX_SHELL=1` way the shell itself is, but
+none of its test code touches GTK/Adwaita, only the environment-driven candidate list. A missing overlay stays
 non-fatal in every case, matching the existing behavior.
 
 `packaging/flatpak/` (new) holds:
