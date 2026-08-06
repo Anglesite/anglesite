@@ -26,7 +26,7 @@ function human(iso: string): string {
 ---
 
 {
-  posts.length > 0 && (
+  posts.length > 0 ? (
     <ol class="community-timeline">
       {posts.map((post) => (
         <li class="h-entry community-post" data-object-type={post.objectType}>
@@ -61,6 +61,8 @@ function human(iso: string): string {
         </li>
       ))}
     </ol>
+  ) : (
+    <p>Nothing published yet.</p>
   )
 }
 
