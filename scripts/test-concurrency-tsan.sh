@@ -21,10 +21,15 @@
 # DomainConfigStore joined this lane per #1255: `DomainConfigStore.update(_:)`
 # holds a per-file `NSLock` across its own load-mutate-save sequence so two
 # concurrent producers can't both read the same stale snapshot before either
-# writes. `DomainConfigStoreUpdateTests`' concurrent-producers test exercises
-# that race only *probabilistically* under a plain `swift test --parallel` run
-# (no artificial barrier forces the interleaving) — the same weak-coverage gap
-# TSan exists to close for the relay suites above.
+# writes. Unlike the relay/ProcessSupervisor suites above, this isn't a
+# same-address in-process memory race TSan actually instruments — each
+# producer works against its own local `var config` and does separate
+# `Data(contentsOf:)`/`write(to:)` syscalls, so it's a lost-update race on the
+# file on disk. TSan doesn't flag it as a data race here; running it under
+# this lane just perturbs scheduling, which can help (or occasionally not)
+# surface the interleaving `DomainConfigStoreUpdateTests`' concurrent-producers
+# test relies on — it remains probabilistic, not sanitizer-guaranteed, the
+# same as under a plain `swift test --parallel` run.
 #
 # Scoped to these suites (--filter
 # 'TurnRelay|TextStreamRelay|ProcessSupervisor|DomainConfigStore') to keep the
