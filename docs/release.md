@@ -109,8 +109,9 @@ ASC_API_KEY_ID=XXXXXXXXXX \
 ASC_API_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
   scripts/release.sh
 
-# 2. Wait for App Store Connect to finish processing the build (check
-#    TestFlight -> Builds in the portal, or just run step 3 -- it polls).
+# 2. Wait until the build appears under TestFlight -> Builds in App Store
+#    Connect, then run step 3 below (it polls while the build finishes
+#    processing, but won't wait for the build to first appear).
 
 # 3. Set the "What to Test" notes for testers.
 ASC_API_KEY_ID=XXXXXXXXXX \

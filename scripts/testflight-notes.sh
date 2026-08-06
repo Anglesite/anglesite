@@ -108,12 +108,12 @@ api_call() {
         return 0
     fi
     if [[ -n "$body" ]]; then
-        curl -sS -X "$method" "$API_BASE$path" \
+        curl -sS -g -X "$method" "$API_BASE$path" \
             -H "Authorization: Bearer $JWT" \
             -H "Content-Type: application/json" \
             -d "$body"
     else
-        curl -sS -X "$method" "$API_BASE$path" \
+        curl -sS -g -X "$method" "$API_BASE$path" \
             -H "Authorization: Bearer $JWT"
     fi
 }
@@ -125,6 +125,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     APP_ID="DRYRUN_APP_ID"
 else
     APP_RESPONSE="$(api_call GET "/apps?filter[bundleId]=$BUNDLE_ID")"
+    jq -e '.errors' <<<"$APP_RESPONSE" >/dev/null 2>&1 && bail "App Store Connect API error: $(jq -c '.errors' <<<"$APP_RESPONSE")"
     APP_ID="$(jq -r '.data[0].id // empty' <<<"$APP_RESPONSE")"
     [[ -n "$APP_ID" ]] || bail "no app found for bundle id $BUNDLE_ID. Has the App Store Connect app record been created?"
 fi
@@ -141,6 +142,7 @@ else
     BUILD_ID=""
     for ((i = 1; i <= ATTEMPTS; i++)); do
         BUILD_RESPONSE="$(api_call GET "$BUILD_PATH")"
+        jq -e '.errors' <<<"$BUILD_RESPONSE" >/dev/null 2>&1 && bail "App Store Connect API error: $(jq -c '.errors' <<<"$BUILD_RESPONSE")"
         BUILD_ID="$(jq -r '.data[0].id // empty' <<<"$BUILD_RESPONSE")"
         [[ -n "$BUILD_ID" ]] || bail "no build found for version $MARKETING_VERSION build $BUILD_NUMBER. Has scripts/release.sh uploaded it yet?"
         PROCESSING_STATE="$(jq -r '.data[0].attributes.processingState' <<<"$BUILD_RESPONSE")"
