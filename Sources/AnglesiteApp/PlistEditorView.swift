@@ -699,8 +699,46 @@ struct PlistEditorView: View {
                     workersGroupTable(group.rows)
                 }
             }
+
+            SettingsBox(title: "Inbox Capture") {
+                inboxCaptureSection
+            }
         }
         .task { await model.loadWorkers() }
+    }
+
+    private var inboxCaptureSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Toggle("Inbox Capture", isOn: Binding(
+                    get: { model.inboxCaptureEnabled },
+                    set: { newValue in
+                        Task { await model.setInboxCaptureEnabled(newValue) }
+                    }))
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                Text(inboxCaptureStatusText)
+                    .foregroundStyle(.secondary)
+            }
+            if let inboxCaptureError = model.inboxCaptureError {
+                Label(inboxCaptureError, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.callout)
+            }
+        }
+    }
+
+    private var inboxCaptureStatusText: String {
+        switch (model.inboxCaptureEnabled, model.inboxCaptureNamespaceID) {
+        case (false, .none):
+            return String(localized: "Not enabled.")
+        case (true, .none):
+            return String(localized: "Will activate on next deploy.")
+        case (true, .some(let id)):
+            return String(localized: "Active — namespace \(id).")
+        case (false, .some):
+            return String(localized: "Paused — submissions namespace kept, not receiving new ones.")
+        }
     }
 
     private func workersGroupTable(_ rows: [PlistEditorModel.WorkerRow]) -> some View {
