@@ -11,6 +11,7 @@ final class PlistEditorModel {
     private let analyticsProvider: any CloudflareWebAnalyticsProviding
     private let customAnalyticsValidator: any CustomAnalyticsHTMLValidating
     private let keychain: KeychainStore
+    private let capabilityProber: CloudflareCapabilityProber
     var entries: [PlistDocumentIO.PlistEntry] = []
     private(set) var savedEntries: [PlistDocumentIO.PlistEntry] = []
     private var allEntries: [PlistDocumentIO.PlistEntry] = []
@@ -121,6 +122,9 @@ final class PlistEditorModel {
     private(set) var workerGroups: [WorkerGroup] = []
     private(set) var workersError: String?
     private(set) var isLoadingWorkers = false
+    private(set) var inboxCaptureEnabled = false
+    private(set) var inboxCaptureNamespaceID: String?
+    private(set) var inboxCaptureError: String?
     private(set) var workerLastDeployedIDs: [String] = []
     /// The most recently loaded `SiteSettings`, the base for toggle read-modify-write saves.
     private var workerSettings = SiteSettings()
@@ -172,6 +176,7 @@ final class PlistEditorModel {
          customAnalyticsValidator: (any CustomAnalyticsHTMLValidating)? = nil,
          containerControlProvider: @escaping AstroHTMLValidator.ContainerControlProvider = { nil },
          keychain: KeychainStore = KeychainStore(),
+         capabilityProber: CloudflareCapabilityProber = CloudflareCapabilityProber(),
          domainOperations: any DomainOperationsService = DomainOperations(),
          repoSecurity: any RepoSecurityReading & RepoSecurityWriting = HTTPGitHubClient(),
          gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
@@ -194,6 +199,7 @@ final class PlistEditorModel {
         self.customAnalyticsValidator = customAnalyticsValidator
             ?? AstroHTMLValidator(containerControlProvider: containerControlProvider)
         self.keychain = keychain
+        self.capabilityProber = capabilityProber
         self.domainOperations = domainOperations
         self.repoSecurity = repoSecurity
         self.gitRunner = gitRunner
@@ -877,6 +883,8 @@ final class PlistEditorModel {
         )
         settings.activeWorkerIDs = resolvedActiveWorkerIDs
         workerSettings = settings
+        inboxCaptureEnabled = settings.inboxCaptureEnabled ?? false
+        inboxCaptureNamespaceID = settings.provisionedWorkerResources?.inboxKVNamespaceID
         workerLastDeployedIDs = settings.lastDeployedWorkerIDs ?? []
         let catalog = await workerCatalogProvider()
         let snapshot = graphSnapshotProvider()
@@ -924,6 +932,52 @@ final class PlistEditorModel {
             }
         }
         await onActiveWorkersChanged(settings)
+    }
+
+    /// Turning on does an instant local write plus a Cloudflare token-capability pre-check — no
+    /// `wrangler` call happens here. Actual `INBOX_KV` namespace creation is deferred to the next
+    /// deploy (`SocialWorkerProvisionCommand`'s new inbox block, #764) so this mirrors
+    /// `setWorkerActive`'s "toggle now, provision later" contract exactly. Turning off never
+    /// touches `provisionedWorkerResources` — the namespace and any staged submissions survive.
+    func setInboxCaptureEnabled(_ enabled: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        guard enabled else {
+            var settings = (try? await store.load()) ?? workerSettings
+            settings.inboxCaptureEnabled = false
+            try? await store.save(settings)
+            workerSettings = settings
+            inboxCaptureEnabled = false
+            inboxCaptureError = nil
+            return
+        }
+        let token: String?
+        do {
+            token = try await cloudflareToken()
+        } catch {
+            inboxCaptureError = String(localized: "Couldn't read your Cloudflare API token: \(error.localizedDescription)")
+            return
+        }
+        guard let token, !token.isEmpty else {
+            inboxCaptureError = String(localized: "Connect a Cloudflare API token first, in Settings → Advanced → Credentials.")
+            return
+        }
+        let capabilities = await capabilityProber.probe(token: token, zoneID: nil)
+        guard capabilities.contains(.kv) else {
+            inboxCaptureError = String(localized: "Your Cloudflare token can't manage KV namespaces — recreate it from Settings → Tokens.")
+            return
+        }
+        var settings = (try? await store.load()) ?? workerSettings
+        settings.inboxCaptureEnabled = true
+        do {
+            try await store.save(settings)
+        } catch {
+            inboxCaptureError = String(localized: "Couldn't save the inbox capture setting: \(error.localizedDescription)")
+            return
+        }
+        workerSettings = settings
+        inboxCaptureEnabled = true
+        inboxCaptureError = nil
     }
 
     /// Dashboard deep-links are enabled only after the first deploy that included a worker
