@@ -7,7 +7,7 @@ struct WorkersConformanceTests {
     @Test("every phaseRequirements package is classified known-suite or no-known-suite, never both")
     func phaseRequirementsPackagesAreExhaustivelyClassified() {
         let required = Set(WorkersConformanceStatus.phaseRequirements.values.flatMap { $0 })
-        let known = WorkersPackageStatus.packagesWithKnownConformanceSuites
+        let known = Set(WorkersPackageStatus.packagesWithKnownConformanceSuites.keys)
         let noSuite = WorkersPackageStatus.packagesWithNoKnownConformanceSuite
 
         #expect(known.isDisjoint(with: noSuite))
@@ -288,5 +288,76 @@ struct WorkersConformanceTests {
         let gate = WorkersConformanceStatus(packages: ["@dwk/solid-pod": solidPod]).gateStatus(for: .storage)
         #expect(gate.unverified.contains("@dwk/solid-pod"))
         #expect(!gate.ready.contains("@dwk/solid-pod"))
+    }
+
+    @Test("a known-conformance package reporting only an unrelated suite key does not vacuously pass (#1295)")
+    func knownConformancePackageWithUnrelatedSuiteKeyDoesNotPass() throws {
+        // #1295: areAllSuitesPassing previously only checked that whatever suites *were*
+        // reported all said "passing" — a package could report a misnamed or unrelated suite key
+        // and satisfy that vacuously, without indieauth.rocks (its actual expected suite) ever
+        // having run.
+        let json = """
+        {
+          "packages": {
+            "@dwk/indieauth": {
+              "standard": "IndieAuth",
+              "suites": { "some-unrelated-suite": { "status": "passing" } },
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let indieauth = try #require(status.packages["@dwk/indieauth"])
+        #expect(!indieauth.isMissingRequiredSuite) // suites isn't empty
+        #expect(!indieauth.areAllSuitesPassing)
+        #expect(!indieauth.isReleaseReady)
+    }
+
+    @Test("webmention reporting only sender (receiver missing) does not vacuously pass (#1295)")
+    func webmentionPartialSuiteReportDoesNotPass() throws {
+        // @dwk/webmention expects both webmention.rocks/sender and webmention.rocks/receiver;
+        // reporting only one, even as "passing", must not satisfy areAllSuitesPassing.
+        let json = """
+        {
+          "packages": {
+            "@dwk/webmention": {
+              "standard": "Webmention",
+              "suites": { "webmention.rocks/sender": { "status": "passing" } },
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let webmention = try #require(status.packages["@dwk/webmention"])
+        #expect(!webmention.isMissingRequiredSuite) // suites isn't empty
+        #expect(!webmention.areAllSuitesPassing)
+        #expect(!webmention.isReleaseReady)
+    }
+
+    @Test("activitypub with an empty expected-key set still passes on any reported passing suite (#1295)")
+    func activitypubWithNoSettledKeyStillPassesOnAnyReportedSuite() throws {
+        // @dwk/activitypub has no settled status.json key convention yet (empty expected-key
+        // set), so it falls back to the pre-#1295 "all reported suites pass" check rather than
+        // guessing a key name that could turn a real pass into a permanent false negative.
+        let json = """
+        {
+          "packages": {
+            "@dwk/activitypub": {
+              "standard": "ActivityPub",
+              "suites": { "activitypub-test-suite": { "status": "passing" } },
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let activitypub = try #require(status.packages["@dwk/activitypub"])
+        #expect(activitypub.areAllSuitesPassing)
+        #expect(activitypub.isReleaseReady)
     }
 }
