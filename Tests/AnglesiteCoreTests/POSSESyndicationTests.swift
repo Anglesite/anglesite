@@ -27,6 +27,9 @@ struct POSSESyndicationTests {
             case "/xrpc/com.atproto.repo.createRecord":
                 status = 200
                 json = #"{"uri":"at://did:plc:owner/app.bsky.feed.post/record123"}"#
+            case "/xrpc/com.atproto.repo.putRecord":
+                status = 200
+                json = #"{"uri":"at://did:plc:owner/site.standard.publication/anglesite-stable","cid":"bafycid"}"#
             default:
                 // Existing ledger entries try standard Webmention discovery on the next deploy.
                 status = 200
@@ -126,6 +129,30 @@ struct POSSESyndicationTests {
         let record = try #require(object["record"] as? [String: Any])
         #expect(record["$type"] as? String == "app.bsky.feed.post")
         #expect((record["text"] as? String)?.hasSuffix(canonical.absoluteString) == true)
+        #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer jwt")
+    }
+
+    @Test("putRecord creates a session, then writes the record with the caller's collection/rkey — create-or-update, no 409 handling")
+    func putRecordRequest() async throws {
+        let stub = APIStub()
+        let record = StandardSitePublicationRecord(name: "Owner Site", url: "https://owner.example", description: nil)
+        let result = try await AtprotoPutRecordClient.put(
+            collection: "site.standard.publication",
+            rkey: "anglesite-stable",
+            record: record,
+            credentials: credentials.bluesky!,
+            transport: { request in try await stub.respond(request) }
+        )
+        #expect(result.did == "did:plc:owner")
+        #expect(result.uri == "at://did:plc:owner/site.standard.publication/anglesite-stable")
+        #expect(await stub.count(path: "/xrpc/com.atproto.server.createSession") == 1)
+        #expect(await stub.count(path: "/xrpc/com.atproto.repo.putRecord") == 1)
+        let request = await stub.first(path: "/xrpc/com.atproto.repo.putRecord")
+        let body = try #require(request?.httpBody)
+        let object = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["repo"] as? String == "did:plc:owner")
+        #expect(object["collection"] as? String == "site.standard.publication")
+        #expect(object["rkey"] as? String == "anglesite-stable")
         #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer jwt")
     }
 

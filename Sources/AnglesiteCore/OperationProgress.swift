@@ -59,6 +59,12 @@ public extension OperationProgress {
     static let deployFinalizing = OperationProgress(kind: .deploy, phase: "finalizing", label: "Finishing up…")
     /// Post-deploy: sending outbound webmentions for newly-live content.
     static let deployWebmentions = OperationProgress(kind: .deploy, phase: "webmentions", label: "Sending webmentions…")
+    /// Post-deploy: Standard.site record publish pass (see ``StandardSitePublishCommand``).
+    /// Ordered after webmentions, before POSSE — the site's Atmosphere records should exist by
+    /// the time the POSSE cross-post lands so Bluesky's preview enhancement sees them.
+    static let deployStandardSitePublishing = OperationProgress(
+        kind: .deploy, phase: "standardSitePublishing", label: "Publishing to the Atmosphere…"
+    )
     /// Post-deploy: direct POSSE syndication pass (see ``POSSESyndicationCommand``).
     static let deploySyndicating = OperationProgress(kind: .deploy, phase: "syndicating", label: "Syndicating posts…")
     /// Post-deploy: WebSub ping so feed subscribers learn about the update promptly.

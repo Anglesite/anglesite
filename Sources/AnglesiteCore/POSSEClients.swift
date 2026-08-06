@@ -206,6 +206,83 @@ public enum BlueskyPOSSEClient {
     }
 }
 
+/// Writes arbitrary records to a Bluesky-compatible PDS over `com.atproto.repo.putRecord` —
+/// create-or-update, unlike `BlueskyPOSSEClient`'s `createRecord`. Used by
+/// `StandardSitePublishCommand` for `site.standard.publication`/`site.standard.document`: with a
+/// caller-supplied deterministic `rkey` (see ``POSSEStableKey``), re-publishing after any crash or
+/// content edit converges on the same record instead of erroring or duplicating, so there's no
+/// 409-conflict special case to handle the way `BlueskyPOSSEClient.post` does.
+public enum AtprotoPutRecordClient {
+    private struct SessionRequest: Encodable { let identifier: String; let password: String }
+    private struct SessionResponse: Decodable { let accessJwt: String; let did: String }
+    private struct PutRecordRequest<Record: Encodable>: Encodable {
+        let repo: String
+        let collection: String
+        let rkey: String
+        let record: Record
+    }
+    private struct PutRecordResponse: Decodable { let uri: String }
+
+    /// The repo DID the record was written under, and the record's resulting at-URI.
+    public struct Result: Equatable, Sendable {
+        public let did: String
+        public let uri: String
+    }
+
+    /// Creates a session, then writes `record` to `collection` at `rkey` in the account's own repo.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func put<Record: Encodable>(
+        collection: String,
+        rkey: String,
+        record: Record,
+        credentials: POSSECredentials.Bluesky,
+        transport: POSSEHTTPTransport
+    ) async throws -> Result {
+        let session: SessionResponse = try await jsonRequest(
+            path: "/xrpc/com.atproto.server.createSession",
+            baseURL: credentials.pdsURL,
+            body: SessionRequest(identifier: credentials.identifier, password: credentials.appPassword),
+            bearer: nil,
+            transport: transport
+        )
+        let body = PutRecordRequest(repo: session.did, collection: collection, rkey: rkey, record: record)
+        let response: PutRecordResponse = try await jsonRequest(
+            path: "/xrpc/com.atproto.repo.putRecord",
+            baseURL: credentials.pdsURL,
+            body: body,
+            bearer: session.accessJwt,
+            transport: transport
+        )
+        return Result(did: session.did, uri: response.uri)
+    }
+
+    private static func jsonRequest<Body: Encodable, Response: Decodable>(
+        path: String,
+        baseURL: URL,
+        body: Body,
+        bearer: String?,
+        transport: POSSEHTTPTransport
+    ) async throws -> Response {
+        guard let endpoint = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
+            throw POSSEClientError.invalidEndpoint
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONEncoder().encode(body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        let (data, response) = try await transport(request)
+        guard (200..<300).contains(response.statusCode) else {
+            throw POSSEClientError.rejected(platform: "Bluesky", status: response.statusCode)
+        }
+        guard let decoded = try? JSONDecoder().decode(Response.self, from: data) else {
+            throw POSSEClientError.invalidResponse(platform: "Bluesky")
+        }
+        return decoded
+    }
+}
+
 /// Derives the deterministic identifiers both clients use for duplicate protection
 /// (Mastodon's `Idempotency-Key`, Bluesky's `rkey`): the same site + canonical URL + platform
 /// must always map to the same key so a crash-retry is recognized as the same post.
