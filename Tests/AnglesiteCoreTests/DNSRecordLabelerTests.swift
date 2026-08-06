@@ -24,7 +24,7 @@ struct DNSRecordLabelerTests {
     }
 
     @Test("TXT records at _atproto are labeled Atmosphere verification")
-    func bluesky() {
+    func atmosphere() {
         let r = record(type: "TXT", name: "_atproto.example.com", content: "did=did:plc:abc")
         #expect(DNSRecordLabeler.label(for: r) == "Atmosphere verification")
     }
