@@ -7,6 +7,11 @@ import AnglesiteCore
 final class PlistEditorModel {
     let file: FileRef
     let sourceDirectory: URL
+    /// Set by `SiteWindowModel.openWebsiteSettings(landOn:)` (#975 follow-up: the security-reports
+    /// toolbar badge's "View all in Security Reports" button) to request a tab switch from outside
+    /// `PlistEditorView`. The view applies it and clears it back to `nil` — see its
+    /// `onChange(of: model.requestedTab)`.
+    var requestedTab: SettingsTab?
     private let initialWebsiteTitle: String
     private let analyticsProvider: any CloudflareWebAnalyticsProviding
     private let customAnalyticsValidator: any CustomAnalyticsHTMLValidating

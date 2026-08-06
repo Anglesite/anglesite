@@ -9,6 +9,9 @@ import AnglesiteCore
 struct SecurityReportsBadgeView: View {
     @Bindable var model: SecurityReportsModel
     let onRecheck: () -> Void
+    /// Opens Website Settings ▸ Security Reports (design doc §4: "its popover is a summary, not
+    /// the full view") — the popover's "View all in Security Reports" button.
+    let onViewAll: () -> Void
 
     @State private var popoverPresented = false
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
@@ -100,6 +103,26 @@ struct SecurityReportsBadgeView: View {
                               text: String(localized: "\(alert.packageName): dependency alert"))
                 }
             }
+            Divider()
+            // Full-width, its own row: the popover is only 320pt wide, and this label is long
+            // enough that sharing a row with "Recheck" (as `HealthBadgeView`'s "Ask
+            // Assistant"/"Recheck" footer does) would crowd both. The trailing chevron marks it
+            // as a disclosure into another surface, matching the design doc's "the popover is a
+            // summary, not the full view" — Website Settings ▸ Security Reports is where the
+            // per-item actions actually live.
+            Button {
+                popoverPresented = false
+                onViewAll()
+            } label: {
+                HStack {
+                    Text("View all in Security Reports")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .controlSize(.small)
             Divider()
             HStack {
                 Spacer()

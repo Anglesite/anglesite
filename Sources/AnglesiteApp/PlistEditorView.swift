@@ -2,32 +2,35 @@ import AppKit
 import SwiftUI
 import AnglesiteCore
 
+/// Website Settings' tab identity (#975 follow-up: internal, not `private`, so
+/// `SiteWindowModel.openWebsiteSettings(landOn:)` and `PlistEditorModel.requestedTab` — both in
+/// this module — can name a tab to land on from outside this view).
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case website = "Website"
+    case analytics = "Analytics"
+    case redirects = "Redirects"
+    case licensing = "Licensing"
+    case emailSecurity = "Email Security"
+    case securityReports = "Security Reports"
+    case workers = "Workers"
+    var id: Self { self }
+
+    var symbolName: String {
+        switch self {
+        case .website: return "globe"
+        case .analytics: return "chart.bar.xaxis"
+        case .redirects: return "arrow.triangle.turn.up.right.diamond.fill"
+        case .licensing: return "checkmark.seal"
+        case .emailSecurity: return "envelope.badge.shield.half.filled"
+        case .securityReports: return "doc.text.magnifyingglass"
+        case .workers: return "bolt.fill"
+        }
+    }
+}
+
 struct PlistEditorView: View {
     @Bindable var model: PlistEditorModel
     let onWebsiteTitleSaved: (String) -> Void
-
-    private enum SettingsTab: String, CaseIterable, Identifiable {
-        case website = "Website"
-        case analytics = "Analytics"
-        case redirects = "Redirects"
-        case licensing = "Licensing"
-        case emailSecurity = "Email Security"
-        case securityReports = "Security Reports"
-        case workers = "Workers"
-        var id: Self { self }
-
-        var symbolName: String {
-            switch self {
-            case .website: return "globe"
-            case .analytics: return "chart.bar.xaxis"
-            case .redirects: return "arrow.triangle.turn.up.right.diamond.fill"
-            case .licensing: return "checkmark.seal"
-            case .emailSecurity: return "envelope.badge.shield.half.filled"
-            case .securityReports: return "doc.text.magnifyingglass"
-            case .workers: return "bolt.fill"
-            }
-        }
-    }
 
     @Environment(\.controlActiveState) private var controlActiveState
     @State private var selectedTab: SettingsTab = .website
@@ -44,6 +47,15 @@ struct PlistEditorView: View {
             content
         }
         .task(id: model.file.id) { await model.load() }
+        // `initial: true` so this also applies a request already set before this view was ever
+        // rendered (`openWebsiteSettings(landOn:)` on a not-yet-open editor) — not just one set
+        // while the view is already live (the badge's button clicked while Settings is already
+        // showing some other tab). `.onChange` alone would only catch the latter.
+        .onChange(of: model.requestedTab, initial: true) { _, requestedTab in
+            guard let requestedTab else { return }
+            selectedTab = requestedTab
+            model.requestedTab = nil
+        }
         .onChange(of: titleFocused) { wasFocused, isFocused in
             if wasFocused && !isFocused {
                 Task { await saveWebsiteTitle() }
