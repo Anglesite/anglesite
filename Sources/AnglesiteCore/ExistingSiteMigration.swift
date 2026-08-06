@@ -37,18 +37,44 @@ public enum ExistingSiteMigration {
             let plan = TemplateScriptsSyncChecker.check(
                 sourceDirectory: sourceDirectory, configDirectory: configDirectory, templateDirectory: templateDirectory
             )
-            if !plan.toApply.isEmpty {
+            // Applied one action at a time, not as a single batch: `applyQueued` throws on the
+            // first file it can't process but leaves every earlier write (and its baseline entry)
+            // intact — batching the call would silently drop those already-landed files from
+            // `touched`, so they'd never reach the committer or its pending-commit retry record
+            // (fixed during task review; the original single-batch-call draft had exactly this
+            // bug).
+            for action in plan.toApply {
                 if (try? TemplateScriptsSyncApplier.applyQueued(
-                    plan.toApply, sourceDirectory: sourceDirectory, configDirectory: configDirectory,
+                    [action], sourceDirectory: sourceDirectory, configDirectory: configDirectory,
                     templateDirectory: templateDirectory
                 )) != nil {
-                    touched += plan.toApply.map(\.relativePath)
+                    touched.append(action.relativePath)
+                } else {
+                    await logCenter.append(
+                        source: source, stream: .stderr,
+                        text: "Existing-site migration couldn't refresh \(action.relativePath) — it will be retried on the next open."
+                    )
                 }
             }
             // Every divergence — a genuine hand-edit or an unclassified legacy file (Task 3) — is
-            // left exactly as-is: `.keepMine` writes nothing under `Source/`, only records the
-            // acknowledgement, so there is nothing to add to `touched` here.
-            unresolved += plan.divergences.map(\.relativePath)
+            // left exactly as-is: resolving it `.keepMine` writes nothing under `Source/`, only
+            // records the acknowledgement in `Config/`, so there is nothing to add to `touched`.
+            // The `resolve` call itself is NOT optional, despite writing nothing under `Source/`
+            // (fixed during task review; the original draft skipped it entirely): without it, the
+            // checker's provisional first-encounter baseline (set the first time it saw this file,
+            // design doc "Detection: script files") stays unacknowledged, so the *next* run sees
+            // `entry.baselineHash == siteHash` (nothing changed since that provisional baseline)
+            // and silently reclassifies the exact same file as a safe `.refresh` — overwriting the
+            // owner's content on the very next headless deploy, which is precisely what this
+            // noninteractive path exists to prevent.
+            for divergence in plan.divergences {
+                try? TemplateScriptsSyncApplier.resolve(
+                    divergence, decision: .keepMine,
+                    sourceDirectory: sourceDirectory, configDirectory: configDirectory,
+                    templateDirectory: templateDirectory
+                )
+                unresolved.append(divergence.relativePath)
+            }
         }
 
         switch SecurityTxtMigrationChecker.check(sourceDirectory: sourceDirectory) {

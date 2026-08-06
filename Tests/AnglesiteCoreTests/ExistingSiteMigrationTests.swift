@@ -57,6 +57,31 @@ import Foundation
         #expect(lines.contains { $0.text.contains("scripts/pre-deploy-check.ts") && $0.text.contains("unresolved ownership") })
     }
 
+    @Test func divergedScriptFileStaysPreservedAcrossRepeatedRuns() async throws {
+        // Regression test for the Critical finding from task review: the first run must record a
+        // durable acknowledgement (via `TemplateScriptsSyncApplier.resolve(..., decision:
+        // .keepMine, ...)`), not just skip the file — otherwise the checker's provisional
+        // first-encounter baseline makes the *second* run misclassify the untouched-since-then
+        // file as safe-to-refresh and silently overwrite it.
+        let (source, config, template) = tmpDirs()
+        let logCenter = LogCenter()
+        try writeFile("new template content", to: template.appendingPathComponent("scripts/pre-deploy-check.ts"))
+        try writeFile("owner's content", to: source.appendingPathComponent("scripts/pre-deploy-check.ts"))
+        try writeFile("", to: source.appendingPathComponent(".site-config"))
+
+        await ExistingSiteMigration.runNoninteractively(
+            sourceDirectory: source, configDirectory: config, templateDirectory: template,
+            source: "test", logCenter: logCenter
+        )
+        await ExistingSiteMigration.runNoninteractively(
+            sourceDirectory: source, configDirectory: config, templateDirectory: template,
+            source: "test", logCenter: logCenter
+        )
+
+        let stillUnchanged = try String(contentsOf: source.appendingPathComponent("scripts/pre-deploy-check.ts"), encoding: .utf8)
+        #expect(stillUnchanged == "owner's content")
+    }
+
     @Test func unmarkedSecurityTxtNeedingDecisionDefaultsToPreserveAndIsReported() async throws {
         let (source, config, template) = tmpDirs()
         let logCenter = LogCenter()

@@ -87,10 +87,18 @@ public enum TemplateScriptsSyncChecker {
             }
             let entry = baseline.files[relativePath]!
 
-            if !hadNoBaseline && entry.baselineHash == siteHash {
-                toApply.append(.refresh(relativePath: relativePath))
-            } else if entry.acknowledgedTemplateHash == templateHash {
+            // Checked *before* the "unmodified since last sync" refresh branch below (fixed
+            // during Task 8 review): for the #745 legacy/provisional-baseline path, `baselineHash`
+            // is seeded to the owner's own diverged content (not a genuinely-reconciled template
+            // hash, unlike the original #1053 invariant), so `baselineHash == siteHash` stays
+            // permanently true for a file the owner declined to update and never edits again. If
+            // that refresh branch were checked first, an acknowledged divergence would be
+            // silently reclassified as "safe to refresh" and overwritten on the very next check —
+            // exactly the outcome `acknowledgedTemplateHash` exists to prevent.
+            if !hadNoBaseline && entry.acknowledgedTemplateHash == templateHash {
                 continue
+            } else if !hadNoBaseline && entry.baselineHash == siteHash {
+                toApply.append(.refresh(relativePath: relativePath))
             } else {
                 divergences.append(TemplateScriptsDivergence(relativePath: relativePath, templateHash: templateHash))
             }
