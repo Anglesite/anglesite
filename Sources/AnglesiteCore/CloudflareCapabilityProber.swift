@@ -40,6 +40,7 @@ public struct CloudflareCapabilityProber: Sendable {
                 (.workers, "accounts/\(accountID)/workers/scripts"),
                 (.turnstile, "accounts/\(accountID)/challenges/widgets"),
                 (.registrar, "accounts/\(accountID)/registrar/domains"),
+                (.kv, "accounts/\(accountID)/storage/kv/namespaces?per_page=1"),
             ]
         }
         if let zoneID {
