@@ -29,10 +29,14 @@ struct PlistEditorModelSecurityReportsSectionTests {
 
     /// `remoteURL == nil` leaves the fixture without a GitHub remote (the git call exits 1);
     /// passing one makes `refreshRepoSecurityState()` resolve `securityReportingRepo` from it.
+    /// `githubToken == nil` mirrors "no GitHub account connected in Settings" — pass one to
+    /// exercise the populated-check branch of `refreshSecurityReports()`.
     private func makeModel(
+        advisories: [SecurityAdvisory] = [],
         alerts: [DependabotAlert] = [],
         dependencySyncOffers: DependencySyncOffers = DependencySyncOffers(),
         remoteURL: String? = nil,
+        githubToken: String? = nil,
         onOpenDependencyFix: @escaping (DependencyUpdateOffer) -> Void = { _ in }
     ) throws -> PlistEditorModel {
         let directory = FileManager.default.temporaryDirectory
@@ -48,8 +52,8 @@ struct PlistEditorModelSecurityReportsSectionTests {
                 guard let remoteURL else { return ProcessSupervisor.RunResult(stdout: "", stderr: "", exitCode: 1) }
                 return ProcessSupervisor.RunResult(stdout: remoteURL, stderr: "", exitCode: 0)
             },
-            githubToken: { nil },
-            securityReports: SecurityReportsModel(reader: FakeReader(alerts: alerts)),
+            githubToken: { githubToken },
+            securityReports: SecurityReportsModel(reader: FakeReader(advisories: advisories, alerts: alerts)),
             dependencySyncOffers: dependencySyncOffers,
             onOpenDependencyFix: onOpenDependencyFix)
     }
@@ -102,8 +106,22 @@ struct PlistEditorModelSecurityReportsSectionTests {
         // plumbing while still exercising the call path `PlistEditorView`'s `.task` uses.
         await model.refreshSecurityReports()
         #expect(model.securityReports.totalCount == 0)
-        _ = Self.advisory  // documents the intended populated-case shape; full population is covered
-                      // by SecurityReportsModelTests (Task 3) against a real repo/token pairing.
+    }
+
+    /// Unlike `refreshSecurityReportsPopulates` above, this exercises the actual wiring at
+    /// `refreshSecurityReports()`'s call site — that it resolves the GitHub remote *and* token via
+    /// `currentRemoteRepo()`/`githubToken()` and hands both through to `securityReports.recheck`
+    /// unmodified — the counterpart to `SiteWindowModelSecurityReportsTests
+    /// .recheckPopulatesFromResolvedRemote`. A bug that swapped or dropped either at this call
+    /// site would go undetected by the no-repo case alone.
+    @Test("refreshSecurityReports resolves the GitHub remote + token and populates on success")
+    func refreshSecurityReportsPopulatesFromResolvedRemote() async throws {
+        let model = try makeModel(
+            advisories: [Self.advisory],
+            remoteURL: "https://github.com/acme/site.git\n",
+            githubToken: "tok")
+        await model.refreshSecurityReports()
+        #expect(model.securityReports.openAdvisories == [Self.advisory])
     }
 
     @Test("forwardingPayload is nil while this site's GitHub repo is unknown")

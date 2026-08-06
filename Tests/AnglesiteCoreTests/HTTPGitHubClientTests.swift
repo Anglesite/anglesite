@@ -252,6 +252,19 @@ struct HTTPGitHubClientTests {
         }
     }
 
+    /// GitHub answers this specific endpoint with 403 whenever Dependabot alerts are simply
+    /// disabled for the repository — SecurityReportsModel.recheck's whole rationale for awaiting
+    /// this endpoint independently rests on that being a `.unauthorized` case like 401, not a
+    /// distinct one, so it's worth pinning explicitly rather than relying only on the shared
+    /// 401/403 coverage elsewhere (`createRepo`'s tests).
+    @Test("a 403 on alerts (Dependabot disabled for the repo) also maps to .unauthorized")
+    func openDependabotAlertsForbidden() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 403, json: #"{"message":"Dependabot alerts are disabled"}"#))
+        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+            _ = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
     @Test("a transport failure on alerts maps to .network")
     func openDependabotAlertsNetworkFailure() async {
         let client = HTTPGitHubClient(transport: { _ in throw URLError(.notConnectedToInternet) })

@@ -679,7 +679,12 @@ struct PlistEditorView: View {
     private var openReportsBox: some View {
         SettingsBox(title: "Open Reports") {
             VStack(alignment: .leading, spacing: 10) {
-                if model.securityReports.isRunning && model.securityReports.totalCount == 0 && model.securityReports.lastCheckedAt == nil {
+                if model.securityReports.isRunning && model.securityReports.totalCount == 0 {
+                    // Covers both the very-first check (`lastCheckedAt == nil`) and a recheck that
+                    // starts from a previously-clean "No open reports." result — without the
+                    // `isRunning` branch, a recheck of an already-checked, already-empty site fell
+                    // through to the static "No open reports." text below with only the small
+                    // `ProgressView` in the footer to show anything was happening.
                     Text("Checking for open GitHub security advisories and Dependabot alerts…")
                         .font(.callout)
                         .foregroundStyle(.secondary)

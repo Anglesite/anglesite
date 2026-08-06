@@ -141,25 +141,32 @@ struct SecurityReportsModelTests {
         #expect(!model.isRunning)
     }
 
-    @Test("recheck cancels a prior in-flight run")
+    @Test("recheck cancels a prior in-flight run and discards its stale result")
     func recheckCancelsPrior() async {
-        actor SlowReader: RepoAdvisoryReading {
+        // The first call's fetch is slow and returns data distinguishable from the second
+        // (superseding) call's — so this proves the superseded run's result never lands in
+        // `openAdvisories`, not merely that both Tasks finish without hanging or crashing (that
+        // weaker check passed even before the `Task.isCancelled` guard existed).
+        actor CountingReader: RepoAdvisoryReading {
+            private var callCount = 0
+            private let staleAdvisory: SecurityAdvisory
+            init(staleAdvisory: SecurityAdvisory) { self.staleAdvisory = staleAdvisory }
             func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] {
+                callCount += 1
+                guard callCount == 1 else { return [] }
                 try await Task.sleep(nanoseconds: 200_000_000)
-                return []
+                return [staleAdvisory]
             }
             func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] {
                 []
             }
         }
-        let model = SecurityReportsModel(reader: SlowReader())
+        let model = SecurityReportsModel(reader: CountingReader(staleAdvisory: Self.highAdvisory))
         let first = model.recheck(repo: Self.repo, token: "tok")
         let second = model.recheck(repo: Self.repo, token: "tok")
         await first.value
         await second.value
-        // No assertion beyond "both complete without hanging or crashing" — the cancellation
-        // itself is exercised by HealthModelTests' equivalent case; this pins the same contract
-        // for SecurityReportsModel without duplicating that suite's depth.
         #expect(!model.isRunning)
+        #expect(model.openAdvisories.isEmpty)
     }
 }
