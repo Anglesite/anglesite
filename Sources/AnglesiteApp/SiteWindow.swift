@@ -353,7 +353,8 @@ struct SiteWindow: View {
             ToolbarItem(id: SiteToolbarItemID.securityReports.rawValue, placement: .primaryAction) {
                 SecurityReportsBadgeView(
                     model: model.securityReports,
-                    onRecheck: { model.recheckSecurityReports() }
+                    onRecheck: { model.recheckSecurityReports() },
+                    onViewAll: { model.openWebsiteSettings(landOn: .securityReports) }
                 )
             }
 

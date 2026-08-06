@@ -203,6 +203,12 @@ final class SiteWindowModel {
     /// when the delete actually succeeded. Never break an inbound URL a user didn't choose to
     /// abandon (#584).
     var pendingRedirectOfferRoute: String?
+    /// Carries a requested `SettingsTab` across `openFile`'s async model-construction `Task` for
+    /// `openWebsiteSettings(landOn:)` (#975 follow-up: the security-reports badge's "View all in
+    /// Security Reports" button), the same "record a request, the target consumes and clears it"
+    /// shape as `pendingRedirectOfferRoute` above. Unused when Website Settings is already open —
+    /// that case sets `PlistEditorModel.requestedTab` directly instead, see `openWebsiteSettings`.
+    private var pendingWebsiteSettingsTab: SettingsTab?
     /// Editor/inspector state closed by a delete, keyed by the deleted file's relative path, so a
     /// ⌘Z restore of that file can put it back (#675). Written by every path that closes surfaces
     /// for a delete (`confirmDelete()` and `applyContentUndo`'s delete branch) and removed the
@@ -760,6 +766,31 @@ final class SiteWindowModel {
         }
     }
 
+    /// The Info.plist `FileRef` that `.websiteSettings` navigator selection and
+    /// `openWebsiteSettings(landOn:)` both open — the same file the slice-1 interim note above
+    /// describes. `nil` when there's no open site or the package layout can't locate Info.plist.
+    private func websiteSettingsFileRef() -> FileRef? {
+        guard let site else { return nil }
+        let layout = SiteFileTree.layout(for: site.packageURL)
+        guard let infoPlist = layout.infoPlist else { return nil }
+        return FileRef(url: infoPlist, group: .metadata, name: "Info.plist")
+    }
+
+    /// Opens Website Settings landed on `tab` — the security-reports toolbar badge's "View all in
+    /// Security Reports" button (#975 follow-up) calls this so the popover's summary has a route
+    /// into the tab that's the actual triage surface. If the settings editor is already open,
+    /// the request lands directly on its live `PlistEditorModel`; otherwise it's stashed in
+    /// `pendingWebsiteSettingsTab` for `openFile`'s async model-construction `Task` to consume.
+    func openWebsiteSettings(landOn tab: SettingsTab) {
+        guard let file = websiteSettingsFileRef() else { return }
+        if case .plist(let plistEditorModel) = activeEditor, activeEditorFile?.id == file.id {
+            plistEditorModel.requestedTab = tab
+        } else {
+            pendingWebsiteSettingsTab = tab
+        }
+        openFile(file)
+    }
+
     func openPreviewInBrowser() {
         guard let url = preview.readyURL else { return }
         NSWorkspace.shared.open(url)
@@ -1033,10 +1064,8 @@ final class SiteWindowModel {
             // Slice-1 interim: the website row opens the package Info.plist — exactly what the
             // old sidebar Metadata row opened. The full Website Settings surface is slice 2
             // (spec §7, docs/superpowers/specs/2026-07-13-website-design-window-cleanup-design.md).
-            guard let site else { return }
-            let layout = SiteFileTree.layout(for: site.packageURL)
-            guard let infoPlist = layout.infoPlist else { return }
-            openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
+            guard let file = websiteSettingsFileRef() else { return }
+            openFile(file)
         case .directory(let collection, let route):
             // #714 slice 3 (§6): a directory shows its route in the preview and its properties
             // (type, entries, feeds, template) in the inspector's collection context.
@@ -1171,6 +1200,10 @@ final class SiteWindowModel {
                     dependencySyncOffers: dependencySyncOffers,
                     onOpenDependencyFix: { [weak self] offer in self?.presentDependencyFixSheet(offer) }
                 ))
+                if let tab = pendingWebsiteSettingsTab, case .plist(let plistEditorModel) = activeEditor {
+                    pendingWebsiteSettingsTab = nil
+                    plistEditorModel.requestedTab = tab
+                }
             }
             // Same mitigation as Graph/Cleanup/Reader/Followers/Communities (#1126): give a
             // presented inspector's dismissal its own transaction before the pane rebuild below,
