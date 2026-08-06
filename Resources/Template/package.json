@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "prebuild": "npx tsx scripts/well-known.ts check && npx tsx scripts/csp.ts && npx tsx scripts/edge-artifacts.ts",
-    "build": "astro check && astro build && npx tsx scripts/check-microformats.ts",
+    "build": "astro check && astro build && npx tsx scripts/check-microformats.ts && npx tsx scripts/validate-html.ts",
     "postbuild": "npx pagefind --site dist && npx tsx scripts/well-known.ts verify",
     "preview": "astro preview",
     "check": "npx tsx scripts/pre-deploy-check.ts",
