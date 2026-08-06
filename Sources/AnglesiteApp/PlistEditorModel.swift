@@ -7,6 +7,11 @@ import AnglesiteCore
 final class PlistEditorModel {
     let file: FileRef
     let sourceDirectory: URL
+    /// Set by `SiteWindowModel.openWebsiteSettings(landOn:)` (#975 follow-up: the security-reports
+    /// toolbar badge's "View all in Security Reports" button) to request a tab switch from outside
+    /// `PlistEditorView`. The view applies it and clears it back to `nil` — see its
+    /// `onChange(of: model.requestedTab)`.
+    var requestedTab: SettingsTab?
     private let initialWebsiteTitle: String
     private let analyticsProvider: any CloudflareWebAnalyticsProviding
     private let customAnalyticsValidator: any CustomAnalyticsHTMLValidating
@@ -734,9 +739,7 @@ final class PlistEditorModel {
             return await pending.value
         }
         let task = Task<RemoteRepo?, Never> { [gitRunner, sourceDirectory] in
-            guard let result = try? await gitRunner(sourceDirectory, ["remote", "get-url", "origin"]),
-                  result.exitCode == 0 else { return nil }
-            return RemoteRepo.parse(remoteURL: result.stdout)
+            await GitRemoteResolver.origin(in: sourceDirectory, runner: gitRunner)
         }
         pendingRemoteRepoResolution = task
         let repo = await task.value
