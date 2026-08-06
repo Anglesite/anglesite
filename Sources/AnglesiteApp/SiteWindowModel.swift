@@ -112,7 +112,9 @@ final class SiteWindowModel {
     var designInterviewModel: DesignInterviewModel?
     /// Non-nil ⟺ the Email Setup wizard is presented (`.sheet(item:)`), same fresh-construction-
     /// from-`site` pattern as `copyEditModel`/`socialPlanModel` (#769). Reachable both from
-    /// Website ▸ Assistant ▸ Email Setup… and from the "Set up email" button in the Domain sheet.
+    /// Website ▸ Email Setup… (grouped with Domain/Connect a Domain — it writes DNS records,
+    /// same as those two, not a content-assistant tool) and from the "Set up email" button in
+    /// the Domain sheet.
     var emailSetupModel: EmailSetupModel?
     /// Non-nil ⟺ the Experiment Results sheet is presented (`.sheet(item:)`), same fresh-
     /// construction-from-`site` pattern as `copyEditModel`/`emailSetupModel` (#769).
