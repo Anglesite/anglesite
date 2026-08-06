@@ -274,6 +274,9 @@ struct StandardSitePublishCommandTests {
 
         await command.publish(siteID: "site-1", siteDirectory: site.source, configDirectory: site.config)
 
+        // One session for the whole run — the publication write and every document write reuse
+        // it, rather than logging into the PDS fresh for each of the two record writes.
+        #expect(await stub.count(path: "/xrpc/com.atproto.server.createSession") == 1)
         #expect(await stub.count(path: "/xrpc/com.atproto.repo.putRecord") == 2)
         let publicationBody = try #require(await stub.bodies(path: "/xrpc/com.atproto.repo.putRecord").first)
         #expect(publicationBody["collection"] as? String == "site.standard.publication")

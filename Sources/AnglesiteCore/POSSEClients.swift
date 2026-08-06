@@ -229,7 +229,62 @@ public enum AtprotoPutRecordClient {
         public let uri: String
     }
 
-    /// Creates a session, then writes `record` to `collection` at `rkey` in the account's own repo.
+    /// An authenticated PDS session, reusable across multiple ``putRecord(collection:rkey:record:pdsURL:session:transport:)``
+    /// calls — callers writing a batch of records (e.g. ``StandardSitePublishCommand``) should
+    /// call ``createSession(credentials:transport:)`` once per run rather than once per record,
+    /// since every call is a fresh app-password login against the PDS.
+    public struct Session: Equatable, Sendable {
+        public let did: String
+        let accessJwt: String
+    }
+
+    /// Logs into `credentials.pdsURL` via `com.atproto.server.createSession`. Reuse the returned
+    /// ``Session`` across every ``putRecord(collection:rkey:record:pdsURL:session:transport:)``
+    /// call in a batch instead of calling ``put(collection:rkey:record:credentials:transport:)``
+    /// per record — that convenience method logs in fresh every time.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func createSession(
+        credentials: POSSECredentials.Bluesky,
+        transport: POSSEHTTPTransport
+    ) async throws -> Session {
+        let session: SessionResponse = try await jsonRequest(
+            path: "/xrpc/com.atproto.server.createSession",
+            baseURL: credentials.pdsURL,
+            body: SessionRequest(identifier: credentials.identifier, password: credentials.appPassword),
+            bearer: nil,
+            transport: transport
+        )
+        return Session(did: session.did, accessJwt: session.accessJwt)
+    }
+
+    /// Writes `record` to `collection` at `rkey` in `session`'s repo, using an already-authenticated
+    /// ``Session`` (see ``createSession(credentials:transport:)``) — no login per call.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func putRecord<Record: Encodable>(
+        collection: String,
+        rkey: String,
+        record: Record,
+        pdsURL: URL,
+        session: Session,
+        transport: POSSEHTTPTransport
+    ) async throws -> Result {
+        let body = PutRecordRequest(repo: session.did, collection: collection, rkey: rkey, record: record)
+        let response: PutRecordResponse = try await jsonRequest(
+            path: "/xrpc/com.atproto.repo.putRecord",
+            baseURL: pdsURL,
+            body: body,
+            bearer: session.accessJwt,
+            transport: transport
+        )
+        return Result(did: session.did, uri: response.uri)
+    }
+
+    /// Convenience for a single record write: ``createSession(credentials:transport:)`` followed by
+    /// ``putRecord(collection:rkey:record:pdsURL:session:transport:)``. Writing more than one record
+    /// in the same run (e.g. a publication plus its documents) should call those two directly and
+    /// reuse the session instead — this logs in fresh every time it's called.
     ///
     /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
     public static func put<Record: Encodable>(
@@ -239,22 +294,11 @@ public enum AtprotoPutRecordClient {
         credentials: POSSECredentials.Bluesky,
         transport: POSSEHTTPTransport
     ) async throws -> Result {
-        let session: SessionResponse = try await jsonRequest(
-            path: "/xrpc/com.atproto.server.createSession",
-            baseURL: credentials.pdsURL,
-            body: SessionRequest(identifier: credentials.identifier, password: credentials.appPassword),
-            bearer: nil,
-            transport: transport
+        let session = try await createSession(credentials: credentials, transport: transport)
+        return try await putRecord(
+            collection: collection, rkey: rkey, record: record,
+            pdsURL: credentials.pdsURL, session: session, transport: transport
         )
-        let body = PutRecordRequest(repo: session.did, collection: collection, rkey: rkey, record: record)
-        let response: PutRecordResponse = try await jsonRequest(
-            path: "/xrpc/com.atproto.repo.putRecord",
-            baseURL: credentials.pdsURL,
-            body: body,
-            bearer: session.accessJwt,
-            transport: transport
-        )
-        return Result(did: session.did, uri: response.uri)
     }
 
     private static func jsonRequest<Body: Encodable, Response: Decodable>(

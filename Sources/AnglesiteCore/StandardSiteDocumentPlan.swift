@@ -22,6 +22,16 @@ public enum StandardSiteDocumentPlan {
         public let publishedAt: Date
         /// The source file's modification date, when it's after `publishedAt` — signals the post
         /// was edited since it was first published. `nil` otherwise (nothing to report).
+        ///
+        /// Filesystem mtime, not git history — `siteDirectory` (`Foo.anglesite/Source/`) is the
+        /// persistent host working tree the editor/preview/git already operate on directly, and
+        /// neither the container build nor a fresh-device sync bootstrap touches it, so mtimes
+        /// are meaningful in the common case. The one path that *can* legitimately bump a file's
+        /// mtime without a real content edit is a multi-device merge: `SyncEngine.pull()`'s
+        /// `reconcileDivergence` does a force checkout of the merged tree into this same
+        /// directory, which re-stamps whichever files that particular merge touched. No git-log
+        /// based alternative exists in this codebase yet; this is a known, accepted gap for a
+        /// syncing owner, not a first-publish-only artifact from a fresh clone or container hydration.
         public let updatedAt: Date?
         /// Plain-text render of the body.
         public let textContent: String

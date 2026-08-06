@@ -156,6 +156,36 @@ struct POSSESyndicationTests {
         #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer jwt")
     }
 
+    @Test("createSession + putRecord let a caller reuse one session across multiple record writes")
+    func putRecordReusesSession() async throws {
+        let stub = APIStub()
+        let session = try await AtprotoPutRecordClient.createSession(
+            credentials: credentials.bluesky!,
+            transport: { request in try await stub.respond(request) }
+        )
+        #expect(session.did == "did:plc:owner")
+
+        let publication = StandardSitePublicationRecord(name: "Owner Site", url: "https://owner.example", description: nil)
+        let publicationResult = try await AtprotoPutRecordClient.putRecord(
+            collection: "site.standard.publication", rkey: "anglesite-pub", record: publication,
+            pdsURL: credentials.bluesky!.pdsURL, session: session,
+            transport: { request in try await stub.respond(request) }
+        )
+        let document = StandardSiteDocumentRecord(
+            site: publicationResult.uri, title: "Hello", description: nil, path: "/notes/hello/",
+            publishedAt: "2026-01-01T00:00:00Z", updatedAt: nil, tags: [], textContent: nil
+        )
+        _ = try await AtprotoPutRecordClient.putRecord(
+            collection: "site.standard.document", rkey: "anglesite-doc", record: document,
+            pdsURL: credentials.bluesky!.pdsURL, session: session,
+            transport: { request in try await stub.respond(request) }
+        )
+
+        // A single createSession call served both putRecord calls — the caller never re-logged in.
+        #expect(await stub.count(path: "/xrpc/com.atproto.server.createSession") == 1)
+        #expect(await stub.count(path: "/xrpc/com.atproto.repo.putRecord") == 2)
+    }
+
     @Test("command posts once, writes both u-syndication URLs, and repairs source from its ledger")
     func commandEndToEndAndIdempotency() async throws {
         let site = try makeSite()

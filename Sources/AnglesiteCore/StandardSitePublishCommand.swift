@@ -89,11 +89,22 @@ public actor StandardSitePublishCommand {
         let publication = StandardSitePublicationRecord(name: siteName, url: siteURL.absoluteString, description: description)
         let publicationRkey = "anglesite-\(POSSEStableKey.make(siteID))"
 
+        // One login for the whole run: every record write below reuses this session instead of
+        // creating a fresh one per `putRecord` call, which would otherwise be N+1 separate
+        // app-password logins against the PDS for N posts in a single deploy.
+        let session: AtprotoPutRecordClient.Session
+        do {
+            session = try await AtprotoPutRecordClient.createSession(credentials: bluesky, transport: transport)
+        } catch {
+            await logError("couldn't sign in to publish: \(error.localizedDescription)", source: source)
+            return
+        }
+
         let publicationResult: AtprotoPutRecordClient.Result
         do {
-            publicationResult = try await AtprotoPutRecordClient.put(
+            publicationResult = try await AtprotoPutRecordClient.putRecord(
                 collection: "site.standard.publication", rkey: publicationRkey, record: publication,
-                credentials: bluesky, transport: transport
+                pdsURL: bluesky.pdsURL, session: session, transport: transport
             )
         } catch {
             await logError("couldn't publish site.standard.publication: \(error.localizedDescription)", source: source)
@@ -115,24 +126,36 @@ public actor StandardSitePublishCommand {
                 tags: entry.tags,
                 textContent: entry.textContent
             )
+            let documentResult: AtprotoPutRecordClient.Result
             do {
-                let documentResult = try await AtprotoPutRecordClient.put(
+                documentResult = try await AtprotoPutRecordClient.putRecord(
                     collection: "site.standard.document", rkey: documentRkey, record: document,
-                    credentials: bluesky, transport: transport
-                )
-                ledger.record(StandardSitePublishLog.Entry(
-                    path: entry.path, uri: documentResult.uri,
-                    publishedAt: entry.publishedAt, lastPublishedAt: now()
-                ))
-                try ledger.save(to: configDirectory)
-                await logCenter.append(
-                    source: source, stream: .stdout,
-                    text: "standardsite: published \(entry.path) as \(documentResult.uri)"
+                    pdsURL: bluesky.pdsURL, session: session, transport: transport
                 )
             } catch {
                 await logError("couldn't publish \(entry.path): \(error.localizedDescription)", source: source)
                 continue
             }
+            // The record write above already succeeded — a failure past this point is a local
+            // ledger/logging problem, not a publish failure, so it gets its own message rather
+            // than falling into a shared catch that would misreport a live record as unpublished.
+            ledger.record(StandardSitePublishLog.Entry(
+                path: entry.path, uri: documentResult.uri,
+                publishedAt: entry.publishedAt, lastPublishedAt: now()
+            ))
+            do {
+                try ledger.save(to: configDirectory)
+            } catch {
+                await logError(
+                    "published \(entry.path) as \(documentResult.uri), but its ledger update failed: \(error.localizedDescription)",
+                    source: source
+                )
+                continue
+            }
+            await logCenter.append(
+                source: source, stream: .stdout,
+                text: "standardsite: published \(entry.path) as \(documentResult.uri)"
+            )
         }
     }
 
