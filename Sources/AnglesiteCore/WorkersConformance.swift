@@ -14,9 +14,31 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     /// `true` when the integration test suite reports `"passing"`.
     public var isIntegrationPassing: Bool { integrationStatus == "passing" }
 
-    /// `true` when all external suites pass, or when there are no external suites to run.
+    /// npm package names known to have a public external conformance suite (micropub.rocks,
+    /// webmention.rocks, the ActivityPub test suite) — the packages `areAllSuitesPassing` refuses
+    /// to vacuously pass just because `suites` is empty. Packages not in this set have no known
+    /// public suite to run, so an empty `suites` dict genuinely means "nothing external applies"
+    /// rather than "no evidence reported yet" (#957).
+    public static let packagesWithKnownConformanceSuites: Set<String> = [
+        "@dwk/micropub",
+        "@dwk/webmention",
+        "@dwk/activitypub",
+    ]
+
+    /// `true` when this package has a known public conformance suite (see
+    /// `packagesWithKnownConformanceSuites`) but `status.json` reports no suite results for it —
+    /// evidence is missing, not failing.
+    public var isMissingRequiredSuite: Bool {
+        Self.packagesWithKnownConformanceSuites.contains(name) && suites.isEmpty
+    }
+
+    /// `true` when all external suites pass. An empty `suites` dict passes vacuously only for
+    /// packages with no known public conformance suite — for a package in
+    /// `packagesWithKnownConformanceSuites`, an empty `suites` dict means no evidence was
+    /// published, not that nothing needed running, so it reports `false` (#957).
     public var areAllSuitesPassing: Bool {
-        suites.isEmpty || suites.values.allSatisfy { $0.status == "passing" }
+        guard !suites.isEmpty else { return !isMissingRequiredSuite }
+        return suites.values.allSatisfy { $0.status == "passing" }
     }
 
     /// `true` when both the integration tests and all external suites are passing.
@@ -62,26 +84,38 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
         public let phase: Phase
         /// Packages that are release-ready.
         public let ready: [String]
-        /// Packages that are not yet release-ready (missing from the status or failing).
+        /// Packages that are missing from the status, or failing their integration tests or an
+        /// external suite that actually ran.
         public let blocked: [String]
-        /// `true` when no packages are blocked — the phase may be activated.
-        public var isUnblocked: Bool { blocked.isEmpty }
+        /// Packages whose integration tests pass but whose known public conformance suite has
+        /// reported no results yet — distinct from `blocked`: this is missing evidence, not a
+        /// known failure (#957).
+        public let unverified: [String]
+        /// `true` when no packages are blocked or unverified — the phase may be activated.
+        public var isUnblocked: Bool { blocked.isEmpty && unverified.isEmpty }
     }
 
-    /// Returns the gate status for `phase`, reporting which required packages are ready
-    /// and which are still blocked.
+    /// Returns the gate status for `phase`, reporting which required packages are ready,
+    /// which are blocked, and which are unverified (see `GateResult`).
     public func gateStatus(for phase: Phase) -> GateResult {
         let required = Self.phaseRequirements[phase] ?? []
         var ready: [String] = []
         var blocked: [String] = []
+        var unverified: [String] = []
         for name in required {
-            if let pkg = packages[name], pkg.isReleaseReady {
+            guard let pkg = packages[name] else {
+                blocked.append(name)
+                continue
+            }
+            if pkg.isReleaseReady {
                 ready.append(name)
+            } else if pkg.isIntegrationPassing && pkg.isMissingRequiredSuite {
+                unverified.append(name)
             } else {
                 blocked.append(name)
             }
         }
-        return GateResult(phase: phase, ready: ready, blocked: blocked)
+        return GateResult(phase: phase, ready: ready, blocked: blocked, unverified: unverified)
     }
 }
 

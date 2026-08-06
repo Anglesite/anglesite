@@ -182,6 +182,17 @@ struct WorkerActivationTests {
         #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["remotestorage"], conformance: status) == nil)
     }
 
+    @Test("conformanceAdvisory reports unverified when a known-conformance package has no suite evidence")
+    func advisoryReportsUnverifiedWithoutSuiteEvidence() {
+        let status = try! WorkersConformanceReader.parse("""
+        { "packages": { "@dwk/webmention": { "standard": "Webmention", "suites": {}, "integration": { "status": "passing" } } } }
+        """.data(using: .utf8)!)
+        let advisory = WorkerActivation.conformanceAdvisory(activeIDs: ["webmention"], conformance: status)
+        #expect(advisory != nil)
+        #expect(advisory!.contains("@dwk/webmention"))
+        #expect(advisory!.contains("no conformance suite reported"))
+    }
+
     @Test("componentNodeIDs resolves a catalog componentID to a real prefixed component node by filename stem")
     func componentNodeIDsResolvesRealGraphNode() {
         let snapshot = SiteGraphExplorerSnapshot(
