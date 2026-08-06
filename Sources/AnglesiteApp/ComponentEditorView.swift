@@ -65,14 +65,6 @@ struct ComponentEditorView: View {
         .onChange(of: model.selectedNodeID) { _, newValue in
             highlightInCanvas(nodeID: newValue)
         }
-        .onChange(of: mode) { _, newMode in
-            // Belt-and-suspenders alongside `sourcePane`'s own focus-driven resign (#517 review):
-            // leaving Source mode removes its `TextEditor` from the tree, and `resign` is a no-op
-            // if `isSourcePaneFocused`'s teardown `onChange` already cleared this token first.
-            if newMode != .source {
-                EditorFocusRegistry.shared.resign(token: fileEditor.file.id)
-            }
-        }
         .onChange(of: model.loadErrorReason) { _, newValue in
             // Design spec §5: an unparseable component degrades to the Source tab with the
             // compiler diagnostic in a banner, rather than a dead-end full-pane error — fixing
@@ -120,6 +112,13 @@ struct ComponentEditorView: View {
                     } else {
                         EditorFocusRegistry.shared.resign(token: fileEditor.file.id)
                     }
+                }
+                .onDisappear {
+                    // Guaranteed to fire on removal (mode switch away from Source, or the
+                    // `.id(fileEditor.file.id)` swap on file switch) — unlike the `onChange`
+                    // above, it doesn't depend on `@FocusState` teardown ordering (#517 review).
+                    // `resign` no-ops if `isSourcePaneFocused`'s own resign already ran.
+                    EditorFocusRegistry.shared.resign(token: fileEditor.file.id)
                 }
         }
     }
