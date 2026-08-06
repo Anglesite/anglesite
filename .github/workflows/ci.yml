@@ -374,6 +374,83 @@ jobs:
       - name: Build (release)
         run: swift build -c release
 
+  ios-build:
+    name: iOS app target (AnglesiteMobile)
+    # #864: no other lane ever actually compiles an iOS app target. xcodeproj-sync (macos-15)
+    # only checks source-file membership in the generated project — its own header says
+    # explicitly that it "deliberately does NOT run a full xcodebuild" — and every other
+    # xcodebuild-based lane (build-test, concurrency-tsan, appintents-schema) builds only the
+    # macOS `Anglesite`/`AnglesiteIntents` schemes. This lane closes that gap by actually
+    # building the `AnglesiteMobile` target (Package.swift's `.iOS("27.0")` platform entry +
+    # the project.yml target both already exist — PR #886) for the iOS Simulator SDK, so an
+    # iOS-incompatible change to AnglesiteCore/AnglesiteBridge/AnglesiteIOS (the modules this
+    # target links) fails CI instead of surfacing only on a contributor's local build.
+    # macos-26, matching build-test's rationale: the newest available Xcode carries the most
+    # complete iOS 27 SDK.
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      # Keep in sync with the xcodeproj-sync/appintents-schema lanes above (and MIN_XCODEGEN in
+      # check-xcodeproj-sync.sh).
+      XCODEGEN_VERSION: 2.45.4
+      XCODEGEN_SHA256: 090ec29491aad50aec10631bf6e62253fed733c50f3aab0f5ffc86bc170bdbef
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select latest available Xcode
+        # Same toolchain rationale as build-test: CLAUDE.md mandates Xcode 27+, and this
+        # target's iOS deploymentTarget (project.yml) is "27.0".
+        id: xcode
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app 2>/dev/null | sort -V
+          LATEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | grep -vE '/Xcode_26\.3(\.app|\.[0-9]+\.app)$' | tail -1)
+          echo "Selecting: $LATEST"
+          sudo xcode-select -s "$LATEST"
+          echo "version=$(basename "$LATEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Show toolchain versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Install XcodeGen (pinned)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip" -o /tmp/xcodegen.zip
+          echo "${XCODEGEN_SHA256}  /tmp/xcodegen.zip" | shasum -a 256 --check
+          unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen-dist
+          test -x /tmp/xcodegen-dist/xcodegen/bin/xcodegen \
+            || { echo "error: xcodegen binary not found at expected path after unzip — check zip layout" >&2; exit 1; }
+          echo "/tmp/xcodegen-dist/xcodegen/bin" >> "$GITHUB_PATH"
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # See the linux-build-test cache step for the key-scheme rationale. A distinct namespace
+      # (`swiftpm-ios-...`) from the macOS lanes above: an iOS Simulator SDK build produces
+      # different object files than a macOS build of the same sources, so sharing a cache key
+      # would just churn without ever hitting.
+      - name: Cache SwiftPM build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: swiftpm-ios-v1-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            swiftpm-ios-v1-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-ios-v1-${{ steps.xcode.outputs.version }}-
+
+      - name: Build AnglesiteMobile (iOS Simulator)
+        # Matches the invocation PR #886 verified manually ("BUILD SUCCEEDED") when the target
+        # was first added; this lane is what makes that verification continuous. Ad-hoc Debug
+        # signing (xcconfig/Signing-Debug.xcconfig) is already CI-safe — no extra
+        # CODE_SIGNING_ALLOWED override needed.
+        run: |
+          xcodebuild -project Anglesite.xcodeproj -scheme AnglesiteMobile \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' build
+
   concurrency-tsan:
     name: Concurrency suites (ThreadSanitizer)
     # macos-26 for the same OS-runtime reason as build-test: this lane runs Swift concurrency
@@ -660,6 +737,7 @@ jobs:
       - help-book-links
       - linux-build-test
       - build-test
+      - ios-build
       - concurrency-tsan
       - docs-docc
       - xcodeproj-sync
