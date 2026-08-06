@@ -8,6 +8,10 @@
  * and style/best-practice rules (`attr-case`, `no-inline-style`, `prefer-button`, …): those
  * aren't markup *validity* issues, and accessibility is already `scripts/a11y-validate.ts`'s job
  * — running both here too would just double-report the same findings under a different name.
+ *
+ * `validateDist` also guards against a fail-open-on-empty vacuous pass: scanning zero HTML files
+ * (a missing/empty `dist/`, or a wrong `distDir` argument) is itself reported as a problem rather
+ * than silently returning no findings.
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -75,10 +79,26 @@ function walkHtml(dir: string): string[] {
 }
 
 /** Validate every built HTML page under `distDir`. Returns a flat list of human-readable
- * problem strings across all pages — an empty array means the whole build is conformant. */
+ * problem strings across all pages — an empty array means the whole build is conformant.
+ *
+ * A missing `distDir` or a `distDir` with zero `.html` files is itself reported as a problem
+ * rather than silently returning `[]`: this script only ever runs chained after `astro build`
+ * (`npm run build`), so by the time it runs `dist/` must exist and hold pages — scanning zero
+ * files means something upstream is broken (a misconfigured `outDir`, a build that silently
+ * produced nothing, or `validate-html.ts` invoked with the wrong `distDir` argument), and a
+ * vacuous "0 problems found" pass would hide exactly that (the fail-open-on-empty failure mode
+ * #957/PR #1275 independently fixes for the conformance-suite gate).
+ */
 export function validateDist(distDir: string): string[] {
+  const files = walkHtml(distDir);
+  if (files.length === 0) {
+    return [
+      `${distDir}: no .html files found — nothing was validated (missing/empty dist/, or the wrong distDir argument)`,
+    ];
+  }
+
   const problems: string[] = [];
-  for (const file of walkHtml(distDir)) {
+  for (const file of files) {
     const label = file.slice(distDir.length + 1);
     problems.push(...validateMarkupHtml(readFileSync(file, "utf8"), label));
   }
