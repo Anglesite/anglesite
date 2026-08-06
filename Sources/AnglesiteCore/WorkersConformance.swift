@@ -14,30 +14,38 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     /// `true` when the integration test suite reports `"passing"`.
     public var isIntegrationPassing: Bool { integrationStatus == "passing" }
 
-    /// npm package names known to have a public external conformance suite — the packages
-    /// `areAllSuitesPassing` refuses to vacuously pass just because `suites` is empty. Packages
-    /// not in this set have no known public suite to run, so an empty `suites` dict genuinely
-    /// means "nothing external applies" rather than "no evidence reported yet" (#957):
-    /// indieauth.rocks, micropub.rocks, webmention.rocks, and the ActivityPub test suite for the
-    /// IndieWeb/Fediverse packages; the WebDAV `litmus` suite for `@dwk/webdav`; and the Solid
-    /// Protocol Conformance Test Harness, which covers both `@dwk/solid-pod` and its Solid-OIDC
-    /// login flow (`@dwk/solid-oidc`) — a suite existing upstream but not yet wired into
-    /// `conformance/status.json` is still "known", so it belongs here (`unverified` when absent),
-    /// not in `packagesWithNoKnownConformanceSuite` (review feedback on #1275: an earlier revision
-    /// put the Solid family there, which reopened #957's exact fail-open hole for them).
+    /// npm package names known to have a public external conformance suite, mapped to the
+    /// specific suite key(s) `conformance/status.json` is expected to report for that package —
+    /// the packages `areAllSuitesPassing` refuses to vacuously pass just because `suites` is
+    /// empty, or because some unrelated suite key happens to be reported as `"passing"`. Packages
+    /// not in this map have no known public suite to run, so an empty `suites` dict genuinely
+    /// means "nothing external applies" rather than "no evidence reported yet" (#957).
+    ///
+    /// A value is the empty set for a package whose upstream suite exists but doesn't yet have a
+    /// settled `status.json` key convention to check against (`@dwk/activitypub`'s test suite, and
+    /// the Solid Protocol Conformance Test Harness before #1275 wired in `"solid-cth"` for
+    /// `@dwk/solid-pod`/`@dwk/solid-oidc`) — `areAllSuitesPassing` falls back to "all reported
+    /// suites pass" for those, same as before this map had specific keys, rather than guessing a
+    /// key name that could turn a real pass into a permanent false negative (#1295). Once
+    /// `conformance/status.json` settles on a key for one of these, add it here.
+    ///
+    /// Known keys today: `indieauth.rocks` for `@dwk/indieauth`; `micropub.rocks` for
+    /// `@dwk/micropub`; `webmention.rocks/sender` + `webmention.rocks/receiver` for
+    /// `@dwk/webmention`; `litmus` for `@dwk/webdav`; `solid-cth` for `@dwk/solid-pod` and
+    /// `@dwk/solid-oidc` (the same Solid Protocol Conformance Test Harness run covers both).
     ///
     /// Every package `WorkersConformanceStatus.phaseRequirements` gates a phase on must land in
-    /// either this set or `packagesWithNoKnownConformanceSuite` — `WorkersConformanceTests`
+    /// either this map's keys or `packagesWithNoKnownConformanceSuite` — `WorkersConformanceTests`
     /// asserts that exhaustively, so a package added to a future phase's requirements without
     /// being classified here fails CI instead of silently reintroducing #957's fail-open bug.
-    public static let packagesWithKnownConformanceSuites: Set<String> = [
-        "@dwk/indieauth",
-        "@dwk/micropub",
-        "@dwk/webmention",
-        "@dwk/activitypub",
-        "@dwk/webdav",
-        "@dwk/solid-pod",
-        "@dwk/solid-oidc",
+    public static let packagesWithKnownConformanceSuites: [String: Set<String>] = [
+        "@dwk/indieauth": ["indieauth.rocks"],
+        "@dwk/micropub": ["micropub.rocks"],
+        "@dwk/webmention": ["webmention.rocks/sender", "webmention.rocks/receiver"],
+        "@dwk/activitypub": [],
+        "@dwk/webdav": ["litmus"],
+        "@dwk/solid-pod": ["solid-cth"],
+        "@dwk/solid-oidc": ["solid-cth"],
     ]
 
     /// npm package names in `WorkersConformanceStatus.phaseRequirements` confirmed to have **no**
@@ -54,19 +62,38 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     ]
 
     /// `true` when this package has a known public conformance suite (see
-    /// `packagesWithKnownConformanceSuites`) but `status.json` reports no suite results for it —
-    /// evidence is missing, not failing.
+    /// `packagesWithKnownConformanceSuites`) but `status.json` doesn't report results for at
+    /// least one of its expected suite keys — evidence is missing (fully, if `suites` is empty,
+    /// or partially, if only some expected keys are present), not failing. Review feedback on
+    /// #1295: a *partial* report (e.g. `webmention.rocks/sender` present, `.../receiver` absent)
+    /// is the same "hasn't run yet" gap as a fully-empty `suites` dict, one key at a time — it
+    /// must classify the same way in `gateStatus`, not fall through to `blocked` just because
+    /// `suites` happens to be non-empty.
     public var isMissingRequiredSuite: Bool {
-        Self.packagesWithKnownConformanceSuites.contains(name) && suites.isEmpty
+        guard let expectedKeys = Self.packagesWithKnownConformanceSuites[name] else { return false }
+        guard !suites.isEmpty else { return true }
+        return !expectedKeys.isSubset(of: Set(suites.keys))
+    }
+
+    /// `true` when this package has at least one reported suite result that isn't `"passing"` —
+    /// a genuine failure, as distinct from `isMissingRequiredSuite`'s "hasn't reported at all"
+    /// (#1295). `gateStatus` checks this so a real failure alongside a missing key (e.g. sender
+    /// failing, receiver never reported) still classifies as `blocked`, not `unverified`.
+    public var hasFailingReportedSuite: Bool {
+        suites.values.contains { $0.status != "passing" }
     }
 
     /// `true` when all external suites pass. An empty `suites` dict passes vacuously only for
     /// packages with no known public conformance suite — for a package in
     /// `packagesWithKnownConformanceSuites`, an empty `suites` dict means no evidence was
-    /// published, not that nothing needed running, so it reports `false` (#957).
+    /// published, not that nothing needed running, so it reports `false` (#957). For a non-empty
+    /// `suites` dict, this also requires every suite key `packagesWithKnownConformanceSuites`
+    /// names for this package to actually be present — a package reporting only an unrelated or
+    /// misnamed suite key as `"passing"` no longer vacuously satisfies this just because whatever
+    /// *is* reported happens to say `"passing"` (#1295).
     public var areAllSuitesPassing: Bool {
         guard !suites.isEmpty else { return !isMissingRequiredSuite }
-        return suites.values.allSatisfy { $0.status == "passing" }
+        return suites.values.allSatisfy { $0.status == "passing" } && !isMissingRequiredSuite
     }
 
     /// `true` when both the integration tests and all external suites are passing.
@@ -112,12 +139,15 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
         public let phase: Phase
         /// Packages that are release-ready.
         public let ready: [String]
-        /// Packages that are missing from the status, or failing their integration tests or an
-        /// external suite that actually ran.
+        /// Packages that are missing from the status, or failing their integration tests or a
+        /// reported suite (a suite result that isn't `"passing"` always lands here, even
+        /// alongside a missing expected key elsewhere on the same package — #1295).
         public let blocked: [String]
-        /// Packages whose integration tests pass but whose known public conformance suite has
-        /// reported no results yet — distinct from `blocked`: this is missing evidence, not a
-        /// known failure (#957).
+        /// Packages whose integration tests pass but whose known public conformance suite is
+        /// missing evidence for at least one expected suite key — fully (an empty `suites` dict)
+        /// or partially (some expected keys reported, at least one absent) — with no genuine
+        /// failure reported elsewhere. Distinct from `blocked`: this is missing evidence, not a
+        /// known failure (#957, refined for partial reports by #1295).
         public let unverified: [String]
         /// `true` when no packages are blocked or unverified — the phase may be activated.
         public var isUnblocked: Bool { blocked.isEmpty && unverified.isEmpty }
@@ -137,7 +167,7 @@ public struct WorkersConformanceStatus: Sendable, Equatable {
             }
             if pkg.isReleaseReady {
                 ready.append(name)
-            } else if pkg.isIntegrationPassing && pkg.isMissingRequiredSuite {
+            } else if pkg.isIntegrationPassing && pkg.isMissingRequiredSuite && !pkg.hasFailingReportedSuite {
                 unverified.append(name)
             } else {
                 blocked.append(name)
