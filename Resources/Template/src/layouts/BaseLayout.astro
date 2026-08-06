@@ -30,12 +30,16 @@ const { title, description, lang } = Astro.props;
 // Astro's built-in Markdown `layout:` frontmatter mechanism (a plain .md page under
 // src/pages/ that selects this layout via `layout: ../layouts/BaseLayout.astro`) passes
 // the page's frontmatter as a nested Astro.props.frontmatter object rather than spreading
-// it at the top level — so a `lang` set in such a page's frontmatter never reaches the
-// `lang` destructured above. Fall back to it here so those pages' overrides still apply.
-// Blog posts and typed content-collection entries pass `lang` as an explicit top-level
-// prop and are unaffected by this fallback.
-const frontmatterLang = (Astro.props as { frontmatter?: { lang?: string } }).frontmatter?.lang;
-const effectiveLang = lang || frontmatterLang || siteLang();
+// it at the top level — so `title`/`description`/`lang` set in such a page's frontmatter
+// never reach the top-level props destructured above (an empty <title> is invalid HTML5,
+// caught by scripts/validate-html.ts). Fall back to it here so those pages' values still
+// apply. Blog posts and typed content-collection entries pass these as explicit top-level
+// props and are unaffected by this fallback.
+const frontmatter = (Astro.props as { frontmatter?: { title?: string; description?: string; lang?: string } })
+  .frontmatter;
+const effectiveTitle = title || frontmatter?.title || "";
+const effectiveDescription = description || frontmatter?.description;
+const effectiveLang = lang || frontmatter?.lang || siteLang();
 const license = headLicense(Astro.props.license, siteLicense());
 // Read directly by route rather than threaded as a prop (#1093) — every page renders through
 // this one layout, so the check lives in exactly one place instead of every call site.
@@ -48,9 +52,9 @@ const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()))
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
-    {description && <meta name="description" content={description} />}
+    {effectiveDescription && <meta name="description" content={effectiveDescription} />}
     {noindex && <meta name="robots" content="noindex" />}
-    <title>{title}</title>
+    <title>{effectiveTitle}</title>
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
     <link rel="alternate" type="application/atom+xml" title="Atom" href="/atom.xml" />
     <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed.json" />
