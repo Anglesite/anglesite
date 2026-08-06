@@ -222,7 +222,7 @@ struct WorkersConformanceTests {
               "integration": { "status": "pending", "cases": [] }
             },
             "@dwk/solid-pod": {
-              "standard": "Solid Protocol", "suites": {},
+              "standard": "Solid Protocol", "suites": { "solid-cth": { "status": "passing" } },
               "integration": { "status": "passing", "cases": [] }
             },
             "@dwk/solid-oidc": {
@@ -247,11 +247,11 @@ struct WorkersConformanceTests {
               "integration": { "status": "passing", "cases": [] }
             },
             "@dwk/solid-pod": {
-              "standard": "Solid Protocol", "suites": {},
+              "standard": "Solid Protocol", "suites": { "solid-cth": { "status": "passing" } },
               "integration": { "status": "passing", "cases": [] }
             },
             "@dwk/solid-oidc": {
-              "standard": "Solid-OIDC", "suites": {},
+              "standard": "Solid-OIDC", "suites": { "solid-cth": { "status": "passing" } },
               "integration": { "status": "passing", "cases": [] }
             }
           }
@@ -259,5 +259,34 @@ struct WorkersConformanceTests {
         """.data(using: .utf8)!
         let passingStatus = try WorkersConformanceReader.parse(passingJSON)
         #expect(passingStatus.gateStatus(for: .storage).isUnblocked)
+    }
+
+    @Test("solid-pod with passing integration and no suites is unverified (Solid CTH not wired in yet)")
+    func solidPodWithNoSuitesIsUnverified() throws {
+        // Regression for #1275 review feedback: an earlier revision classified the Solid family
+        // as "no known suite" even though its own doc comment named the Solid Protocol
+        // Conformance Test Harness as an existing upstream suite — reopening #957's fail-open
+        // hole for @dwk/solid-pod/@dwk/webdav/@dwk/solid-oidc specifically.
+        let json = """
+        {
+          "packages": {
+            "@dwk/solid-pod": {
+              "standard": "Solid Protocol",
+              "suites": {},
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let solidPod = try #require(status.packages["@dwk/solid-pod"])
+        #expect(solidPod.isMissingRequiredSuite)
+        #expect(!solidPod.areAllSuitesPassing)
+        #expect(!solidPod.isReleaseReady)
+
+        let gate = WorkersConformanceStatus(packages: ["@dwk/solid-pod": solidPod]).gateStatus(for: .storage)
+        #expect(gate.unverified.contains("@dwk/solid-pod"))
+        #expect(!gate.ready.contains("@dwk/solid-pod"))
     }
 }
