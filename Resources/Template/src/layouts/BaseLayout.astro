@@ -3,8 +3,9 @@ import "../styles/global.css";
 import Hcard from "../components/Hcard.astro";
 import Rights from "../components/Rights.astro";
 import { readConfig, siteLang } from "../../scripts/config";
-import { siteLicense } from "../lib/licensing-data.ts";
+import { licensingPolicy, siteLicense } from "../lib/licensing-data.ts";
 import { headLicense, type LicenseRef } from "../lib/licensing.ts";
+import { rslActive } from "../lib/rsl.ts";
 import { readRobotsConfig, isNoindexed } from "../lib/robots-config.ts";
 // anglesite:imports — integration component imports are injected here on setup
 
@@ -40,6 +41,10 @@ const license = headLicense(Astro.props.license, siteLicense());
 // Read directly by route rather than threaded as a prop (#1093) — every page renders through
 // this one layout, so the check lives in exactly one place instead of every call site.
 const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()));
+// #992: the same publishRSL/SITE_URL gate `scripts/edge-artifacts.ts` (rsl.xml, robots.txt
+// License:) and `scripts/csp.ts` (the Link: header) use, so this <link> never appears pointing at
+// an rsl.xml that wasn't actually generated.
+const rsl = rslActive(licensingPolicy(), readConfig("SITE_URL"));
 ---
 
 <!doctype html>
@@ -56,6 +61,7 @@ const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()))
     <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed.json" />
     <link rel="indieauth-metadata" href="/.well-known/oauth-authorization-server" />
     {license && <link rel="license" href={license.url} title={license.name} />}
+    {rsl && <link rel="license" type="application/rsl+xml" href="/rsl.xml" />}
     {readConfig("WEBMENTION_RECEIVE_ENABLED") === "true" && (
       <link rel="webmention" href="/webmention" />
     )}

@@ -215,6 +215,53 @@ test("licensing: JSON-LD, u-license, and <link rel=license> agree on every page"
         'a page with no license and no copyright holder must not mention "site-rights" anywhere in the output',
       );
     }
+
+    // --- RSL (#992): publishRSL on, with a SITE_URL, wires all four projections consistently --
+    // Reuses this fixture's already-`npm install`ed node_modules rather than a fourth full install.
+    await writeFile(
+      join(fixtureDir, "src/data/licensing.json"),
+      JSON.stringify({ ...LICENSING_FIXTURE, publishRSL: true }, null, 2),
+      "utf8",
+    );
+    await writeFile(
+      join(fixtureDir, ".site-config"),
+      `SITE_URL=https://rsl-fixture.example.com\nCOPYRIGHT_HOLDER=${COPYRIGHT_HOLDER}\n`,
+      "utf8",
+    );
+    // robots.txt/_headers/rsl.xml are written into public/ by the `prebuild` scripts, which only
+    // run as an npm lifecycle hook of `npm run build` — a direct `npx astro build` (as used
+    // throughout this file) never triggers them, so they must be run explicitly here in the same
+    // order `package.json`'s `prebuild` script uses (csp.ts before edge-artifacts.ts) before the
+    // build copies public/ into dist/.
+    execFileSync("npx", ["tsx", "scripts/csp.ts"], { cwd: fixtureDir, stdio: "inherit" });
+    execFileSync("npx", ["tsx", "scripts/edge-artifacts.ts"], { cwd: fixtureDir, stdio: "inherit" });
+    execFileSync("npx", ["astro", "build"], { cwd: fixtureDir, stdio: "inherit" });
+    {
+      const rslXml = await readFile(join(fixtureDir, "dist/rsl.xml"), "utf8");
+      assert.match(rslXml, /<rsl xmlns="https:\/\/rslstandard\.org\/rsl">/);
+      assert.match(rslXml, /<content url="\/">/);
+      assert.match(rslXml, new RegExp(`<copyright>${escapeRegExp(COPYRIGHT_HOLDER)}</copyright>`));
+
+      const robotsTxt = await readFile(join(fixtureDir, "dist/robots.txt"), "utf8");
+      assert.match(
+        robotsTxt,
+        /^License: https:\/\/rsl-fixture\.example\.com\/rsl\.xml$/m,
+        "robots.txt must advertise the same rsl.xml this build actually wrote",
+      );
+
+      const headers = await readFile(join(fixtureDir, "dist/_headers"), "utf8");
+      assert.match(
+        headers,
+        /Link: <https:\/\/rsl-fixture\.example\.com\/rsl\.xml>; rel="license"; type="application\/rsl\+xml"/,
+      );
+
+      const html = await readFile(join(fixtureDir, "dist/notes/hello-note/index.html"), "utf8");
+      assert.match(
+        html,
+        /<link rel="license" type="application\/rsl\+xml" href="\/rsl\.xml">/,
+        "every page must carry the RSL <link>, not just the site's front page",
+      );
+    }
   } finally {
     await rm(fixtureDir, { recursive: true, force: true });
   }

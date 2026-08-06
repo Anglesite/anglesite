@@ -10,6 +10,7 @@ import {
   aiCrawlers,
   contentSignalDirective,
   readLicensingUsage,
+  readLicensingPolicy,
   normalizeSecurityContact,
   normalizeSecurityContacts,
   resolveSecurityTxtMode,
@@ -146,6 +147,25 @@ test("buildRobotsTxt: no blank line between Disallow: and Content-Signal (stays 
   );
 });
 
+test("buildRobotsTxt: omits License when rslUrl is unset", () => {
+  assert.doesNotMatch(buildRobotsTxt(), /License:/);
+  assert.doesNotMatch(buildRobotsTxt(undefined, "https://example.com"), /License:/);
+});
+
+test("buildRobotsTxt: License stands outside every User-agent group, alongside Sitemap", () => {
+  const out = buildRobotsTxt(undefined, "https://example.com", [], [], "https://example.com/rsl.xml");
+  assert.match(out, /^Sitemap: https:\/\/example\.com\/sitemap\.xml$/m);
+  assert.match(out, /^License: https:\/\/example\.com\/rsl\.xml$/m);
+  const before = out.slice(0, out.indexOf("License:"));
+  assert.match(before, /\n\n$/, "a blank line must precede License so it reads as a non-group field");
+});
+
+test("buildRobotsTxt: License can be emitted even without a Sitemap line", () => {
+  const out = buildRobotsTxt(undefined, undefined, [], [], "https://example.com/rsl.xml");
+  assert.doesNotMatch(out, /Sitemap:/);
+  assert.match(out, /^License: https:\/\/example\.com\/rsl\.xml$/m);
+});
+
 function withLicensingDoc(doc: unknown): string {
   const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
   mkdirSync(resolve(dir, "src/data"), { recursive: true });
@@ -221,6 +241,35 @@ test("readLicensingUsage: logs a read-failure message, not a syntax message, for
   const message = String(logs[0][0]);
   assert.match(message, /could not be read/);
   assert.doesNotMatch(message, /is not valid JSON/);
+});
+
+test("readLicensingPolicy: an absent document yields the empty policy and no clamp", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  const out = readLicensingPolicy(dir);
+  assert.equal(out.policy.default, null);
+  assert.equal(out.policy.publishRSL, false);
+  assert.deepEqual(out.policy.usage, NO_USAGE);
+  assert.equal(out.clamped, false);
+});
+
+test("readLicensingPolicy: reads publishRSL and the default license alongside usage", () => {
+  const dir = withLicensingDoc({
+    default: { url: "https://creativecommons.org/licenses/by/4.0/", name: "CC BY 4.0" },
+    publishRSL: true,
+  });
+  const out = readLicensingPolicy(dir);
+  assert.equal(out.policy.publishRSL, true);
+  assert.deepEqual(out.policy.default, {
+    url: "https://creativecommons.org/licenses/by/4.0/",
+    name: "CC BY 4.0",
+  });
+});
+
+test("readLicensingPolicy: readLicensingUsage is a thin projection of it", () => {
+  const dir = withLicensingDoc({ usage: { aiInput: "no", aiTrain: "no", blockAICrawlers: true } });
+  const policy = readLicensingPolicy(dir);
+  const usage = readLicensingUsage(dir);
+  assert.deepEqual(usage, { usage: policy.policy.usage, clamped: policy.clamped });
 });
 
 const NOW = new Date("2026-06-28T12:00:00Z");
