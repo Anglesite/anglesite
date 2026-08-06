@@ -457,6 +457,20 @@ with:
             }
 ```
 
+**Addendum (found and fixed during Task 8's review, not part of this task's original scope — the two branches above must actually be swapped):** the `!hadNoBaseline && entry.baselineHash == siteHash` check must be evaluated *after* `entry.acknowledgedTemplateHash == templateHash`, not before. Reason: for the provisional-baseline path this task introduces, `baselineHash` is seeded to the *owner's own diverged content* on first encounter — unlike #1053's original invariant, where `baselineHash` only ever holds a genuinely-reconciled template hash. Once an owner's divergence is acknowledged via `TemplateScriptsSyncApplier.resolve(..., decision: .keepMine, ...)` and the file is never edited again, `siteHash` permanently equals that provisional `baselineHash` — so checking the refresh branch first would silently reclassify an acknowledged-Preserve file as safe-to-refresh and overwrite it on the very next check, making the acknowledgment meaningless. This only affects the new provisional-baseline path; every #1053-original scenario is unaffected (a genuine hand-edit always makes `baselineHash != siteHash`, since that baseline reflects a past *template* state, not the owner's own edited content — so which branch is checked first never mattered before this task introduced the provisional-baseline case). The corrected order:
+
+```swift
+            if !hadNoBaseline && entry.acknowledgedTemplateHash == templateHash {
+                continue
+            } else if !hadNoBaseline && entry.baselineHash == siteHash {
+                toApply.append(.refresh(relativePath: relativePath))
+            } else {
+                divergences.append(TemplateScriptsDivergence(relativePath: relativePath, templateHash: templateHash))
+            }
+```
+
+This wasn't caught by this task's own tests (Step 4 below) because none of them call `resolve(.keepMine)` and then re-run `check()` — that two-step sequence only became exercisable once Task 8's orchestrator actually started calling `resolve(..., decision: .keepMine, ...)` for a noninteractive Preserve default. If you are implementing this plan fresh (not resuming from a partially-completed run), apply the corrected order directly here rather than the original order — there's no need to reproduce the bug first.
+
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `swift test --package-path . --filter TemplateScriptsSyncCheckerTests`
