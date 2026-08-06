@@ -166,6 +166,27 @@ func workerScriptNamesNoAccount() async {
     }
 }
 
+@Test("accountID returns the token's first visible account id")
+func accountIDReturnsFirstAccount() async throws {
+    let accountsJSON = #"{"success":true,"errors":[],"messages":[],"result":[{"id":"acct123"}]}"#
+    let client = HTTPCloudflareClient(transport: fakeTransport([
+        "/accounts?per_page=1": (200, accountsJSON),
+    ]))
+    let id = try await client.accountID(apiToken: "t")
+    #expect(id == "acct123")
+}
+
+@Test("accountID throws when the token can see no account")
+func accountIDThrowsWithNoAccount() async throws {
+    let emptyJSON = #"{"success":true,"errors":[],"messages":[],"result":[]}"#
+    let client = HTTPCloudflareClient(transport: fakeTransport([
+        "/accounts?per_page=1": (200, emptyJSON),
+    ]))
+    await #expect(throws: CloudflareError.self) {
+        _ = try await client.accountID(apiToken: "t")
+    }
+}
+
 @Test("zoneState assembles DNSSEC, settings, DNS records, bot mode, and WAF rules")
 func zoneStateAssembles() async throws {
     let env = { (r: String) in "{\"success\":true,\"errors\":[],\"messages\":[],\"result\":\(r)}" }

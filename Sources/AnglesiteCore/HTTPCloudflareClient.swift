@@ -612,6 +612,13 @@ extension HTTPCloudflareClient: CloudflareRegistrarReading {
         return accountID
     }
 
+    /// Public entry point for the token's first visible account id — for callers that need it
+    /// directly rather than through one of this type's already-account-scoped operations (e.g.
+    /// `SocialWorkerProvisionCommand`'s inbox-capture provisioning, #764).
+    public func accountID(apiToken: String) async throws -> String {
+        try await resolveAccountID(apiToken: apiToken)
+    }
+
     /// POST `path` with `body`, decode `CFEnvelope<T>`, return its `result` — like `get`, but for
     /// POST calls that need the decoded payload back (unlike `mutate`, which only checks success).
     /// Shares request construction and status mapping with `mutate` via `send(method:_:body:apiToken:)`.
