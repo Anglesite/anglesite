@@ -771,6 +771,30 @@ struct SiteWindow: View {
             // dismissal so per-row buttons are structurally the only way out.
             .interactiveDismissDisabled()
         }
+        .sheet(item: $bindableModel.securityTxtMigrationModel) { migrationModel in
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Hand-Authored security.txt Found")
+                        .font(.headline)
+                    Text("This site publishes a security.txt Anglesite didn't generate. Adopt it so Anglesite keeps it current going forward, or leave it as yours to maintain.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Preserve as Hand-Authored") { migrationModel.preserve() }
+                        Spacer()
+                        Button("Adopt as Generated") { migrationModel.adopt() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding()
+                .navigationTitle("security.txt")
+            }
+            .frame(minWidth: 420, minHeight: 220)
+            // Mirrors the scripts-sync sheet immediately above: `loadAndStart()` suspends on a
+            // `CheckedContinuation` that only Adopt/Preserve resume. Block outside-tap/swipe
+            // dismissal so those two buttons are structurally the only way out.
+            .interactiveDismissDisabled()
+        }
         .sheet(item: $bindableModel.copyEditModel) { reportModel in
             CopyEditReportView(model: reportModel)
         }

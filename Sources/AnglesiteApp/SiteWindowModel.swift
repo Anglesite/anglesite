@@ -174,6 +174,10 @@ final class SiteWindowModel {
     /// detection hook in `loadAndStart()` when `TemplateScriptsSyncChecker` finds files the owner
     /// customized that the template has also moved on past (#1053).
     var scriptSyncModel: ScriptSyncModel?
+    /// Non-nil ⟺ the security.txt Adopt/Preserve sheet is presented (`.sheet(item:)`), set by the
+    /// detection hook in `loadAndStart()` when `SecurityTxtMigrationChecker` finds an unmarked
+    /// legacy file needing a decision (#745).
+    var securityTxtMigrationModel: SecurityTxtMigrationModel?
     var newPagePresented = false
     var newCollectionPresented = false
     var newPostPresented = false
@@ -1805,6 +1809,22 @@ final class SiteWindowModel {
         // case) — narrow enough that a manual QA pass covering it (see this PR's test plan) is the
         // practical verification, not a proof.
         await AppKitConstraintStormMitigation.settle()
+
+        // #745: retry a commit an interrupted prior migration didn't finish, before looking for
+        // any new work — otherwise a stale pending commit could sit alongside a fresh one.
+        await ExistingSiteMigrationCommitter.retryPendingCommit(
+            sourceDirectory: resolved.sourceDirectory,
+            configDirectory: resolved.configDirectory,
+            message: "chore: migrate existing site to current template baseline"
+        )
+        var migrationTouchedPaths: [String] = []
+        // `SiteRuntimeState.ready` carries associated values (siteID/url/workersDevURL), so this
+        // is a pattern match, not `== .ready` (`Sources/AnglesiteCore/SiteRuntime.swift:15`).
+        let wasRuntimeAlreadyReady: Bool = {
+            if case .ready = preview.state { return true }
+            return false
+        }()
+
         if let templateURL = TemplateRuntime.resolve().url {
             let plan = TemplateScriptsSyncChecker.check(
                 sourceDirectory: resolved.sourceDirectory,
@@ -1819,6 +1839,7 @@ final class SiteWindowModel {
                         configDirectory: resolved.configDirectory,
                         templateDirectory: templateURL
                     )
+                    migrationTouchedPaths += plan.toApply.map(\.relativePath)
                 } catch {
                     Self.logger.error(
                         "scripts/ silent refresh failed for \(resolved.id, privacy: .public): \(String(describing: error), privacy: .public)"
@@ -1839,6 +1860,9 @@ final class SiteWindowModel {
                                     configDirectory: resolved.configDirectory,
                                     templateDirectory: templateURL
                                 )
+                                if decision == .update {
+                                    migrationTouchedPaths.append(divergence.relativePath)
+                                }
                                 return true
                             } catch {
                                 // Logged, and the row stays in `ScriptSyncModel.pending` rather than
@@ -1858,6 +1882,56 @@ final class SiteWindowModel {
                     )
                 }
             }
+        }
+
+        switch SecurityTxtMigrationChecker.check(sourceDirectory: resolved.sourceDirectory) {
+        case .nothingToDo:
+            break
+        case .silentBackfillMode(let mode):
+            migrationTouchedPaths += SecurityTxtMigrationApplier.applyBackfill(
+                mode: mode, sourceDirectory: resolved.sourceDirectory
+            )
+        case .silentAdopt:
+            // Already positively resolved by the checker (marker-owned, or an exact match against
+            // the old generator's shape) — applies the same way an unmodified `scripts/` file
+            // silently refreshes above, no decision needed even interactively.
+            migrationTouchedPaths += SecurityTxtMigrationApplier.applyDecision(
+                .adopt, sourceDirectory: resolved.sourceDirectory
+            )
+        case .needsDecision:
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                securityTxtMigrationModel = SecurityTxtMigrationModel { [weak self] decision in
+                    guard let self else { continuation.resume(); return }
+                    migrationTouchedPaths += SecurityTxtMigrationApplier.applyDecision(
+                        decision, sourceDirectory: resolved.sourceDirectory
+                    )
+                    self.securityTxtMigrationModel = nil
+                    continuation.resume()
+                }
+            }
+        }
+
+        let migrationCommitted = await ExistingSiteMigrationCommitter.commit(
+            touchedPaths: migrationTouchedPaths,
+            sourceDirectory: resolved.sourceDirectory,
+            configDirectory: resolved.configDirectory,
+            message: "chore: migrate existing site to current template baseline"
+        )
+        if !migrationCommitted {
+            // Files are correctly migrated on disk (git-recoverable either way) but the commit
+            // itself failed — surfaced per the design doc's "surface partial failures"
+            // requirement rather than silently retrying forever with no signal. The pending-commit
+            // record (Task 7) already ensures the next site-open retries it.
+            Self.logger.error(
+                "existing-site migration wrote files for \(resolved.id, privacy: .public) but couldn't commit them — will retry on next open"
+            )
+        }
+        if migrationCommitted, !migrationTouchedPaths.isEmpty, wasRuntimeAlreadyReady {
+            // The common case (a fresh site-open) hasn't started the runtime yet at this point in
+            // `loadAndStart()`, so `preview.open()` below naturally picks up the migrated files.
+            // This only fires for the narrow case where the runtime was already running before
+            // this pass began (design doc "Runtime refresh").
+            preview.restartDevServer()
         }
         styleGuide = ProjectConventionsModel(
             engine: conventionsEngine,
