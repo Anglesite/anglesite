@@ -71,7 +71,7 @@ struct DomainSheetView: View {
         case .addingRecord(let draft, _, _):
             switch draft.context {
             case .bluesky:
-                return "Paste the DID Bluesky showed you (starts with \"did=did:plc:\") to verify this domain on Atmosphere."
+                return "Paste the DID Bluesky showed you (starts with \"did=did:plc:\")."
             case .google:
                 return "Paste the exact record Google's verification page gave you."
             case .generic:
