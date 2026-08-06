@@ -81,12 +81,11 @@ private struct StubTokenVerifying: TokenVerifying {
 /// when no `tokenAvailabilityOverride` is supplied — which the three sign-in tests below
 /// deliberately don't supply, since they're exercising that fallback (and the keychain check)
 /// directly. `DomainConfigAuditModelTests`/`OnionRoutingModelTests` elsewhere in this target set
-/// that same process-wide env var via a bare `setenv` in their `init()` and never restore it, so
-/// whenever those suites happen to run first in the same test process, this var leaks into every
-/// later test — including these — and made them fail only when run as part of the full
-/// `AnglesiteAppTests` target, never in isolation. Call at the top of a test body (before any
-/// `await`, so no other test's `deploy()` check can interleave) to clear it for the duration and
-/// restore whatever was there afterwards.
+/// that same process-wide env var for the duration of each of their own tests (bracketed via
+/// `init()`/`deinit`, see #1282). Since Swift Testing can run unrelated suites concurrently, one
+/// of those tests could still overlap with one of these — call at the top of a test body (before
+/// any `await`, so no other test's `deploy()` check can interleave) to clear it for the duration
+/// and restore whatever was there afterwards.
 private func clearCloudflareAPITokenEnvForTest() -> () -> Void {
     let previous = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
     unsetenv("CLOUDFLARE_API_TOKEN")

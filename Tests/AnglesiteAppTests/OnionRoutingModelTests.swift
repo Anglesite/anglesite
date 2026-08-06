@@ -54,12 +54,19 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     }
 }
 
+/// A `final class` (not a `struct`) so `deinit` can release its claim on `CLOUDFLARE_API_TOKEN` via
+/// `CloudflareAPITokenTestEnvironment` — without it, the env var set below leaks into every later
+/// test in the process (see #1282).
 @Suite(.serialized)
-struct OnionRoutingModelTests {
+final class OnionRoutingModelTests {
     init() {
-        // `apiToken()` checks this env var before falling back to the real Keychain — set it so
+        // `apiToken()` checks this env var before falling back to the real Keychain — acquire it so
         // these tests are deterministic regardless of what's provisioned on the host.
-        setenv("CLOUDFLARE_API_TOKEN", "test-token", 1)
+        CloudflareAPITokenTestEnvironment.shared.acquire()
+    }
+
+    deinit {
+        CloudflareAPITokenTestEnvironment.shared.release()
     }
 
     @MainActor

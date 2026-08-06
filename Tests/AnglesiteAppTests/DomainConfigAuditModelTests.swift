@@ -54,10 +54,17 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     }
 }
 
+/// A `final class` (not a `struct`) so `deinit` can release its claim on `CLOUDFLARE_API_TOKEN` via
+/// `CloudflareAPITokenTestEnvironment` — without it, the env var set below leaks into every later
+/// test in the process (see #1282).
 @Suite(.serialized)
-struct DomainConfigAuditModelTests {
+final class DomainConfigAuditModelTests {
     init() {
-        setenv("CLOUDFLARE_API_TOKEN", "test-token", 1)
+        CloudflareAPITokenTestEnvironment.shared.acquire()
+    }
+
+    deinit {
+        CloudflareAPITokenTestEnvironment.shared.release()
     }
 
     private func tempSite(declaring config: DomainConfig? = nil) throws -> (CurrentSite, () -> Void) {
