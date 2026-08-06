@@ -242,7 +242,7 @@ struct PlistEditorModelSecurityReportsTests {
         // Reads succeed (so readiness lands on .needsPVR); only the write is forbidden — exactly
         // what a token without repo admin looks like.
         let model = try makeModel(config: "SECURITY_CONTACT=a@example.com\n",
-                                  repoSecurity: FakeRepoSecurity(pvr: false, writeFailure: .unauthorized))
+                                  repoSecurity: FakeRepoSecurity(pvr: false, writeFailure: .unauthorized(status: 403)))
         await model.load()
         await model.refreshRepoSecurityState()
         #expect(model.securityReportingReadiness == .needsPVR)

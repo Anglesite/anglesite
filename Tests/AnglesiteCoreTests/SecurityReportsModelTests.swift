@@ -105,7 +105,7 @@ struct SecurityReportsModelTests {
 
     @Test("a failed check sets lastError and leaves the lists empty")
     func failureSetsError() async {
-        let model = SecurityReportsModel(reader: FakeReader(failure: .unauthorized))
+        let model = SecurityReportsModel(reader: FakeReader(failure: .unauthorized(status: 401)))
         await model.recheck(repo: Self.repo, token: "tok").value
         #expect(model.lastError != nil)
         #expect(model.totalCount == 0)
@@ -118,7 +118,7 @@ struct SecurityReportsModelTests {
         // GitHub answers the Dependabot endpoint with 403 whenever alerts are disabled for the
         // repository — an ordinary setting, which must not take the advisories down with it.
         let model = SecurityReportsModel(reader: FakeReader(
-            advisories: [Self.highAdvisory], alerts: [Self.lowAlert], alertsFailure: .unauthorized))
+            advisories: [Self.highAdvisory], alerts: [Self.lowAlert], alertsFailure: .unauthorized(status: 403)))
         await model.recheck(repo: Self.repo, token: "tok").value
         #expect(model.openAdvisories == [Self.highAdvisory])
         #expect(model.openAlerts.isEmpty)
@@ -139,6 +139,32 @@ struct SecurityReportsModelTests {
         #expect(model.lastError != nil)
         #expect(model.lastCheckedAt != nil)
         #expect(!model.isRunning)
+    }
+
+    @Test("both halves failing with 401 sends the user to recreate their token")
+    func bothFailWith401RecommendsTokenRecreation() async {
+        let model = SecurityReportsModel(reader: FakeReader(failure: .unauthorized(status: 401)))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.lastError?.contains("Recreate it") == true)
+    }
+
+    /// Both endpoints can 403 for unrelated repo-config reasons (e.g. Dependabot alerts are off
+    /// AND the token happens to lack advisories scope) — that pairing must not claim the token
+    /// itself needs recreating, since it may already be correctly scoped (#1312).
+    @Test("both halves failing with 403 does not claim the token needs recreating")
+    func bothFailWith403DoesNotRecommendTokenRecreation() async {
+        let model = SecurityReportsModel(reader: FakeReader(failure: .unauthorized(status: 403)))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.lastError?.contains("Recreate it") == false)
+        #expect(model.lastError != nil)
+    }
+
+    @Test("a 401 on one half and a 403 on the other still recommends recreating the token")
+    func mixed401And403RecommendsTokenRecreation() async {
+        let model = SecurityReportsModel(reader: FakeReader(
+            advisoriesFailure: .unauthorized(status: 401), alertsFailure: .unauthorized(status: 403)))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.lastError?.contains("Recreate it") == true)
     }
 
     @Test("recheck cancels a prior in-flight run and discards its stale result")

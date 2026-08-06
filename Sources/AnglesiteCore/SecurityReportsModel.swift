@@ -109,10 +109,8 @@ public final class SecurityReportsModel {
         switch (advisoriesError, alertsError) {
         case (nil, nil):
             return nil
-        case (.some(let error), .some):
-            // Both halves failed, so a shared cause (invalid token, offline) is the likely one and
-            // the whole-check message — including its token remedy — is accurate again.
-            return wholeCheckMessage(for: error)
+        case (.some(let advisoriesErr), .some(let alertsErr)):
+            return wholeCheckMessage(advisoriesError: advisoriesErr, alertsError: alertsErr)
         case (.some(let error), nil):
             return "Couldn't check this repository's security advisories (\(reason(for: error))). Its open Dependabot alerts are still shown."
         case (nil, .some(let error)):
@@ -120,6 +118,9 @@ public final class SecurityReportsModel {
         }
     }
 
+    /// The both-failed message when the two halves' errors don't share an unambiguous cause.
+    /// `message(advisoriesError:alertsError:)` routes the (401-involved) and (403, 403) cases to
+    /// `wholeCheckMessage(advisoriesError:alertsError:)` before falling back to this.
     private static func wholeCheckMessage(for error: any Error) -> String {
         guard let apiError = error as? GitHubRepoAPIError else {
             return "Couldn't check this repository's security reports."
@@ -136,6 +137,33 @@ public final class SecurityReportsModel {
         case .malformedResponse, .nameAlreadyExists:
             return "GitHub returned an unexpected response."
         }
+    }
+
+    /// The both-halves-failed message. A 401 on either half means the token itself is invalid —
+    /// an unambiguous shared cause worth sending the user to Settings for regardless of the other
+    /// half's status. A 403 on *both* halves is not that: `openDependabotAlerts` 403s whenever
+    /// Dependabot alerts are simply off for the repo (see `recheck`'s doc comment), and advisories
+    /// can 403 on its own repo-config grounds too — two 403s don't establish the token is at
+    /// fault, so this doesn't send the user to recreate one that may already be correctly scoped.
+    private static func wholeCheckMessage(advisoriesError: any Error, alertsError: any Error) -> String {
+        let advisoriesStatus = unauthorizedStatus(for: advisoriesError)
+        let alertsStatus = unauthorizedStatus(for: alertsError)
+        if advisoriesStatus == 401 || alertsStatus == 401 {
+            return "Your GitHub token doesn't have permission to read this repository's security advisories and Dependabot alerts. Recreate it with Repository security advisories: Read and Dependabot alerts: Read."
+        }
+        if advisoriesStatus == 403, alertsStatus == 403 {
+            return "GitHub denied access to this repository's security advisories and Dependabot alerts. This can mean the token is missing Repository security advisories: Read or Dependabot alerts: Read, or that one or both features simply aren't enabled for this repository."
+        }
+        return wholeCheckMessage(for: advisoriesError)
+    }
+
+    /// The HTTP status behind a `.unauthorized` failure, or `nil` for any other error (including
+    /// other `GitHubRepoAPIError` cases).
+    private static func unauthorizedStatus(for error: any Error) -> Int? {
+        guard let apiError = error as? GitHubRepoAPIError, case .unauthorized(let status) = apiError else {
+            return nil
+        }
+        return status
     }
 
     /// A short parenthetical cause, for the half-failed messages above.
