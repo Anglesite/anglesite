@@ -214,15 +214,26 @@ function walkHtml(dir: string): string[] {
  * each of h-entry / h-review / h-event appears in at least one valid page. Also validates
  * the h-feed list pages: each `FEED_COLLECTION_DIRS` collection's own index.html, plus the
  * combined `/timeline/` stream.
+ *
+ * Scanning zero built pages across all of `ENTRY_DIRS` is itself reported as a problem rather
+ * than silently returning `[]`: this script only ever runs chained after `astro build`
+ * (`npm run build`, immediately before `validate-html.ts`), so by the time it runs `dist/` must
+ * exist and hold pages — scanning zero means something upstream is broken (a missing/empty
+ * `dist/`, or the wrong `distDir` argument), not a legitimate empty site. Mirrors the
+ * fail-open-on-empty fix `markup-validate.ts`'s `validateDist` applies to the HTML5 conformance
+ * gate (#957, PR #1286).
  */
 export function validateDist(distDir: string): string[] {
   const problems: string[] = [];
   const seenAny = new Set<string>(); // type appeared on some page (valid or not)
+  let filesScanned = 0;
 
   for (const sub of ENTRY_DIRS) {
     const base = join(distDir, sub);
     const isFeedCollection = (FEED_COLLECTION_DIRS as readonly string[]).includes(sub);
-    for (const file of walkHtml(base)) {
+    const files = walkHtml(base);
+    filesScanned += files.length;
+    for (const file of files) {
       const rel = file.slice(base.length + 1); // "welcome/index.html" or "index.html"
       const label = file.slice(distDir.length + 1);
       if (!rel.includes("/")) {
@@ -236,6 +247,12 @@ export function validateDist(distDir: string): string[] {
       for (const t of types) seenAny.add(t);
       problems.push(...validateEntryRoots(roots, label));
     }
+  }
+
+  if (filesScanned === 0) {
+    return [
+      `${distDir}: no built pages found under ${ENTRY_DIRS.join(", ")} — nothing was validated (missing/empty dist/, or the wrong distDir argument)`,
+    ];
   }
 
   // /timeline/ combines all eight feed collections into one h-feed page. It has no per-entry

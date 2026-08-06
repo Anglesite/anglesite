@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateEntryHtml, validateFeedHtml, validateResumeHtml, findRoots } from "./microformats.ts";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { validateEntryHtml, validateFeedHtml, validateResumeHtml, validateDist, findRoots } from "./microformats.ts";
 
 const GOOD_ENTRY = `<!doctype html><html><body>
 <article class="h-entry">
@@ -245,4 +248,37 @@ test("h-feed child missing u-url is flagged, scoped to that child", () => {
 test("a page with no h-feed root is flagged", () => {
   const problems = validateFeedHtml(NO_FEED, "notes/index.html");
   assert.ok(problems.some((p) => p.includes("no h-feed root")), problems.join("; "));
+});
+
+// --- #1297 (validateDist: fail loudly when zero built pages are scanned) ---
+
+test("validateDist: fails loudly on an absent dist directory instead of a vacuous pass", () => {
+  const dir = join(tmpdir(), "microformats-test-does-not-exist");
+  const problems = validateDist(dir);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /no built pages found/);
+});
+
+test("validateDist: fails loudly when dist/ exists but none of the entry dirs have pages", () => {
+  const dir = mkdtempSync(join(tmpdir(), "microformats-test-"));
+  try {
+    writeFileSync(join(dir, "styles.css"), "body { color: red; }");
+    const problems = validateDist(dir);
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /no built pages found/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("validateDist: a single built entry page is enough to avoid the empty-scan failure", () => {
+  const dir = mkdtempSync(join(tmpdir(), "microformats-test-"));
+  try {
+    mkdirSync(join(dir, "notes", "hi"), { recursive: true });
+    writeFileSync(join(dir, "notes", "hi", "index.html"), NAMELESS_NOTE);
+    const problems = validateDist(dir);
+    assert.ok(!problems.some((p) => p.includes("no built pages found")), problems.join("; "));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
