@@ -19,11 +19,33 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     /// `areAllSuitesPassing` refuses to vacuously pass just because `suites` is empty. Packages
     /// not in this set have no known public suite to run, so an empty `suites` dict genuinely
     /// means "nothing external applies" rather than "no evidence reported yet" (#957).
+    ///
+    /// Every package `WorkersConformanceStatus.phaseRequirements` gates a phase on must land in
+    /// either this set or `packagesWithNoKnownConformanceSuite` — `WorkersConformanceTests`
+    /// asserts that exhaustively, so a package added to a future phase's requirements without
+    /// being classified here fails CI instead of silently reintroducing #957's fail-open bug.
     public static let packagesWithKnownConformanceSuites: Set<String> = [
         "@dwk/indieauth",
         "@dwk/micropub",
         "@dwk/webmention",
         "@dwk/activitypub",
+    ]
+
+    /// npm package names in `WorkersConformanceStatus.phaseRequirements` confirmed to have **no**
+    /// known public conformance suite today: `@dwk/websub`, `@dwk/microsub`, and `@dwk/webfinger`
+    /// have no widely-adopted public IndieWeb/Fediverse test suite yet, and the Solid family
+    /// (`@dwk/solid-pod`, `@dwk/webdav`, `@dwk/solid-oidc`) has one upstream (Solid Protocol's own
+    /// conformance suite) that isn't wired into `conformance/status.json` yet. Listed explicitly
+    /// — not just omitted from `packagesWithKnownConformanceSuites` — so the omission reads as a
+    /// documented fact rather than something to notice by diffing two lists; see the
+    /// exhaustiveness test in `WorkersConformanceTests`.
+    public static let packagesWithNoKnownConformanceSuite: Set<String> = [
+        "@dwk/websub",
+        "@dwk/microsub",
+        "@dwk/webfinger",
+        "@dwk/solid-pod",
+        "@dwk/webdav",
+        "@dwk/solid-oidc",
     ]
 
     /// `true` when this package has a known public conformance suite (see

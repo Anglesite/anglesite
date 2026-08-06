@@ -4,6 +4,16 @@ import Testing
 
 @Suite("WorkersConformance")
 struct WorkersConformanceTests {
+    @Test("every phaseRequirements package is classified known-suite or no-known-suite, never both")
+    func phaseRequirementsPackagesAreExhaustivelyClassified() {
+        let required = Set(WorkersConformanceStatus.phaseRequirements.values.flatMap { $0 })
+        let known = WorkersPackageStatus.packagesWithKnownConformanceSuites
+        let noSuite = WorkersPackageStatus.packagesWithNoKnownConformanceSuite
+
+        #expect(known.isDisjoint(with: noSuite))
+        #expect(required.isSubset(of: known.union(noSuite)))
+    }
+
     @Test("parses a minimal status.json with one passing and one pending package")
     func parsesMinimalStatus() throws {
         let json = """
