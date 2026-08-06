@@ -27,6 +27,16 @@
         }
       }
     },
+    "%@ %@: couldn't be added." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@: couldn't be added."
+          }
+        }
+      }
+    },
     "%@ already permits this use. Crawlers reading both your license and these signals will see them disagree." : {
 
     },
@@ -288,6 +298,9 @@
     "Add Bluesky verification" : {
 
     },
+    "Add DNS Records" : {
+
+    },
     "Add Google verification" : {
 
     },
@@ -403,6 +416,9 @@
 
     },
     "Analytics…" : {
+
+    },
+    "Analyze" : {
 
     },
     "Anglesite Debug" : {
@@ -942,6 +958,12 @@
     "Continue" : {
 
     },
+    "Control rate" : {
+
+    },
+    "Conversions" : {
+
+    },
     "Copied" : {
 
     },
@@ -1085,6 +1107,12 @@
     "Custom…" : {
 
     },
+    "DMARC reports go to this address so you'll hear about delivery problems." : {
+
+    },
+    "DNS records to add" : {
+
+    },
     "Dashboard" : {
 
     },
@@ -1211,7 +1239,13 @@
     "Distribute Objects" : {
 
     },
+    "Do you use Apple devices (iPhone, Mac) for this business?" : {
+
+    },
     "Domain" : {
+
+    },
+    "Domain & DMARC reports" : {
 
     },
     "Domain Config" : {
@@ -1244,6 +1278,9 @@
     "Edit Header" : {
 
     },
+    "Edit and re-analyze" : {
+
+    },
     "Editing" : {
 
     },
@@ -1251,6 +1288,9 @@
 
     },
     "Edit…" : {
+
+    },
+    "Email Setup…" : {
 
     },
     "Embed" : {
@@ -1308,6 +1348,12 @@
 
     },
     "Events" : {
+
+    },
+    "Experiment" : {
+
+    },
+    "Experiment Results…" : {
 
     },
     "Expires %@" : {
@@ -1404,6 +1450,9 @@
 
     },
     "Finish setting up billing for %@ in the Cloudflare dashboard, then come back and try again." : {
+
+    },
+    "Finish setup in your email provider's dashboard for any manual steps shown earlier, then your email will start working once DNS propagates (usually within a few hours)." : {
 
     },
     "Finished" : {
@@ -1643,10 +1692,16 @@
     "Instance, e.g. lemmy.world" : {
 
     },
+    "Is this email for you personally, or for a registered business?" : {
+
+    },
     "Join" : {
 
     },
     "Just a few" : {
+
+    },
+    "Just me" : {
 
     },
     "Justify" : {
@@ -1967,6 +2022,9 @@
     "No website details" : {
 
     },
+    "No, mixed or other devices" : {
+
+    },
     "None" : {
 
     },
@@ -1974,6 +2032,9 @@
 
     },
     "Not enabled." : {
+
+    },
+    "Not enough traffic yet — the retired skill's rule of thumb is 30+ days or 500+ visitors per variant before trusting an inconclusive result." : {
 
     },
     "Not now" : {
@@ -2231,6 +2292,9 @@
     "Privacy & Analytics…" : {
 
     },
+    "Probability variant wins" : {
+
+    },
     "Production Logs" : {
 
     },
@@ -2336,6 +2400,9 @@
     "Recheck Readiness" : {
 
     },
+    "Recommended provider" : {
+
+    },
     "Record Audio…" : {
 
     },
@@ -2358,6 +2425,9 @@
 
     },
     "Regenerate…" : {
+
+    },
+    "Registered business" : {
 
     },
     "Registrar: %@" : {
@@ -2737,6 +2807,9 @@
     "Set up a third-party integration for this site" : {
 
     },
+    "Set up email" : {
+
+    },
     "Sets a display name just for Anglesite. Leave blank to use the site's built-in name." : {
 
     },
@@ -3017,6 +3090,9 @@
     "Temporary (302)" : {
 
     },
+    "Test ideas" : {
+
+    },
     "Testing" : {
 
     },
@@ -3048,6 +3124,9 @@
 
     },
     "The preview is paused for %@. Start the dev server to resume." : {
+
+    },
+    "The traffic split looks off from what you'd expect — check your test setup before trusting these numbers." : {
 
     },
     "The worker catalog couldn't be loaded. Check your network connection and reopen this tab." : {
@@ -3267,6 +3346,9 @@
     "Valid" : {
 
     },
+    "Variant rate" : {
+
+    },
     "Vertically" : {
 
     },
@@ -3283,6 +3365,9 @@
 
     },
     "View on GitHub" : {
+
+    },
+    "Visitors" : {
 
     },
     "Vulnerability Reports" : {
@@ -3327,6 +3412,9 @@
     "What are you selling?" : {
 
     },
+    "What are you testing? (optional)" : {
+
+    },
     "What kind of website are you creating?" : {
 
     },
@@ -3367,6 +3455,12 @@
 
     },
     "Writing" : {
+
+    },
+    "Yes, mostly Apple" : {
+
+    },
+    "You'll need to add these yourself" : {
 
     },
     "Your Cloudflare token can't manage KV namespaces — recreate it from Settings → Tokens." : {
@@ -3445,6 +3539,9 @@
 
     },
     "optional" : {
+
+    },
+    "owner@example.com" : {
 
     },
     "paste token" : {

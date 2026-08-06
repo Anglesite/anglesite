@@ -4,10 +4,14 @@ import Foundation
 
 /// `.serialized`: this suite drives real sockets and per-connection `DispatchIO`/`DispatchQueue`
 /// pumps. Under CI's full parallel test run (1087 tests across 163 suites on a resource-constrained
-/// macos-15 runner), the global GCD thread pool gets so oversubscribed that some of these tests'
-/// read/write handlers went unscheduled for 10+ seconds — the same 3 of 9 tests failed identically,
-/// with 0 bytes ever received, on two consecutive CI runs of an unmodified commit, while a local
-/// `swift test --filter VsockTCPProxyTests` run passes every test in under 200ms. Serializing this
+/// runner — originally observed on macos-15, and reproduced again after `build-test` moved to
+/// macos-26 (see AGENTS.md's "Swift lanes" note and PR #1264's CI history) — the contention tracks
+/// parallel test load, not a specific runner tier, so don't read this as macos-15-specific when
+/// investigating a future recurrence. The global GCD thread pool gets so oversubscribed that some
+/// of these tests' read/write handlers went unscheduled for 10+ seconds — the same 3 of 9 tests
+/// failed identically, with 0 bytes ever received, on two consecutive CI runs of an unmodified
+/// commit, while a local `swift test --filter VsockTCPProxyTests` run passes every test in under
+/// 200ms. Serializing this
 /// suite's own tests removes its largest source of internal GCD contention so it isn't competing
 /// with itself on top of the rest of the parallel test binary.
 ///
