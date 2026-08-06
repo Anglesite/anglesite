@@ -654,6 +654,35 @@ extension SiteWindowModelTests {
         #expect(model.inspectorContext == nil)
     }
 
+    @Test("canOpenWebsiteSettings requires an open site")
+    func canOpenWebsiteSettingsRequiresSite() {
+        let model = makeModel()
+        #expect(model.canOpenWebsiteSettings == false)
+    }
+
+    @Test("openWebsiteSettings opens the same package Info.plist as the navigator's .websiteSettings row (#959)")
+    func openWebsiteSettingsOpensInfoPlist() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        #expect(model.canOpenWebsiteSettings)
+
+        model.openWebsiteSettings()
+
+        while model.activeEditor == nil { await Task.yield() }
+        guard case .plist(let plistModel) = model.activeEditor else {
+            Issue.record("expected the Info.plist to open as a .plist editor")
+            return
+        }
+        #expect(plistModel.file.url == package.infoPlistURL)
+        #expect(plistModel.file.group == .metadata)
+    }
+
     @Test("applyNavigatorSelection navigates the preview to a directory's route for .directory, clearing any open editor/inspector")
     func applyNavigatorSelectionDirectoryNavigatesPreview() async throws {
         let (root, packageURL, package) = try makeSitePackage()

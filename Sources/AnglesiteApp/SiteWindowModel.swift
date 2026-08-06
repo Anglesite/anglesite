@@ -514,6 +514,20 @@ final class SiteWindowModel {
         )
     }
 
+    var canOpenWebsiteSettings: Bool { site != nil }
+
+    /// Website ▸ Website Settings… (#959): a menu shortcut into the same package `Info.plist`
+    /// the navigator's Website row already opens via `applyNavigatorSelection`'s
+    /// `.websiteSettings` case — slice-1 interim (spec §7,
+    /// docs/superpowers/specs/2026-07-13-website-design-window-cleanup-design.md), same surface
+    /// either way, not a separate one.
+    func openWebsiteSettings() {
+        guard let site else { return }
+        let layout = SiteFileTree.layout(for: site.packageURL)
+        guard let infoPlist = layout.infoPlist else { return }
+        openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
+    }
+
     var canOpenEmailSetup: Bool { site != nil }
 
     /// Presents the Email Setup wizard (#769), same fresh-construction pattern as
@@ -984,13 +998,8 @@ final class SiteWindowModel {
         case .file(let file):
             openFile(file)
         case .websiteSettings:
-            // Slice-1 interim: the website row opens the package Info.plist — exactly what the
-            // old sidebar Metadata row opened. The full Website Settings surface is slice 2
-            // (spec §7, docs/superpowers/specs/2026-07-13-website-design-window-cleanup-design.md).
-            guard let site else { return }
-            let layout = SiteFileTree.layout(for: site.packageURL)
-            guard let infoPlist = layout.infoPlist else { return }
-            openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
+            // Same target as Website ▸ Website Settings… (#959) — see `openWebsiteSettings`.
+            openWebsiteSettings()
         case .directory(let collection, let route):
             // #714 slice 3 (§6): a directory shows its route in the preview and its properties
             // (type, entries, feeds, template) in the inspector's collection context.
