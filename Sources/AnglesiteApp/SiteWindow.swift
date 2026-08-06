@@ -647,7 +647,15 @@ struct SiteWindow: View {
                 ProjectStyleGuideView(model: styleGuide, siteName: site.name)
             }
         }
-        .sheet(isPresented: $bindableModel.domain.sheetPresented) {
+        .sheet(isPresented: $bindableModel.domain.sheetPresented, onDismiss: {
+            // Sequences the "Set up email" handoff to `EmailSetupSheetView` after this sheet's
+            // own dismissal transaction finishes — same pattern as the Connect Domain → Buy
+            // Domain handoff just below.
+            if model.domain.pendingEmailSetup {
+                model.domain.pendingEmailSetup = false
+                model.presentEmailSetup()
+            }
+        }) {
             DomainSheetView(model: model.domain)
         }
         .sheet(isPresented: $bindableModel.connectDomain.sheetPresented, onDismiss: {
@@ -779,6 +787,12 @@ struct SiteWindow: View {
         }
         .sheet(item: $bindableModel.repurposeModel) { repurposeModel in
             RepurposeView(model: repurposeModel)
+        }
+        .sheet(item: $bindableModel.emailSetupModel) { setupModel in
+            EmailSetupSheetView(model: setupModel, onDone: { model.emailSetupModel = nil })
+        }
+        .sheet(item: $bindableModel.experimentStatsModel) { statsModel in
+            ExperimentStatsSheetView(model: statsModel, onDone: { model.experimentStatsModel = nil })
         }
         .sheet(item: $bindableModel.designInterviewModel) { interviewModel in
             NavigationStack {
