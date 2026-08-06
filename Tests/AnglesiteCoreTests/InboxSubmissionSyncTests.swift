@@ -74,7 +74,7 @@ struct InboxSubmissionSyncTests {
         let configDir = fm.temporaryDirectory.appendingPathComponent("inbox-sync-config-\(UUID().uuidString)", isDirectory: true)
         defer { try? fm.removeItem(at: configDir) }
         try await SiteConfigStore(configDirectory: configDir).save(
-            SiteSettings(inboxCaptureAccountID: "acct1", inboxCaptureKVNamespaceID: nil))
+            SiteSettings(provisionedWorkerResources: .init(inboxAccountID: "acct1")))
 
         let count = await InboxSubmissionSync.pullAndCommitIfConfigured(
             siteDirectory: URL(fileURLWithPath: "/nonexistent"),
@@ -89,7 +89,7 @@ struct InboxSubmissionSyncTests {
         let configDir = fm.temporaryDirectory.appendingPathComponent("inbox-sync-config-\(UUID().uuidString)", isDirectory: true)
         defer { try? fm.removeItem(at: configDir) }
         try await SiteConfigStore(configDirectory: configDir).save(
-            SiteSettings(inboxCaptureAccountID: "acct1", inboxCaptureKVNamespaceID: "ns1"))
+            SiteSettings(provisionedWorkerResources: .init(inboxKVNamespaceID: "ns1", inboxAccountID: "acct1")))
 
         let count = await InboxSubmissionSync.pullAndCommitIfConfigured(
             siteDirectory: URL(fileURLWithPath: "/nonexistent"),
