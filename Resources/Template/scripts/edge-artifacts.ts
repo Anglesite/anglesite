@@ -466,6 +466,72 @@ function applyMTAStsPlan(publicDir: string): void {
   }
 }
 
+/** What `main()` should do with `public/rsl.xml` this build. Mirrors `SecurityTxtPlan`/
+ * `MTAStsPlan`'s shape so the decision (write / remove a stale file / leave alone) is pure and
+ * unit-testable without touching the filesystem, the same way `planSecurityTxt`/`planMTAStsPolicy`
+ * are. `applyRslPlan` carries it out. */
+export type RslFileAction = { kind: "write"; content: string } | { kind: "delete-stale" } | { kind: "none" };
+export interface RslFilePlan {
+  action: RslFileAction;
+  /** Explains a non-trivial outcome (a stale removal) in the build log. */
+  note?: string;
+}
+
+/**
+ * Decides what to do with `public/rsl.xml` for one build. Writing is straightforward — `rslActive`
+ * plus `buildRslDocument` returning content — but a *prior* build's `rsl.xml` must also be removed
+ * once it's no longer justified, or it sits in `public/` forever (nothing else ever deletes it) and
+ * keeps getting copied into every `dist/` even after `robots.txt`'s `License:` line and the
+ * `Link:`/`<link>` projections have all correctly gone silent (PR #1290 review — the
+ * file-orphaning half of the partial-activation risk `rslPublished` closes for the other three
+ * projections). That can happen two ways: RSL was turned off (or `SITE_URL` became unusable) since
+ * the file was written, or RSL is still active but the policy no longer has anything to declare.
+ */
+export function planRslFile(params: {
+  policy: LicensingPolicy;
+  siteUrl: string | undefined;
+  holder: string | undefined;
+  existingContent: string | null;
+}): RslFilePlan {
+  const { policy, siteUrl, holder, existingContent } = params;
+  if (rslActive(policy, siteUrl)) {
+    const rsl = buildRslDocument(policy, holder);
+    if (rsl) return { action: { kind: "write", content: rsl } };
+    if (existingContent !== null) {
+      return {
+        action: { kind: "delete-stale" },
+        note: "Removed stale public/rsl.xml — RSL is active but the policy has nothing to declare.",
+      };
+    }
+    return { action: { kind: "none" } };
+  }
+  if (existingContent !== null) {
+    return {
+      action: { kind: "delete-stale" },
+      note: "Removed stale public/rsl.xml — RSL is no longer active.",
+    };
+  }
+  return { action: { kind: "none" } };
+}
+
+/** Carries out `planRslFile`'s decision, and reports the resolved `rsl.xml` URL for
+ * `buildRobotsTxt`'s `License:` directive — set only when the file was actually (re)written this
+ * build, never for a stale removal or a no-op. */
+function applyRslPlan(rslPath: string, siteUrl: string | undefined, plan: RslFilePlan): string | undefined {
+  if (plan.note) console.log(plan.note);
+  switch (plan.action.kind) {
+    case "write":
+      writeFileSync(rslPath, plan.action.content, "utf-8");
+      console.log("Wrote public/rsl.xml");
+      return rslFileUrl(siteUrl) ?? undefined;
+    case "delete-stale":
+      rmSync(rslPath);
+      return undefined;
+    case "none":
+      return undefined;
+  }
+}
+
 function main(): void {
   const publicDir = resolve(process.cwd(), "public");
   const { policy, clamped } = readLicensingPolicy(process.cwd());
@@ -480,15 +546,13 @@ function main(): void {
   // BaseLayout.astro/feed-data.ts: profile.ts reads `src/data/profile.json` via
   // `import.meta.glob`, a Vite construct unavailable to this plain `npx tsx` script.
   const holder = readConfig("COPYRIGHT_HOLDER");
-  let rslUrl: string | undefined;
-  if (rslActive(policy, siteUrl)) {
-    const rsl = buildRslDocument(policy, holder);
-    if (rsl) {
-      writeFileSync(resolve(publicDir, "rsl.xml"), rsl, "utf-8");
-      console.log("Wrote public/rsl.xml");
-      rslUrl = rslFileUrl(siteUrl) ?? undefined;
-    }
-  }
+  const rslPath = resolve(publicDir, "rsl.xml");
+  const rslExisting = existsSync(rslPath) ? readFileSync(rslPath, "utf-8") : null;
+  const rslUrl = applyRslPlan(
+    rslPath,
+    siteUrl,
+    planRslFile({ policy, siteUrl, holder, existingContent: rslExisting }),
+  );
 
   const robotsConfig = readRobotsConfig(process.cwd());
   writeFileSync(

@@ -7,6 +7,7 @@ import {
   paymentForLicense,
   rslActive,
   rslFileUrl,
+  rslPublished,
   RSL_NAMESPACE,
 } from "./rsl.ts";
 import { NO_USAGE, type AIUsage, type LicensingPolicy } from "./licensing.ts";
@@ -49,6 +50,42 @@ test("rslFileUrl: joins the https origin with /rsl.xml, or null when inactive", 
   assert.equal(rslFileUrl("https://example.com/"), "https://example.com/rsl.xml");
   assert.equal(rslFileUrl("http://example.com/"), null);
   assert.equal(rslFileUrl(undefined), null);
+});
+
+// rslPublished (PR #1290 review): stronger than rslActive — also requires buildRslDocument to
+// actually produce content, so the Link header / <link> tag never point at an rsl.xml that
+// edge-artifacts.ts's main() didn't write (it only writes the file when buildRslDocument !== null).
+
+test("rslPublished: false whenever rslActive is false, regardless of policy content", () => {
+  assert.equal(rslPublished(policy({ publishRSL: false, default: CC_BY }), "https://example.com"), false);
+  assert.equal(rslPublished(policy({ publishRSL: true, default: CC_BY }), undefined), false);
+  assert.equal(rslPublished(policy({ publishRSL: true, default: CC_BY }), "http://example.com"), false);
+});
+
+test("rslPublished: false when rslActive is true but the policy has nothing to declare", () => {
+  // publishRSL on, SITE_URL usable, but no default license, no collection override, no stated
+  // usage — buildRslDocument returns null (nothing for main() to write), so this must too, even
+  // though rslActive alone would say true.
+  assert.equal(rslActive(policy(), "https://example.com"), true);
+  assert.equal(rslPublished(policy(), "https://example.com"), false);
+});
+
+test("rslPublished: true when rslActive is true and the policy has something to declare", () => {
+  assert.equal(rslPublished(policy({ default: CC_BY }), "https://example.com"), true);
+  // A stated usage preference alone is enough, with no default license.
+  const usage: AIUsage = { search: "yes", aiInput: "unset", aiTrain: "unset", blockAICrawlers: false };
+  assert.equal(rslPublished(policy({ usage }), "https://example.com"), true);
+  // A collection override alone is enough too, with no site default.
+  assert.equal(rslPublished(policy({ collections: { notes: CC_BY } }), "https://example.com"), true);
+});
+
+test("rslPublished: agrees with buildRslDocument's null-ness regardless of which holder a caller would use", () => {
+  // edge-artifacts.ts's main() has no holder fallback (no Vite ownerName()); BaseLayout.astro and
+  // feed-data.ts do. rslPublished must not depend on holder, or those callers could disagree with
+  // each other — and with edge-artifacts.ts — about whether rsl.xml exists (PR #1290 review).
+  const p = policy();
+  assert.equal(buildRslDocument(p) === null, buildRslDocument(p, "Someone") === null);
+  assert.equal(rslPublished(p, "https://example.com"), buildRslDocument(p, "Someone") !== null);
 });
 
 test("buildRslDocument: publishRSL off yields null even with a full policy", () => {
@@ -96,6 +133,47 @@ test("buildRslDocument: no license and no usage stated omits the site-wide block
   const xml = buildRslDocument(policy({ collections: { notes: CC_BY } }))!;
   assert.doesNotMatch(xml, /<content url="\/">/);
   assert.match(xml, /<content url="\/notes\/\*">/);
+});
+
+// --- RSL 1.0 schema shape: <terms>/<copyright> are siblings of <license>, not children of it ---
+// (per the spec's own §3.16/§3.17 examples — PR #1290 review). <license> only ever contains
+// permits/prohibits/payment/reporting/legal.
+
+/** The substring between the first `<license>`/`<rsl:license>` open tag and its matching close
+ * tag — used to assert terms/copyright are NOT inside it. Handles both the open/close and
+ * self-closing (`<license/>`) forms; returns "" for the self-closing form since it has no body to
+ * search. */
+function licenseElementBody(xml: string, prefix = ""): string {
+  const open = xml.match(new RegExp(`<${prefix}license>([\\s\\S]*?)</${prefix}license>`));
+  return open ? open[1] : "";
+}
+
+test("buildRslDocument: <terms> and <copyright> are siblings of <license>, not nested inside it", () => {
+  const xml = buildRslDocument(policy({ default: CC_BY }), "Jane Q. Author")!;
+  const licenseBody = licenseElementBody(xml);
+  assert.doesNotMatch(licenseBody, /<terms>/, "<terms> must not be inside <license>");
+  assert.doesNotMatch(licenseBody, /<copyright>/, "<copyright> must not be inside <license>");
+  // Still present in the document, as siblings of </license> inside the same <content> block.
+  const contentBlock = xml.match(/<content url="\/">[\s\S]*?<\/content>/)![0];
+  assert.match(contentBlock, /<\/license>\s*<terms>/);
+  assert.match(contentBlock, /<terms>[\s\S]*<copyright>/);
+});
+
+test("feedRslContent: <rsl:terms> and <rsl:copyright> are siblings of <rsl:license>, not nested inside it", () => {
+  const xml = feedRslContent("https://example.com/notes/x/", CC_BY, false, { ...NO_USAGE }, "Jane")!;
+  const licenseBody = licenseElementBody(xml, "rsl:");
+  assert.doesNotMatch(licenseBody, /<rsl:terms>/);
+  assert.doesNotMatch(licenseBody, /<rsl:copyright>/);
+  assert.match(xml, /<\/rsl:license>\s*<rsl:terms>/);
+  assert.match(xml, /<rsl:terms>[\s\S]*<rsl:copyright>/);
+});
+
+test("buildRslDocument: a license with only permits/prohibits renders <license> with no <terms>/<copyright>", () => {
+  const usage: AIUsage = { search: "yes", aiInput: "unset", aiTrain: "unset", blockAICrawlers: false };
+  const xml = buildRslDocument(policy({ usage, collections: { notes: null } }), "Jane")!;
+  // notes: null (assertNothing) has no license/holder — only a prohibits-all <license>, no siblings.
+  const block = xml.match(/<content url="\/notes\/\*">[\s\S]*?<\/content>/)![0];
+  assert.doesNotMatch(block, /<terms>|<copyright>/);
 });
 
 test("buildRslDocument: emits a copyright element from holder, and omits it when absent", () => {

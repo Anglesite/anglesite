@@ -9,7 +9,11 @@
  *
  * As the spike's §Q1 finding puts it: no AI crawler is confirmed to honor RSL. This module's
  * output is declaratory, not enforcement — `LicensingPolicy.publishRSL` is an opt-in disclosure
- * toggle, and every projection below is gated on it (`rslActive`).
+ * toggle, and every projection below is gated on `rslActive` (the toggle plus a usable
+ * `SITE_URL`) or, for the two projections that point *at* the generated `rsl.xml` rather than
+ * just declaring RSL data inline (the `Link:` header and the `<link>` tag), the stronger
+ * `rslPublished` — `rslActive` alone doesn't know whether the policy has anything to declare, and
+ * `rsl.xml` is only written when it does (PR #1290 review).
  *
  * Design rule, per the spike's §Q3 and the issue's hard exclusions: never emit `<legal
  * type="warranty">`/`<legal type="attestation">`, never emit `<reporting>`, and never emit a
@@ -70,11 +74,18 @@ export function httpsOrigin(url: string | undefined): string | null {
 }
 
 /**
- * Whether RSL should be emitted at all this build. Requires both the opt-in toggle and a usable
+ * Whether RSL is switched on for this build at all. Requires both the opt-in toggle and a usable
  * HTTPS `SITE_URL` — the `License:` robots.txt directive and the `Link:` header need an absolute
  * URI (RSL's own syntax, and RFC 8288), so a site with no configured origin has nowhere to point
- * either at. Every RSL projection (`rsl.xml`, the robots directive, the header, the `<link>`, and
- * the feeds' `<rsl:content>`) gates on this one function, so they can never partially activate.
+ * either at.
+ *
+ * This is *not* the same question as "does `rsl.xml` exist" — a site can have `rslActive` true
+ * with nothing to declare (no default license, no per-collection override, no stated usage
+ * preference), in which case `buildRslDocument` returns null and no file is written. The feeds'
+ * `<rsl:content>` and `rsl.xml`'s own generation are fine gating on this alone, since they check
+ * per-block/per-item emptiness themselves; the `Link:` header and the `<link>` tag — which point
+ * *at* the file rather than declaring anything inline — need the stronger `rslPublished` (PR #1290
+ * review).
  */
 export function rslActive(policy: LicensingPolicy, siteUrl: string | undefined): boolean {
   return policy.publishRSL && httpsOrigin(siteUrl) !== null;
@@ -126,47 +137,92 @@ interface LicenseBlockInput {
   holder?: string;
 }
 
+/** A `<content>`/`<rsl:content>` element's two distinct child groups, per RSL 1.0's schema:
+ * `<license>` only ever contains `permits`/`prohibits`/`payment`/`reporting`/`legal` — `terms`
+ * and `copyright` are siblings of `<license>`, direct children of `<content>` itself (see the
+ * spec's own §3.16/§3.17 examples). Keeping them as two separate arrays here, rather than one
+ * flat list `contentBlock`/`feedRslContent` wrap entirely inside `<license>`, is what keeps that
+ * structural distinction from collapsing (PR #1290 review). */
+interface LicenseBlock {
+  /** `<license>`'s own children: permits, prohibits, payment. */
+  license: string[];
+  /** `<content>`'s other children, siblings of `<license>`: terms, copyright. */
+  siblings: string[];
+}
+
 /**
- * The `<license>`/`<rsl:license>` element's children, one line per element, indented by `indent`
- * and with tag names prefixed by `prefix` (`""` for the standalone `rsl.xml` document's default
- * namespace, `"rsl:"` for a feed item's namespaced module). Returns `[]` when there is nothing to
- * assert — no stated usage purpose, no license, no holder — so the caller can skip the wrapping
- * `<content>`/`<rsl:content>` element entirely rather than emit an empty license.
+ * Builds both of a content block's child groups (see `LicenseBlock`), with tag names prefixed by
+ * `prefix` (`""` for the standalone `rsl.xml` document's default namespace, `"rsl:"` for a feed
+ * item's namespaced module). `blockIndent` is the indent level of `<license>` itself and its
+ * siblings (`terms`/`copyright`) — `<license>`'s own children (`permits`/`prohibits`/`payment`)
+ * are one level deeper, `${blockIndent}  `, matching how `contentBlock`/`feedRslContent` nest
+ * `<license>` one level inside `<content>`. Both arrays are empty when there is nothing to assert
+ * — no stated usage purpose and no license — so the caller can skip the whole
+ * `<content>`/`<rsl:content>` element rather than emit an empty one.
+ *
+ * `holder` never independently makes this non-empty: a bare copyright notice with no permits,
+ * prohibits, or license is not something worth publishing a `<content>` block for on its own, and
+ * — more importantly — `holder` is resolved differently by different callers (`edge-artifacts.ts`
+ * has no `ownerName()` h-card fallback to reach, unlike `BaseLayout.astro`/`feed-data.ts`), so
+ * letting it alone decide whether a block exists would let those callers disagree about whether
+ * `rsl.xml` has any content at all — exactly the partial-activation bug `rslPublished` exists to
+ * prevent (PR #1290 review).
  */
-function licenseChildren(input: LicenseBlockInput, prefix: string, indent: string): string[] {
+function buildLicenseBlock(input: LicenseBlockInput, prefix: string, blockIndent: string): LicenseBlock {
   const tag = (name: string) => `${prefix}${name}`;
+  const childIndent = `${blockIndent}  `;
   if (input.assertsNothing) {
-    return [`${indent}<${tag("prohibits")} type="usage">all</${tag("prohibits")}>`];
+    return {
+      license: [`${childIndent}<${tag("prohibits")} type="usage">all</${tag("prohibits")}>`],
+      siblings: [],
+    };
   }
-  const lines: string[] = [];
+  const license: string[] = [];
+  const siblings: string[] = [];
   const { permits, prohibits } = usagePermitsProhibits(input.usage);
   if (permits.length > 0) {
-    lines.push(`${indent}<${tag("permits")} type="usage">${permits.join(" ")}</${tag("permits")}>`);
+    license.push(`${childIndent}<${tag("permits")} type="usage">${permits.join(" ")}</${tag("permits")}>`);
   }
   if (prohibits.length > 0) {
-    lines.push(`${indent}<${tag("prohibits")} type="usage">${prohibits.join(" ")}</${tag("prohibits")}>`);
+    license.push(`${childIndent}<${tag("prohibits")} type="usage">${prohibits.join(" ")}</${tag("prohibits")}>`);
   }
   if (input.license) {
     const payment = paymentForLicense(input.license);
     if (payment === "free") {
-      lines.push(`${indent}<${tag("payment")} type="free"/>`);
+      license.push(`${childIndent}<${tag("payment")} type="free"/>`);
     } else if (payment === "attribution") {
-      lines.push(`${indent}<${tag("payment")} type="attribution">`);
-      lines.push(`${indent}  <${tag("standard")}>${escapeXml(input.license.url)}</${tag("standard")}>`);
-      lines.push(`${indent}</${tag("payment")}>`);
+      license.push(`${childIndent}<${tag("payment")} type="attribution">`);
+      license.push(`${childIndent}  <${tag("standard")}>${escapeXml(input.license.url)}</${tag("standard")}>`);
+      license.push(`${childIndent}</${tag("payment")}>`);
     }
     // Unclassified (custom URL): no <payment> — see PAYMENT_BY_LICENSE_URL's doc comment — but
     // <terms> still points at it, since the URL itself was already validated as safe to emit.
-    lines.push(`${indent}<${tag("terms")}>${escapeXml(input.license.url)}</${tag("terms")}>`);
+    siblings.push(`${blockIndent}<${tag("terms")}>${escapeXml(input.license.url)}</${tag("terms")}>`);
   }
-  if (input.holder) {
-    lines.push(`${indent}<${tag("copyright")}>${escapeXml(input.holder)}</${tag("copyright")}>`);
+  // Only attached once the block is otherwise non-empty (permits/prohibits/a license) — see this
+  // function's own doc comment for why holder must never be the sole reason a block exists.
+  if (input.holder && (license.length > 0 || siblings.length > 0)) {
+    siblings.push(`${blockIndent}<${tag("copyright")}>${escapeXml(input.holder)}</${tag("copyright")}>`);
   }
-  return lines;
+  return { license, siblings };
 }
 
-function contentBlock(url: string, children: string[]): string {
-  return `  <content url="${escapeXml(url)}">\n    <license>\n${children.join("\n")}\n    </license>\n  </content>`;
+/** Whether `buildLicenseBlock` would produce anything at all for `input` — the gate
+ * `buildRslDocument`/`feedRslContent` use to decide whether a `<content>` block is worth emitting,
+ * computed without `holder` (see `buildLicenseBlock`'s doc comment on why holder can't decide
+ * this on its own). */
+function hasLicenseContent(input: Omit<LicenseBlockInput, "holder">): boolean {
+  const { license, siblings } = buildLicenseBlock({ ...input, holder: undefined }, "", "");
+  return license.length > 0 || siblings.length > 0;
+}
+
+function contentBlock(url: string, block: LicenseBlock): string {
+  const licenseEl =
+    block.license.length > 0
+      ? `    <license>\n${block.license.join("\n")}\n    </license>`
+      : `    <license/>`;
+  const siblingsXml = block.siblings.length > 0 ? `\n${block.siblings.join("\n")}` : "";
+  return `  <content url="${escapeXml(url)}">\n${licenseEl}${siblingsXml}\n  </content>`;
 }
 
 type CollectionDecision =
@@ -214,13 +270,9 @@ export function buildRslDocument(policy: LicensingPolicy, holder?: string): stri
 
   const blocks: string[] = [];
 
-  const siteChildren = licenseChildren(
-    { usage: policy.usage, license: policy.default, assertsNothing: false, holder },
-    "",
-    "      ",
-  );
-  const siteWideHasAGrant = siteChildren.length > 0;
-  if (siteWideHasAGrant) blocks.push(contentBlock("/", siteChildren));
+  const siteInput = { usage: policy.usage, license: policy.default, assertsNothing: false };
+  const siteWideHasAGrant = hasLicenseContent(siteInput);
+  if (siteWideHasAGrant) blocks.push(contentBlock("/", buildLicenseBlock({ ...siteInput, holder }, "", "    ")));
 
   for (const collection of LICENSABLE_COLLECTIONS) {
     const decision = collectionDecision(policy, collection);
@@ -233,20 +285,31 @@ export function buildRslDocument(policy: LicensingPolicy, holder?: string): stri
       // blocks under a site that isn't declaring anything else either.
       if (!siteWideHasAGrant) continue;
       blocks.push(
-        contentBlock(url, licenseChildren({ usage: policy.usage, license: null, assertsNothing: true, holder }, "", "      ")),
+        contentBlock(url, buildLicenseBlock({ usage: policy.usage, license: null, assertsNothing: true, holder }, "", "    ")),
       );
     } else {
-      const children = licenseChildren(
-        { usage: policy.usage, license: decision.ref, assertsNothing: false, holder },
-        "",
-        "      ",
-      );
-      if (children.length > 0) blocks.push(contentBlock(url, children));
+      const collectionInput = { usage: policy.usage, license: decision.ref, assertsNothing: false };
+      if (hasLicenseContent(collectionInput)) {
+        blocks.push(contentBlock(url, buildLicenseBlock({ ...collectionInput, holder }, "", "    ")));
+      }
     }
   }
 
   if (blocks.length === 0) return null;
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rsl xmlns="${RSL_NAMESPACE}">\n${blocks.join("\n")}\n</rsl>\n`;
+}
+
+/**
+ * Whether `buildRslDocument` would produce a document for `policy` at all — independent of
+ * `holder` (see `buildLicenseBlock`'s doc comment). `edge-artifacts.ts`'s `main()` only writes
+ * `rsl.xml` when `buildRslDocument` returns non-null; every other projection that points *at*
+ * `rsl.xml` — the `Link:` header (`csp.ts`) and the `<link>` tag (`BaseLayout.astro`) — must gate
+ * on this stronger check, not `rslActive` alone, or they can advertise a file that was never
+ * written (PR #1290 review). The robots.txt `License:` directive already gets this for free: it's
+ * driven directly by `edge-artifacts.ts`'s own `rslUrl`, which is only set once the file exists.
+ */
+export function rslPublished(policy: LicensingPolicy, siteUrl: string | undefined): boolean {
+  return rslActive(policy, siteUrl) && buildRslDocument(policy) !== null;
 }
 
 /**
@@ -268,17 +331,22 @@ export function feedRslContent(
   holder: string | undefined,
   indent = "    ",
 ): string | null {
-  const children = licenseChildren({ usage, license, assertsNothing, holder }, "rsl:", `${indent}  `);
-  if (children.length === 0) return null;
+  const input = { usage, license, assertsNothing };
+  if (!hasLicenseContent(input)) return null;
+  const block = buildLicenseBlock({ ...input, holder }, "rsl:", `${indent}  `);
   let pathname: string;
   try {
     pathname = new URL(itemUrl).pathname;
   } catch {
     pathname = itemUrl;
   }
+  const licenseEl =
+    block.license.length > 0
+      ? `${indent}  <rsl:license>\n${block.license.join("\n")}\n${indent}  </rsl:license>`
+      : `${indent}  <rsl:license/>`;
+  const siblingsXml = block.siblings.length > 0 ? `\n${block.siblings.join("\n")}` : "";
   return (
-    `${indent}<rsl:content url="${escapeXml(pathname)}">\n` +
-    `${indent}  <rsl:license>\n${children.join("\n")}\n${indent}  </rsl:license>\n` +
+    `${indent}<rsl:content url="${escapeXml(pathname)}">\n${licenseEl}${siblingsXml}\n` +
     `${indent}</rsl:content>`
   );
 }

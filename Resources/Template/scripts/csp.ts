@@ -10,7 +10,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfigFromString } from "./config";
 import { readLicensingPolicy } from "./edge-artifacts.ts";
-import { rslActive, rslFileUrl } from "../src/lib/rsl.ts";
+import { rslFileUrl, rslPublished } from "../src/lib/rsl.ts";
 import {
   readRobotsConfig,
   sanitizeForHeaderLine,
@@ -151,13 +151,16 @@ ${sanitizeForHeaderLine(entry.path)}
 
 /** Whether/where to point the `/*` block's `Link:` header, reusing `edge-artifacts.ts`'s
  * `readLicensingPolicy` rather than re-parsing `src/data/licensing.json` here — both scripts run
- * at `prebuild` (csp.ts first) and must agree on RSL's active/inactive state, so `main()` never
- * emits a `Link:` header pointing at an `rsl.xml` that `edge-artifacts.ts` didn't also write. This
- * import doesn't run `edge-artifacts.ts`'s own `main()` — it's guarded to fire only when the file
- * is executed directly (see that file's own bottom guard). */
+ * at `prebuild` (csp.ts first) and must agree on RSL's state, so `main()` never emits a `Link:`
+ * header pointing at an `rsl.xml` that `edge-artifacts.ts` didn't also write. Gated on
+ * `rslPublished`, not bare `rslActive` — the latter only checks `publishRSL`/`SITE_URL` and says
+ * nothing about whether the policy actually has content to declare, which is what decides whether
+ * `edge-artifacts.ts` writes the file at all (PR #1290 review). This import doesn't run
+ * `edge-artifacts.ts`'s own `main()` — it's guarded to fire only when the file is executed
+ * directly (see that file's own bottom guard). */
 function readRslLinkUrl(cwd: string, siteUrl: string | undefined): string | undefined {
   const { policy } = readLicensingPolicy(cwd);
-  return rslActive(policy, siteUrl) ? (rslFileUrl(siteUrl) ?? undefined) : undefined;
+  return rslPublished(policy, siteUrl) ? (rslFileUrl(siteUrl) ?? undefined) : undefined;
 }
 
 function main(): void {
