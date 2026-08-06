@@ -550,6 +550,8 @@ struct PlistEditorView: View {
 
             securityReportsGitHubCallout
 
+            openSecurityReportsSection
+
             if let securityReportingError = model.securityReportingError {
                 Label(securityReportingError, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
@@ -561,6 +563,7 @@ struct PlistEditorView: View {
             }
         }
         .task { await model.refreshRepoSecurityState() }
+        .task { await model.refreshSecurityReports() }
     }
 
     @ViewBuilder
@@ -659,6 +662,106 @@ struct PlistEditorView: View {
                 Text("This changes a setting on the GitHub repository. Anglesite never turns it back off.")
             }
         }
+    }
+
+    @ViewBuilder
+    private var openSecurityReportsSection: some View {
+        SettingsBox(title: "Open Reports") {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.securityReports.isRunning && model.securityReports.totalCount == 0 && model.securityReports.lastCheckedAt == nil {
+                    Text("Checking for open GitHub security advisories and Dependabot alerts…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else if model.securityReports.totalCount == 0 {
+                    Text(model.securityReports.lastCheckedAt == nil ? "Not checked yet." : "No open reports.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(model.securityReports.openAdvisories) { advisory in
+                        advisoryRow(advisory)
+                    }
+                    ForEach(model.securityReports.openAlerts) { alert in
+                        alertRow(alert)
+                    }
+                }
+
+                if let lastError = model.securityReports.lastError {
+                    Label(lastError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                }
+
+                HStack {
+                    if model.securityReports.isRunning {
+                        ProgressView().controlSize(.small)
+                    }
+                    Spacer()
+                    Button("Check for Reports") { Task { await model.refreshSecurityReports() } }
+                        .controlSize(.small)
+                        .disabled(model.securityReports.isRunning)
+                }
+            }
+        }
+    }
+
+    private func advisoryRow(_ advisory: SecurityAdvisory) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(severityColor(advisory.severity))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(advisory.summary).font(.callout)
+                HStack(spacing: 10) {
+                    Link("View on GitHub", destination: advisory.htmlURL)
+                        .font(.caption)
+                    Button("Forward to Anglesite") { forwardToAnglesite(advisory) }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+    }
+
+    private func alertRow(_ alert: DependabotAlert) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "shippingbox.fill")
+                .foregroundStyle(severityColor(alert.severity))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(alert.packageName) (\(alert.ecosystem))").font(.callout)
+                if let offer = model.fixOffer(for: alert) {
+                    Button("Update Available") { model.requestDependencyFix(for: alert) }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                    Text("Bumps to \(offer.offeredRange)").font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    Link("View on GitHub", destination: alert.htmlURL)
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    private func severityColor(_ severity: SecurityAdvisory.Severity) -> Color {
+        switch severity {
+        case .critical, .high: return .red
+        case .moderate: return .orange
+        case .low, .unknown: return .yellow
+        }
+    }
+
+    /// Copies a plain-text summary of `advisory` to the pasteboard and opens
+    /// `Anglesite/Anglesite`'s advisory form — never an API call (#975, see
+    /// `AdvisoryForwarding`'s doc comment for why). Requires `model.securityReportingRepo` to be
+    /// known (it always is here: this row only renders once `securityReports` has populated,
+    /// which only happens for a resolved GitHub remote).
+    private func forwardToAnglesite(_ advisory: SecurityAdvisory) {
+        guard let repo = model.securityReportingRepo else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(AdvisoryForwarding.clipboardText(for: advisory, siteRepo: repo), forType: .string)
+        NSWorkspace.shared.open(AdvisoryForwarding.anglesiteAdvisoryFormURL)
     }
 
     private var workersTab: some View {

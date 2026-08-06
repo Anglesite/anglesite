@@ -27,6 +27,16 @@
         }
       }
     },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "%@ already permits this use. Crawlers reading both your license and these signals will see them disagree." : {
 
     },
@@ -643,6 +653,9 @@
     "Built-in themes" : {
 
     },
+    "Bumps to %@" : {
+
+    },
     "Buy %@" : {
 
     },
@@ -722,6 +735,9 @@
     "Check Domain Config" : {
 
     },
+    "Check for Reports" : {
+
+    },
     "Check for domain config drift" : {
 
     },
@@ -729,6 +745,9 @@
 
     },
     "Checking Domain Config…" : {
+
+    },
+    "Checking for open GitHub security advisories and Dependabot alerts…" : {
 
     },
     "Checking token…" : {
@@ -1436,6 +1455,9 @@
     "Forward" : {
 
     },
+    "Forward to Anglesite" : {
+
+    },
     "From %@" : {
 
     },
@@ -1937,6 +1959,9 @@
     "No matching graph nodes" : {
 
     },
+    "No open reports." : {
+
+    },
     "No posts yet." : {
 
     },
@@ -1959,6 +1984,9 @@
 
     },
     "Not Set" : {
+
+    },
+    "Not checked yet." : {
 
     },
     "Not now" : {
@@ -2025,6 +2053,9 @@
 
     },
     "Open Recent" : {
+
+    },
+    "Open Reports" : {
 
     },
     "Open Site…" : {
@@ -3217,6 +3248,9 @@
 
     },
     "Update" : {
+
+    },
+    "Update Available" : {
 
     },
     "Update This File" : {

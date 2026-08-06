@@ -1148,6 +1148,8 @@ final class SiteWindowModel {
                 // never replaced), not `self` — no ownership cycle: neither owns the editor model.
                 let graphExplorer = graphExplorer
                 let preview = preview
+                let securityReports = securityReports
+                let dependencySyncOffers = dependencySyncOffers
                 activeEditor = .plist(PlistEditorModel(
                     file: file,
                     websiteTitle: site?.name ?? file.name,
@@ -1157,7 +1159,10 @@ final class SiteWindowModel {
                     onActiveWorkersChanged: { settings in
                         await preview.activeWorkersChanged(settings)
                     },
-                    containerControlProvider: { [preview] in await preview.activeContainerControl() }
+                    containerControlProvider: { [preview] in await preview.activeContainerControl() },
+                    securityReports: securityReports,
+                    dependencySyncOffers: dependencySyncOffers,
+                    onOpenDependencyFix: { [weak self] offer in self?.presentDependencyFixSheet(offer) }
                 ))
             }
             // Same mitigation as Graph/Cleanup/Reader/Followers/Communities (#1126): give a
