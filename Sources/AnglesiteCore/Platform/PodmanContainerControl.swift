@@ -33,6 +33,7 @@ public struct PodmanContainerControl: LocalContainerControl {
     private let mcpCommand: String
     private let logCenter: LogCenter
     private let flatpakHostSpawn: Bool
+    private let flatpakSpawnExecutable: URL
 
     private static let previewPort = 4321
     private static let mcpPort = 4399
@@ -89,6 +90,11 @@ public struct PodmanContainerControl: LocalContainerControl {
     ///     detecting a Flatpak sandbox via the `FLATPAK_ID` env var Flatpak sets for every
     ///     sandboxed process; injectable so tests can force either path without depending on the
     ///     test runner's own environment.
+    ///   - flatpakSpawnExecutable: The `flatpak-spawn` binary `podmanInvocation(_:)` wraps podman
+    ///     calls in when `flatpakHostSpawn` is true. Defaults to the common path
+    ///     `/usr/bin/flatpak-spawn`, the same "injectable common-path default" shape as
+    ///     `podmanExecutable` — kept a separate parameter rather than hardcoded so tests (or a
+    ///     future non-standard install) can substitute it independently.
     public init(
         image: String = "localhost/anglesite-dev:latest",
         podmanExecutable: URL = URL(fileURLWithPath: "/usr/bin/podman"),
@@ -96,7 +102,8 @@ public struct PodmanContainerControl: LocalContainerControl {
         astroCommand: String = PodmanContainerControl.defaultAstroCommand,
         mcpCommand: String = PodmanContainerControl.defaultMCPCommand,
         logCenter: LogCenter = .shared,
-        flatpakHostSpawn: Bool = ProcessInfo.processInfo.environment["FLATPAK_ID"] != nil
+        flatpakHostSpawn: Bool = ProcessInfo.processInfo.environment["FLATPAK_ID"] != nil,
+        flatpakSpawnExecutable: URL = URL(fileURLWithPath: "/usr/bin/flatpak-spawn")
     ) {
         self.image = image
         self.podmanExecutable = podmanExecutable
@@ -106,6 +113,7 @@ public struct PodmanContainerControl: LocalContainerControl {
         self.mcpCommand = mcpCommand
         self.logCenter = logCenter
         self.flatpakHostSpawn = flatpakHostSpawn
+        self.flatpakSpawnExecutable = flatpakSpawnExecutable
     }
 
     /// Resolves the actual executable + argv for a podman invocation. Outside a Flatpak sandbox
@@ -119,7 +127,7 @@ public struct PodmanContainerControl: LocalContainerControl {
     /// document-portal path visibility) that still need live verification on a Flatpak build.
     func podmanInvocation(_ arguments: [String]) -> (executable: URL, arguments: [String]) {
         guard flatpakHostSpawn else { return (podmanExecutable, arguments) }
-        return (URL(fileURLWithPath: "/usr/bin/flatpak-spawn"), ["--host", podmanExecutable.path] + arguments)
+        return (flatpakSpawnExecutable, ["--host", podmanExecutable.path] + arguments)
     }
 
     /// Boots a fresh rootless-podman container for the site and returns its preview/MCP URLs.

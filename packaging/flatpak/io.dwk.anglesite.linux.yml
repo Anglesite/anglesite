@@ -29,7 +29,10 @@ finish-args:
   # The app's own WebKitGTK preview + HTTP client need to reach podman's host-loopback-published
   # preview/MCP ports — a functional requirement of a live-preview browser, not a workaround for
   # a packaging defect (docs/linux-assed-app-spec.md §6 forbids the latter). There's no
-  # loopback-only middle ground in Flatpak's network permission model.
+  # loopback-only middle ground in Flatpak's network permission model: this grants the sandboxed
+  # process unrestricted outbound network access generally, not just 127.0.0.1 reachability — a
+  # real, broader-than-strictly-needed cost accepted for the same reason as --talk-name below
+  # (investigation doc §3(a)), not an oversight.
   - --share=network
   # Lets `flatpak-spawn --host podman ...` run podman unsandboxed on the host — see the
   # investigation doc §3-4 for why this is the chosen design (over bundling a socket-talking

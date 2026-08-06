@@ -51,14 +51,15 @@ struct PodmanContainerControlTests {
         #expect(invocation.arguments == ["stop", "-t", "5", "anglesite-test"])
     }
 
-    @Test("inside a Flatpak sandbox, podman invocations route through flatpak-spawn --host")
+    @Test("inside a Flatpak sandbox, podman invocations route through the injected flatpak-spawn")
     func podmanInvocationRoutesThroughFlatpakSpawn() {
         let control = PodmanContainerControl(
             podmanExecutable: URL(fileURLWithPath: "/usr/bin/podman"),
-            flatpakHostSpawn: true
+            flatpakHostSpawn: true,
+            flatpakSpawnExecutable: URL(fileURLWithPath: "/some/other/prefix/bin/flatpak-spawn")
         )
         let invocation = control.podmanInvocation(["stop", "-t", "5", "anglesite-test"])
-        #expect(invocation.executable.path == "/usr/bin/flatpak-spawn")
+        #expect(invocation.executable.path == "/some/other/prefix/bin/flatpak-spawn")
         #expect(invocation.arguments == ["--host", "/usr/bin/podman", "stop", "-t", "5", "anglesite-test"])
     }
 }

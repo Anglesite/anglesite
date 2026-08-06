@@ -91,18 +91,27 @@ mechanical follow-up if it turns out to matter, not a redesign.
   nil` — `FLATPAK_ID` is the documented, stable env var Flatpak sets for every process running
   inside one of its sandboxes (also used by `flatpak-spawn` itself and countless sandboxed apps to
   self-detect). Injectable so tests can force either path.
+- `flatpakSpawnExecutable: URL`, defaulting to `/usr/bin/flatpak-spawn` — kept as its own
+  injectable parameter (the same "common-path default, overridable" shape as `podmanExecutable`)
+  rather than hardcoded inline, so tests exercise the actual injection seam instead of just
+  matching a coincidental default.
 - `podmanInvocation(_ arguments: [String]) -> (executable: URL, arguments: [String])` — the single
   seam every podman call now routes through. Outside a sandbox it's a passthrough
   (`podmanExecutable`, unchanged args). Inside one, it rewrites to
-  `(/usr/bin/flatpak-spawn, ["--host", podmanExecutable.path] + arguments)`.
+  `(flatpakSpawnExecutable, ["--host", podmanExecutable.path] + arguments)`.
 
 Every call site that used to pass `podmanExecutable` straight to `ProcessSupervisor.run`/`.launch`
 (the boot-time `spawnDetachedPodmanRun`, `exec`/`execInteractive`, `execOneShot`, `resolvedHostPort`,
 `stopContainer`) now resolves through `podmanInvocation` first. No call site needed its own
 sandbox-awareness — the rewrite is centralized. Two unit tests
 (`PodmanContainerControlTests.podmanInvocationPassesThroughOutsideFlatpak` /
-`...RoutesThroughFlatpakSpawn`) cover the pure argv rewrite; see §9 for why they don't yet run in
-CI (a pre-existing, unrelated gap this PR doesn't newly introduce).
+`...RoutesThroughFlatpakSpawn`) cover the pure argv rewrite, but **don't currently run in CI** —
+`AnglesiteCoreTests` isn't in `Package.swift`'s off-Darwin `portableTargets` filter, so the whole
+target (and this file's own `#if canImport(Glibc)` gate) never builds in either the Linux or
+macOS CI leg today. Pre-existing, not introduced by this PR (see §9) — tracked as a follow-up in
+[#1284](https://github.com/Anglesite/Anglesite/issues/1284) rather than left as only a PR-footnote
+disclosure, since it means `podmanInvocation`'s rewrite logic is currently unverified by any CI
+run, only reviewed by hand.
 
 The manifest (`packaging/flatpak/io.dwk.anglesite.linux.yml`, §7) grants exactly
 `--talk-name=org.freedesktop.Flatpak` for this — no `--filesystem=host`.
@@ -203,8 +212,14 @@ non-fatal in every case, matching the existing behavior.
   `--share=network` (the app itself, not just podman, needs a network namespace so its own
   WebKitGTK preview and HTTP client can reach podman's host-loopback-published ports — this is a
   functional requirement of a live-preview browser, not a sandboxing shortcut for a packaging
-  defect); installs `overlay.js` to `/app/share/anglesite/edit-overlay/overlay.js` (§ above); and
-  builds the `anglesite-linux` product instead of a generic template binary.
+  defect). Like `--talk-name=org.freedesktop.Flatpak` (§3(a)), this is a real, broader-than-
+  strictly-needed grant, not a free one: Flatpak has no loopback-only network permission, so
+  `--share=network` gives the sandboxed WebKitGTK/HTTP-client process unrestricted outbound
+  network access generally, not just reachability to `127.0.0.1:4321`/`4399`. Accepted for the
+  same reason as `--talk-name` — no narrower Flatpak primitive exists for this — and worth the
+  same Flathub-review scrutiny that permission gets (§9); installs `overlay.js` to
+  `/app/share/anglesite/edit-overlay/overlay.js` (§ above); and builds the `anglesite-linux`
+  product instead of a generic template binary.
 - `io.dwk.anglesite.linux.desktop` — reuses the app ID already chosen in code
   (`AdwaitaApp(id: "io.dwk.anglesite.linux")`, `AnglesiteLinuxApp.swift`), so no new identifier is
   introduced.
