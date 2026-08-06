@@ -123,17 +123,23 @@ current `SECURITY_CONTACT`, and current `SITE_URL`:
    (first usable contact only — the old format never supported a list) and `SITE_URL`. Compare the
    `Contact:` and `Canonical:` lines exactly; `Expires:` is inherently time-variant, so only its
    presence and ISO-8601 shape are checked, not its value.
-   - **Exact match** → classify **Adopt as generated**: this is Anglesite's own historical output.
+   - **Exact match** → **adopt silently, no decision asked**: this is positively Anglesite's own
+     historical output, the same "app knows the right answer" situation as an unmodified `scripts/`
+     file refreshing without a prompt (§Script files above) — asking would contradict the "app
+     advises, doesn't delegate" principle for a case it can already resolve on its own.
    - **Any mismatch** (different contact, extra/missing lines, hand-formatting, or no file at all
-     with a contact configured elsewhere) → classify **Preserve as hand-authored**.
+     with a contact configured elsewhere) → genuine ambiguity: an **Adopt/Preserve decision**,
+     interactively, or defaulted to **Preserve** in a noninteractive flow. Adopt remains available
+     as an explicit owner override even though the app couldn't confirm the match itself.
 4. **No file, contact configured** → nothing to classify (no legacy content exists); backfill
    `SECURITY_TXT_MODE` from the existing inference (`generated`, since a contact is present) so the
    site stops depending on `resolveSecurityTxtMode`'s fallback going forward.
 
-Case 3 is the only one requiring an owner decision (interactively) or a Preserve default
-(noninteractively) — every other case is unambiguous and applies silently, consistent with
-`TemplateScriptsSync`'s "advises, doesn't delegate" philosophy for anything the app can actually
-resolve on its own.
+Only case 3's mismatch outcome ever asks — every other outcome (cases 1, 2, 4, and case 3's exact
+match) is unambiguous and applies silently, consistent with `TemplateScriptsSync`'s "advises,
+doesn't delegate" philosophy for anything the app can actually resolve on its own. This also closes
+the loop with the issue's own acceptance criterion that an unmodified legacy site upgrades
+automatically — an exact-match legacy `security.txt` is exactly that case.
 
 ### `.gitignore`
 
@@ -220,12 +226,16 @@ commit.
 
 ## UX
 
-Reuses `ScriptSyncModel`'s shape (a pending list, resolved one row at a time, a completion
-continuation) extended to also carry the security.txt classification as one more row when case 3
-applies, framed in consequences per the existing "advises, doesn't delegate" principle — e.g.:
+A separate, single-decision sheet mirroring `DependencyUpdateModel`'s shape (one whole decision,
+not a per-row list) rather than folding into `ScriptSyncModel` — at most one `security.txt` exists
+per site, so there's never a list to manage, and the two mechanisms already have different accept
+semantics (script refreshes are already-applied-by-default with only genuine hand-edits surfaced;
+this is a single yes/no). Sequenced after the script-sync sheet, shown only for case 3's mismatch
+outcome (the exact-match outcome never reaches a sheet at all — it applies silently), framed in
+consequences per the existing "advises, doesn't delegate" principle — e.g.:
 
-> "This site has a hand-authored `security.txt`. Anglesite can adopt it as the generated version
-> (auto-updated going forward) or leave it as yours to maintain."
+> "This site publishes a security.txt Anglesite didn't generate. Adopt it so Anglesite keeps it
+> current going forward, or leave it as yours to maintain."
 
 with **Adopt** / **Preserve** actions, mirroring the script-divergence sheet's **Update this
 file** / **Keep my version** pair.
