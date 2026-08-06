@@ -591,7 +591,7 @@ git commit -m "feat(#745): add Config/ pending-commit record"
 
 **Interfaces:**
 - Consumes: `SecurityTxtLegacyClassifier.classify(existingContent:rawContact:siteURL:)` (Task 1); existing `SiteConfigFile.value(forKey:in:)` (`Sources/AnglesiteCore/SiteConfigFile.swift:18`); existing `WebsiteAnalyticsAsset.configRelativePath` (`Sources/AnglesiteCore/WebsiteAnalyticsAsset.swift:60`, value `".site-config"`); existing `SecurityReportingAsset.Mode` (`Sources/AnglesiteCore/SecurityReportingAsset.swift:12`, cases `.generated`/`.manual`/`.disabled`); existing `GeneratedEndpoints.securityTxtMarker` (`Sources/AnglesiteCore/WellKnownInventory.swift:401`, the exact first-line marker string `edge-artifacts.ts`'s current generator writes).
-- Produces: `public enum SecurityTxtMigrationPlan: Sendable, Equatable { case nothingToDo; case silentBackfillMode(SecurityReportingAsset.Mode); case silentAdopt; case needsDecision }`; `public enum SecurityTxtMigrationChecker { public static func check(sourceDirectory: URL) -> SecurityTxtMigrationPlan }` — Task 6 (`Applier`), Task 8 (`ExistingSiteMigration`), and Task 10 (`SiteWindowModel` wiring) all switch over `SecurityTxtMigrationPlan` by these exact case names.
+- Produces: `public enum SecurityTxtMigrationPlan: Sendable, Equatable { case nothingToDo; case silentBackfillMode(SecurityReportingAsset.Mode); case silentAdopt; case needsDecision }`; `public enum SecurityTxtMigrationChecker { public static func check(sourceDirectory: URL) -> SecurityTxtMigrationPlan }` — Task 8 (`ExistingSiteMigration`) and Task 10 (`SiteWindowModel` wiring) both switch over `SecurityTxtMigrationPlan` by these exact case names, dispatching to Task 6's `SecurityTxtMigrationApplier.applyBackfill`/`.applyDecision` (which consume `SecurityReportingAsset.Mode`/`.Decision` directly and never reference `SecurityTxtMigrationPlan` themselves).
 
 **Design note (fixed during this plan's self-review):** an unmarked file that positively matches the pre-#743 generator's exact old shape is *not* ambiguous — it's the same "app knows the right answer" situation as a byte-identical `scripts/` file (Task 3's untouched branch), so it must auto-apply, not ask. Only a genuine mismatch is a real decision. This is why `.needsDecision` carries no `matchesLegacyShape` payload: by construction, every case that reaches it already failed to match. `.silentAdopt` reuses `SecurityTxtMigrationApplier.applyDecision(.adopt, sourceDirectory:)` (Task 6) directly — no separate apply function is needed for it.
 
@@ -1273,7 +1273,7 @@ import Foundation
             source: "test", logCenter: logCenter
         )
 
-        let lines = await logCenter.recentLines(limit: 10)
+        let lines = await logCenter.snapshot()
         #expect(lines.isEmpty)
     }
 
@@ -1291,7 +1291,7 @@ import Foundation
 
         let unchanged = try String(contentsOf: source.appendingPathComponent("scripts/pre-deploy-check.ts"), encoding: .utf8)
         #expect(unchanged == "owner's content")
-        let lines = await logCenter.recentLines(limit: 10)
+        let lines = await logCenter.snapshot()
         #expect(lines.contains { $0.text.contains("scripts/pre-deploy-check.ts") && $0.text.contains("unresolved ownership") })
     }
 
@@ -1310,7 +1310,7 @@ import Foundation
         #expect(unchanged == "Contact: mailto:someone-else@example.com\n")
         let siteConfig = try String(contentsOf: source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(siteConfig.contains("SECURITY_TXT_MODE=manual"))
-        let lines = await logCenter.recentLines(limit: 10)
+        let lines = await logCenter.snapshot()
         #expect(lines.contains { $0.text.contains("public/.well-known/security.txt") })
     }
 
@@ -1327,24 +1327,18 @@ import Foundation
 
         let siteConfig = try String(contentsOf: source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(siteConfig.contains("SECURITY_TXT_MODE=generated"))
-        let lines = await logCenter.recentLines(limit: 10)
+        let lines = await logCenter.snapshot()
         #expect(!lines.contains { $0.text.contains("unresolved") })
     }
 }
 ```
 
-- [ ] **Step 3: Confirm `LogCenter` exposes a way to read recent lines for the test above**
-
-Run: `grep -n "func recentLines\|func history\|struct Subscription" Sources/AnglesiteCore/LogCenter.swift`
-
-If `recentLines(limit:)` isn't the actual accessor name, adjust the three assertions above (and only those) to match whatever read-back API `LogCenter` actually exposes (e.g. `subscribe()`'s replayed history, or a differently-named snapshot method) — do not change anything else in this task's test file. This is the one place in this plan where the exact existing API name wasn't confirmed ahead of time; every other consumed signature in this plan was read directly from source.
-
-- [ ] **Step 4: Run the tests to verify they pass**
+- [ ] **Step 3: Run the tests to verify they pass**
 
 Run: `swift test --package-path . --filter ExistingSiteMigrationTests`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add Sources/AnglesiteCore/ExistingSiteMigration.swift Tests/AnglesiteCoreTests/ExistingSiteMigrationTests.swift
@@ -1587,7 +1581,12 @@ Replace it with:
             message: "chore: migrate existing site to current template baseline"
         )
         var migrationTouchedPaths: [String] = []
-        let wasRuntimeAlreadyReady = preview.state == .ready
+        // `SiteRuntimeState.ready` carries associated values (siteID/url/workersDevURL), so this
+        // is a pattern match, not `== .ready` (`Sources/AnglesiteCore/SiteRuntime.swift:15`).
+        let wasRuntimeAlreadyReady: Bool = {
+            if case .ready = preview.state { return true }
+            return false
+        }()
 
         if let templateURL = TemplateRuntime.resolve().url {
             let plan = TemplateScriptsSyncChecker.check(
