@@ -804,9 +804,11 @@ final class PlistEditorModel {
     }
 
     /// Env → OAuth (refresh-aware) → legacy-token, via the shared resolver (#1211) — the same
-    /// order every other production Cloudflare call site now uses.
+    /// order every other production Cloudflare call site now uses. `diagnosticSource: "analytics"`
+    /// restores the debug-pane breadcrumb this call site logged before sharing the resolver (a
+    /// fallback source in use is worth a log line; a normal OAuth resolution isn't).
     private func cloudflareToken() async throws -> String? {
-        try await CloudflareAPICredentials.resolve(secretStore: keychain)
+        try await CloudflareAPICredentials.resolve(secretStore: keychain, diagnosticSource: "analytics")
     }
 
     private static func isWebsiteTitleEntry(_ entry: PlistDocumentIO.PlistEntry) -> Bool {

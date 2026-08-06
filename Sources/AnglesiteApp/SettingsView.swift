@@ -414,7 +414,13 @@ private struct AdvancedSettingsView: View {
 /// network call) — shows whether a credential is stored and whether it still carries a refresh
 /// token, not a live-verified account name.
 private struct CloudflareOAuthStatusRow: View {
-    @State private var credential: CloudflareOAuthCredential?
+    /// Deliberately *not* the raw `CloudflareOAuthCredential` — this row only ever needs
+    /// "connected?" and "has a refresh token?", so it derives those two booleans in
+    /// `refreshStatus()` instead of retaining the credential's plaintext access/refresh tokens in
+    /// view state, matching `KeychainTokenRow`'s existing "don't hold secret bytes you don't need"
+    /// posture in this same file.
+    @State private var isConnected = false
+    @State private var canAutoRefresh = false
     @State private var isBusy = false
     @State private var errorMessage: String?
 
@@ -423,7 +429,7 @@ private struct CloudflareOAuthStatusRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 statusLabel
                 Button("Sign Out") { signOut() }
-                    .disabled(credential == nil || isBusy)
+                    .disabled(!isConnected || isBusy)
                 if isBusy {
                     ProgressView().controlSize(.small)
                 } else if let errorMessage {
@@ -438,9 +444,9 @@ private struct CloudflareOAuthStatusRow: View {
 
     @ViewBuilder
     private var statusLabel: some View {
-        if let credential {
+        if isConnected {
             Label(
-                credential.refreshToken == nil ? "Connected (won't auto-refresh)" : "Connected",
+                canAutoRefresh ? "Connected" : "Connected (won't auto-refresh)",
                 systemImage: "checkmark.circle.fill"
             )
             .font(.footnote)
@@ -453,7 +459,9 @@ private struct CloudflareOAuthStatusRow: View {
     }
 
     private func refreshStatus() {
-        credential = try? KeychainStore().readCloudflareOAuthCredential()
+        let credential = try? KeychainStore().readCloudflareOAuthCredential()
+        isConnected = credential != nil
+        canAutoRefresh = credential?.refreshToken != nil
     }
 
     private func signOut() {
@@ -461,7 +469,8 @@ private struct CloudflareOAuthStatusRow: View {
         defer { isBusy = false }
         do {
             try KeychainStore().clearCloudflareOAuthCredential()
-            credential = nil
+            isConnected = false
+            canAutoRefresh = false
             errorMessage = nil
         } catch {
             errorMessage = "Couldn't clear the stored credential."

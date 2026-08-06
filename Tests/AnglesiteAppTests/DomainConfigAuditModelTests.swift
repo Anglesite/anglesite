@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import AnglesiteCore
+import AnglesiteTestSupport
 @testable import AnglesiteAppCore
 
 private final class StubReader: CloudflareReading, @unchecked Sendable {
@@ -105,6 +106,74 @@ struct DomainConfigAuditModelTests {
             return
         }
         #expect(reason.contains("example.com"))
+    }
+
+    /// Regression coverage for the #1211 restructuring: the token check moved from a synchronous
+    /// pre-`Task` guard into the async task body, since resolving via `CloudflareAPICredentials`
+    /// needs an `await` hop. `phase` must still flip to `.auditing` synchronously (so `isRunning`
+    /// is observably true) before the in-task token check can land on `.failed` — this pins both
+    /// halves of that contract, not just the eventual outcome.
+    @MainActor
+    @Test("runAudit() surfaces the no-token failure after isRunning has already flipped true")
+    func runAuditNoTokenAvailable() async throws {
+        let previousEnv = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
+        unsetenv("CLOUDFLARE_API_TOKEN")
+        defer {
+            if let previousEnv { setenv("CLOUDFLARE_API_TOKEN", previousEnv, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
+        }
+        let declared = DomainConfig(domain: .init(hostname: "example.com"))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: InMemorySecretStore())
+        model.configure(site: site)
+
+        model.runAudit()
+        #expect(model.isRunning)
+        while model.isRunning { await Task.yield() }
+
+        guard case .failed(let reason) = model.phase else {
+            Issue.record("expected .failed, got \(model.phase)")
+            return
+        }
+        #expect(reason.contains("token"))
+    }
+
+    /// Same regression coverage as ``runAuditNoTokenAvailable()``, for `reconcile()`'s identical
+    /// restructuring.
+    @MainActor
+    @Test("reconcile() surfaces the no-token failure after isRunning has already flipped true")
+    func reconcileNoTokenAvailable() async throws {
+        let record = DomainConfig.DNSRecord(
+            type: "TXT", name: "_atproto", content: "did=did:plc:abc", purpose: "verification:bluesky")
+        let declared = DomainConfig(domain: .init(hostname: "example.com"), dns: .init(managedRecords: [record]))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        // Token available for the audit step, so phase reaches `.results` with a non-empty plan —
+        // reconcile()'s own guard requires that starting phase.
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: StubWriter(), keychain: InMemorySecretStore())
+        model.configure(site: site)
+        model.runAudit()
+        while model.isRunning { await Task.yield() }
+        guard case .results = model.phase else {
+            Issue.record("expected .results before exercising reconcile()'s no-token path, got \(model.phase)")
+            return
+        }
+
+        let previousEnv = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
+        unsetenv("CLOUDFLARE_API_TOKEN")
+        defer {
+            if let previousEnv { setenv("CLOUDFLARE_API_TOKEN", previousEnv, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
+        }
+
+        model.reconcile()
+        #expect(model.isRunning)
+        while model.isRunning { await Task.yield() }
+
+        guard case .failed(let reason) = model.phase else {
+            Issue.record("expected .failed, got \(model.phase)")
+            return
+        }
+        #expect(reason.contains("token"))
     }
 
     @MainActor

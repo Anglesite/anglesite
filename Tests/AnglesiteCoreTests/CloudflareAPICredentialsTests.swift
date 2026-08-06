@@ -58,4 +58,36 @@ struct CloudflareAPICredentialsTests {
             #expect(try await CloudflareAPICredentials.resolve(secretStore: InMemorySecretStore()) == nil)
         }
     }
+
+    @Test("a genuine read error on the OAuth slot falls through to the legacy token instead of throwing")
+    func oauthSlotReadErrorFallsThroughToLegacyToken() async throws {
+        try await withCloudflareEnvToken(nil) {
+            let store = OAuthSlotThrowingSecretStore()
+            try store.writeCloudflareToken("legacy-tok")
+            #expect(try await CloudflareAPICredentials.resolve(secretStore: store) == "legacy-tok")
+        }
+    }
+
+    @Test("a genuine read error on the OAuth slot with no legacy token resolves nil, not a throw")
+    func oauthSlotReadErrorWithNoLegacyTokenResolvesNil() async throws {
+        try await withCloudflareEnvToken(nil) {
+            #expect(try await CloudflareAPICredentials.resolve(secretStore: OAuthSlotThrowingSecretStore()) == nil)
+        }
+    }
+}
+
+/// A `SecretStore` that throws reading the OAuth access-token slot specifically (simulating a
+/// genuine Keychain error, as opposed to "no credential stored," which reads as `nil` — not a
+/// throw), while every other account behaves like ``InMemorySecretStore``. Pins the #1289 review
+/// fix: an OAuth-slot read error must fall through to the legacy token, not propagate and skip it.
+private final class OAuthSlotThrowingSecretStore: SecretStore, @unchecked Sendable {
+    private struct ReadFailed: Error {}
+    private let backing = InMemorySecretStore()
+
+    func read(account: String) throws -> String? {
+        if account == SecretAccounts.cloudflareOAuthAccessToken { throw ReadFailed() }
+        return try backing.read(account: account)
+    }
+    func write(_ value: String, account: String) throws { try backing.write(value, account: account) }
+    func delete(account: String) throws { try backing.delete(account: account) }
 }
