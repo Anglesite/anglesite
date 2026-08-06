@@ -57,7 +57,8 @@ struct PlistEditorModelSecurityReportsTests {
         config: String? = nil,
         remote: String = "https://github.com/acme/site.git\n",
         repoSecurity: any RepoSecurityReading & RepoSecurityWriting = FakeRepoSecurity(),
-        token: String? = "tok"
+        token: String? = "tok",
+        gitRunner: BackupCommand.GitRunner? = nil
     ) throws -> PlistEditorModel {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("PlistEditorModelSecurityReportsTests-\(UUID().uuidString)")
@@ -70,7 +71,7 @@ struct PlistEditorModelSecurityReportsTests {
             websiteTitle: "Test Site",
             sourceDirectory: directory,
             repoSecurity: repoSecurity,
-            gitRunner: { _, _ in ProcessSupervisor.RunResult(stdout: remote, stderr: "", exitCode: 0) },
+            gitRunner: gitRunner ?? { _, _ in ProcessSupervisor.RunResult(stdout: remote, stderr: "", exitCode: 0) },
             githubToken: { token })
     }
 
@@ -342,6 +343,40 @@ struct PlistEditorModelSecurityReportsTests {
 
         #expect(await fake.enableCalls == 1)
         #expect(model.securityReportingReadiness == .alreadyConfigured)
+    }
+
+    /// Counts `gitRunner` invocations so a coalescing test can assert the subprocess spawned
+    /// once, not once per caller. An actor because the runner closure is `@Sendable` and callers
+    /// race concurrently.
+    actor CallCountingGitRunner {
+        private(set) var callCount = 0
+        private let result: ProcessSupervisor.RunResult
+        init(result: ProcessSupervisor.RunResult) { self.result = result }
+        func run(_ directory: URL, _ arguments: [String]) -> ProcessSupervisor.RunResult {
+            callCount += 1
+            return result
+        }
+    }
+
+    /// `PlistEditorView`'s `.task { await model.refreshRepoSecurityState() }` and
+    /// `.task { await model.refreshSecurityReports() }` start together on every site open; both
+    /// resolve the same git `origin` remote. Without coalescing in `currentRemoteRepo()`, that's
+    /// two `git remote get-url origin` spawns for one answer (#1312).
+    @Test("two concurrent refreshes share one git-remote resolution, not two")
+    func concurrentRefreshesCoalesceGitRemoteResolution() async throws {
+        let counter = CallCountingGitRunner(
+            result: ProcessSupervisor.RunResult(stdout: "https://github.com/acme/site.git\n", stderr: "", exitCode: 0))
+        let model = try makeModel(
+            config: "SECURITY_CONTACT=a@example.com\n",
+            gitRunner: { url, arguments in await counter.run(url, arguments) })
+        await model.load()
+
+        async let first: Void = model.refreshRepoSecurityState()
+        async let second: Void = model.refreshSecurityReports()
+        _ = await (first, second)
+
+        #expect(await counter.callCount == 1)
+        #expect(model.securityReportingRepo?.owner == "acme")
     }
 
     @Test("a partial adopt failure (PVR enabled, save fails) still reports .ready, not .needsPVR")

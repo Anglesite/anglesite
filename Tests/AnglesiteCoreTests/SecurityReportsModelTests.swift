@@ -167,6 +167,20 @@ struct SecurityReportsModelTests {
         #expect(model.lastError?.contains("Recreate it") == true)
     }
 
+    /// A lone 403 paired with an *unrelated* failure on the other half (not itself an
+    /// `.unauthorized`) is the asymmetric case the (403, 403) test above doesn't cover: the 403
+    /// half can still just mean a repo-config setting, so the pairing must not fall through to
+    /// `wholeCheckMessage(for:)`'s status-blind `.unauthorized` arm and claim the token is at
+    /// fault (#1312).
+    @Test("a 403 on one half paired with an unrelated failure on the other does not recommend recreating the token")
+    func lone403WithUnrelatedFailureDoesNotRecommendTokenRecreation() async {
+        let model = SecurityReportsModel(reader: FakeReader(
+            advisoriesFailure: .unauthorized(status: 403), alertsFailure: .network))
+        await model.recheck(repo: Self.repo, token: "tok").value
+        #expect(model.lastError?.contains("Recreate it") == false)
+        #expect(model.lastError != nil)
+    }
+
     @Test("recheck cancels a prior in-flight run and discards its stale result")
     func recheckCancelsPrior() async {
         // The first call's fetch is slow and returns data distinguishable from the second
