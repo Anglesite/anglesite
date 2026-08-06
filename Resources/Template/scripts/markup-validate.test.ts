@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateMarkupHtml, validateDist } from "./markup-validate.ts";
@@ -55,4 +55,16 @@ test("validateDist: walks nested dist/ and aggregates problems across files", ()
 
 test("validateDist: returns no problems for an absent directory", () => {
   assert.deepEqual(validateDist(join(tmpdir(), "markup-validate-test-does-not-exist")), []);
+});
+
+test("validateDist: skips a dangling symlink instead of crashing the whole scan", () => {
+  const dir = mkdtempSync(join(tmpdir(), "markup-validate-test-"));
+  try {
+    writeFileSync(join(dir, "index.html"), GOOD);
+    symlinkSync(join(dir, "does-not-exist.html"), join(dir, "dangling.html"));
+
+    assert.deepEqual(validateDist(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

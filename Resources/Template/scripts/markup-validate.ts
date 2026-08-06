@@ -62,7 +62,13 @@ function walkHtml(dir: string): string[] {
   }
   for (const name of names) {
     const full = join(dir, name);
-    if (statSync(full).isDirectory()) out.push(...walkHtml(full));
+    let isDirectory: boolean;
+    try {
+      isDirectory = statSync(full).isDirectory();
+    } catch {
+      continue; // dangling symlink or removed mid-walk — skip rather than crash the whole scan
+    }
+    if (isDirectory) out.push(...walkHtml(full));
     else if (extname(full) === ".html") out.push(full);
   }
   return out;
