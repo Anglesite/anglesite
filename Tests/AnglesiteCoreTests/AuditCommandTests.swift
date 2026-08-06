@@ -20,7 +20,14 @@ struct AuditCommandTests {
         }
     ) -> (AuditCommand, LogCenter) {
         let center = LogCenter()
+        // Isolated supervision, mirroring DeployExecutorTests.makeExecutor — HostAuditExecutor's
+        // default (`.shared`) would otherwise route this suite's real subprocess spawns through
+        // the same process-wide actor every other `.shared`-using suite contends on under
+        // `swift test --parallel`, which is exactly the kind of cross-suite scheduling pressure
+        // documented as a recurring CI flake source (see VsockTCPProxyTests' `.serialized` note).
+        let supervisor = ProcessSupervisor()
         let hostExecutor = HostAuditExecutor(
+            supervisor: supervisor,
             logCenter: center,
             resolveCommand: { step in
                 switch step {
