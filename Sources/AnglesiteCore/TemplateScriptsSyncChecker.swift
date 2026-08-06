@@ -74,15 +74,20 @@ public enum TemplateScriptsSyncChecker {
                 continue
             }
 
-            if baseline.files[relativePath] == nil {
-                // First encounter for this site: its current content becomes the assumed-untouched
-                // baseline (design doc's legacy-site trade-off).
+            let hadNoBaseline = baseline.files[relativePath] == nil
+            if hadNoBaseline {
+                // First encounter for this site (#745 changed this branch): its current content
+                // is recorded as a *provisional* baseline so `resolve()` has an entry to update,
+                // but — unlike #1053's original behavior — it is never treated as reconciled on
+                // this same pass. The app can't tell "stale but untouched" from "the owner
+                // customized this" without a prior baseline, so it must fall through to the
+                // divergence queue below rather than being silently refreshed.
                 baseline.files[relativePath] = TemplateScriptsBaseline.Entry(baselineHash: siteHash)
                 baselineChanged = true
             }
             let entry = baseline.files[relativePath]!
 
-            if entry.baselineHash == siteHash {
+            if !hadNoBaseline && entry.baselineHash == siteHash {
                 toApply.append(.refresh(relativePath: relativePath))
             } else if entry.acknowledgedTemplateHash == templateHash {
                 continue
