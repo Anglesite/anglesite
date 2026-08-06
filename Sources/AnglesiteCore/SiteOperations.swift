@@ -60,7 +60,18 @@ public struct SiteOperations: Sendable {
     public func deploy(site: SiteStore.Site, onProgress: ProgressHandler? = nil) async -> DeployCommand.Result {
         do {
             return try await SiteAccess.withScopedAccess(to: site, in: store) { url in
-                await self.deployWithWorkerComposition(site: site, siteDirectory: url, onProgress: onProgress)
+                // #745: this headless path (App Intents/Shortcuts/Siri) skipped both
+                // DependencySync and TemplateScriptsSync entirely before this — a site only ever
+                // operated on via Shortcuts never got migrated. Runs ahead of the deploy build
+                // with every decision defaulted to Preserve (design doc "Noninteractive flows");
+                // never blocks the deploy itself.
+                await ExistingSiteMigration.runNoninteractively(
+                    sourceDirectory: url,
+                    configDirectory: site.configDirectory,
+                    templateDirectory: TemplateRuntime.bundledURL(),
+                    source: "deploy:\(site.id)"
+                )
+                return await self.deployWithWorkerComposition(site: site, siteDirectory: url, onProgress: onProgress)
             }
         } catch let SiteAccess.AccessError.noGrant(message) {
             return .failed(reason: message, exitCode: nil)
