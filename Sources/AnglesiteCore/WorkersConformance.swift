@@ -14,12 +14,13 @@ public struct WorkersPackageStatus: Sendable, Equatable {
     /// `true` when the integration test suite reports `"passing"`.
     public var isIntegrationPassing: Bool { integrationStatus == "passing" }
 
-    /// npm package names known to have a public external conformance suite (micropub.rocks,
-    /// webmention.rocks, the ActivityPub test suite) — the packages `areAllSuitesPassing` refuses
-    /// to vacuously pass just because `suites` is empty. Packages not in this set have no known
-    /// public suite to run, so an empty `suites` dict genuinely means "nothing external applies"
-    /// rather than "no evidence reported yet" (#957).
+    /// npm package names known to have a public external conformance suite (indieauth.rocks,
+    /// micropub.rocks, webmention.rocks, the ActivityPub test suite) — the packages
+    /// `areAllSuitesPassing` refuses to vacuously pass just because `suites` is empty. Packages
+    /// not in this set have no known public suite to run, so an empty `suites` dict genuinely
+    /// means "nothing external applies" rather than "no evidence reported yet" (#957).
     public static let packagesWithKnownConformanceSuites: Set<String> = [
+        "@dwk/indieauth",
         "@dwk/micropub",
         "@dwk/webmention",
         "@dwk/activitypub",

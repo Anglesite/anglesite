@@ -56,7 +56,7 @@ struct WorkersConformanceTests {
             },
             "@dwk/indieauth": {
               "standard": "IndieAuth",
-              "suites": {},
+              "suites": { "indieauth.rocks": { "status": "passing" } },
               "integration": { "status": "passing", "cases": [] }
             },
             "@dwk/micropub": {
@@ -82,13 +82,13 @@ struct WorkersConformanceTests {
         #expect(!v3Gate.isUnblocked)
     }
 
-    @Test("empty suites dict counts as passing (no external suite to run)")
+    @Test("empty suites dict counts as passing for a package with no known public suite")
     func emptySuitesArePassing() throws {
         let json = """
         {
           "packages": {
-            "@dwk/indieauth": {
-              "standard": "IndieAuth",
+            "@dwk/microsub": {
+              "standard": "Microsub",
               "suites": {},
               "integration": { "status": "passing", "cases": [] }
             }
@@ -97,9 +97,9 @@ struct WorkersConformanceTests {
         """.data(using: .utf8)!
 
         let status = try WorkersConformanceReader.parse(json)
-        let indieauth = try #require(status.packages["@dwk/indieauth"])
-        #expect(indieauth.areAllSuitesPassing)
-        #expect(indieauth.isReleaseReady)
+        let microsub = try #require(status.packages["@dwk/microsub"])
+        #expect(microsub.areAllSuitesPassing)
+        #expect(microsub.isReleaseReady)
     }
 
     @Test("a known-conformance package with passing integration and no suites is unverified, not release-ready")
@@ -122,6 +122,31 @@ struct WorkersConformanceTests {
         #expect(webmention.isMissingRequiredSuite)
         #expect(!webmention.areAllSuitesPassing)
         #expect(!webmention.isReleaseReady)
+    }
+
+    @Test("indieauth with passing integration and no suites is unverified, not release-ready (V-2 regression)")
+    func indieauthWithNoSuitesIsUnverified() throws {
+        // Regression for #1275 review feedback: indieauth.rocks is a public conformance suite in
+        // the same IndieWeb family as webmention.rocks/micropub.rocks, and V-2's phaseRequirements
+        // gates on @dwk/indieauth — an empty `suites` dict here must not vacuously pass, or V-2
+        // could unblock on @dwk/webmention evidence alone.
+        let json = """
+        {
+          "packages": {
+            "@dwk/indieauth": {
+              "standard": "IndieAuth",
+              "suites": {},
+              "integration": { "status": "passing", "cases": [] }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let status = try WorkersConformanceReader.parse(json)
+        let indieauth = try #require(status.packages["@dwk/indieauth"])
+        #expect(indieauth.isMissingRequiredSuite)
+        #expect(!indieauth.areAllSuitesPassing)
+        #expect(!indieauth.isReleaseReady)
     }
 
     @Test("a package with a real failing suite is blocked, not unverified")
@@ -161,7 +186,7 @@ struct WorkersConformanceTests {
             },
             "@dwk/indieauth": {
               "standard": "IndieAuth",
-              "suites": {},
+              "suites": { "indieauth.rocks": { "status": "passing" } },
               "integration": { "status": "passing", "cases": [] }
             }
           }
