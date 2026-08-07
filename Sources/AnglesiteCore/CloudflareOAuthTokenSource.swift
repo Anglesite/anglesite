@@ -20,12 +20,19 @@ public struct CloudflareOAuthTokenSource: Sendable {
     private let now: @Sendable () -> Date
     private let coordinator: CloudflareOAuthRefreshCoordinator
 
-    /// - Parameter coordinator: Serializes the refresh-and-persist step across every
-    ///   `CloudflareOAuthTokenSource` instance that shares it. Defaults to a process-wide
-    ///   singleton because `DeployCommand.keychainTokenSource` (and the sync jobs that resolve
-    ///   through it) construct a fresh `CloudflareOAuthTokenSource` value on every call — an
-    ///   instance-scoped guard would never see a second caller. Tests inject their own instance
-    ///   to assert coalescing without cross-test interference.
+    /// - Parameters:
+    ///   - secretStore: Where the OAuth credential is read from, and where a refreshed one is
+    ///     persisted back to.
+    ///   - refresh: Performs one refresh round trip. Injected so tests can stub it without
+    ///     `CloudflareOAuthClient`'s network transport.
+    ///   - now: The current time, used to check the stored credential's expiry. Injected for
+    ///     deterministic expiry tests; defaults to `Date()`.
+    ///   - coordinator: Serializes the refresh-and-persist step across every
+    ///     `CloudflareOAuthTokenSource` instance that shares it. Defaults to a process-wide
+    ///     singleton because `DeployCommand.keychainTokenSource` (and the sync jobs that resolve
+    ///     through it) construct a fresh `CloudflareOAuthTokenSource` value on every call — an
+    ///     instance-scoped guard would never see a second caller. Tests inject their own instance
+    ///     to assert coalescing without cross-test interference.
     public init(
         secretStore: any SecretStore,
         refresh: @escaping Refresh,
