@@ -954,6 +954,41 @@ function extractMf2ContentString(raw: unknown): string {
   return "";
 }
 
+/** A photo attachment extracted from an mf2 `photo` property entry, ready for AS2 mapping. */
+interface ExtractedPhoto {
+  readonly url: string;
+  readonly alt?: string;
+}
+
+/**
+ * Extracts `{ url, alt? }` pairs from an mf2 `photo` property array (#1240) — each entry is
+ * either a plain URL string or the mf2 alt-text object shape `{ value, alt }`, mirroring
+ * {@link extractMf2ContentString}'s tolerance for `content`'s two accepted shapes. Feeds the AS2
+ * `attachment` mapping in `fanOutMicropubCreateToActivityPub` so a photo post is renderable by
+ * media-only Fediverse clients (Pixelfed shows only posts with attachments).
+ */
+function extractMf2Photos(raw: unknown): ExtractedPhoto[] {
+  if (!Array.isArray(raw)) return [];
+  const photos: ExtractedPhoto[] = [];
+  for (const entry of raw) {
+    if (typeof entry === "string" && entry.length > 0) {
+      photos.push({ url: entry });
+      continue;
+    }
+    if (entry && typeof entry === "object") {
+      const obj = entry as { value?: unknown; alt?: unknown };
+      if (typeof obj.value === "string" && obj.value.length > 0) {
+        photos.push(
+          typeof obj.alt === "string" && obj.alt.length > 0
+            ? { url: obj.value, alt: obj.alt }
+            : { url: obj.value },
+        );
+      }
+    }
+  }
+  return photos;
+}
+
 /**
  * Micropub server (V-3.2, #360).
  *
@@ -1001,25 +1036,39 @@ function handleMicropub(
   // a locked stream reader could silently break the fan-out with no visible failure). Doing the
   // extraction up front — before `micropub(request, ...)` is called — sidesteps that hazard
   // entirely rather than relying on it.
-  const contentPromise: Promise<string> = (async () => {
-    if (!env.AP_PUBLISH_TOKEN || request.method !== "POST") return "";
+  const contentPromise: Promise<{ content: string; photos: ExtractedPhoto[] }> = (async () => {
+    if (!env.AP_PUBLISH_TOKEN || request.method !== "POST") return { content: "", photos: [] };
     const cloned = request.clone();
     try {
       const contentType = cloned.headers.get("content-type") ?? "";
       if (contentType.includes("application/json")) {
-        const body = (await cloned.json()) as { properties?: { content?: unknown[] } };
-        return extractMf2ContentString(body.properties?.content?.[0]);
+        const body = (await cloned.json()) as {
+          properties?: { content?: unknown[]; photo?: unknown[] };
+        };
+        return {
+          content: extractMf2ContentString(body.properties?.content?.[0]),
+          photos: extractMf2Photos(body.properties?.photo),
+        };
       }
       const form = await cloned.formData();
-      return String(form.get("content") ?? form.get("properties[content]") ?? "");
+      const content = String(form.get("content") ?? form.get("properties[content]") ?? "");
+      // Form-encoded `photo`/`photo[]` fields carry a bare URL string per entry; the mf2
+      // `{ value, alt }` alt-text shape has no flat-form equivalent (per `@dwk/micropub`'s own
+      // `parseFormBody`, only one `photo[sub]` nested object can round-trip per request), so
+      // form-encoded photos never carry alt text — same fidelity Micropub form clients get today.
+      const rawPhotos = [...form.getAll("photo"), ...form.getAll("photo[]")].filter(
+        (value): value is string => typeof value === "string" && value.length > 0,
+      );
+      return { content, photos: extractMf2Photos(rawPhotos) };
     } catch {
-      return ""; // Can't recover the post content — skip the fan-out rather than publish an empty Note.
+      // Can't recover the post content — skip the fan-out rather than publish an empty Note.
+      return { content: "", photos: [] };
     }
   })();
   return micropub(request, micropubEnv, ctx).then(async (response) => {
     if (request.method === "POST" && response.status === 201) {
-      const content = await contentPromise;
-      ctx.waitUntil(fanOutMicropubCreateToActivityPub(content, baseUrl, response, env, ctx));
+      const { content, photos } = await contentPromise;
+      ctx.waitUntil(fanOutMicropubCreateToActivityPub(content, photos, baseUrl, response, env, ctx));
     }
     return response;
   });
@@ -1033,9 +1082,16 @@ function handleMicropub(
  * round-trip. Only runs when ActivityPub is provisioned (`AP_PUBLISH_TOKEN` set); activating
  * Micropub alone never attempts to federate. Failure here must never fail the Micropub create
  * response (the post is already saved) — logged and swallowed.
+ *
+ * `photos` becomes AS2 `attachment` (#1240): media-only Fediverse clients such as Pixelfed
+ * render only posts carrying an attachment, so a bare `Note` from `content` alone is invisible
+ * to a Pixelfed follower. `@dwk/activitypub`'s outbox wraps the posted object with `{ ...input }`
+ * (see its `#asOutboxActivity`), so `attachment` passes through to delivery unmodified — no
+ * package-side change needed.
  */
 async function fanOutMicropubCreateToActivityPub(
   content: string,
+  photos: readonly ExtractedPhoto[],
   baseUrl: string,
   micropubResponse: Response,
   env: WorkerEnv,
@@ -1053,6 +1109,15 @@ async function fanOutMicropubCreateToActivityPub(
     attributedTo: actorIRI,
     content,
     url: location,
+    ...(photos.length > 0
+      ? {
+          attachment: photos.map((photo) => ({
+            type: "Image",
+            url: photo.url,
+            ...(photo.alt !== undefined ? { name: photo.alt } : {}),
+          })),
+        }
+      : {}),
     // No `cc` naming the followers collection: unlike the convention some AP implementations
     // use for "public post, also cc followers" addressing, @dwk/activitypub's owner-publish
     // outbox handler (`#publish` in its Durable Object) fans out to every current follower's
