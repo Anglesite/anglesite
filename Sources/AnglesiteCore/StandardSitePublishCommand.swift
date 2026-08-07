@@ -24,6 +24,11 @@ public actor StandardSitePublishCommand {
     /// `.site-config` key the session DID is persisted under after the first successful publish
     /// — needed by increment 2's build-time well-known/link-tag emission.
     static let didConfigKey = "ATPROTO_DID"
+    /// `.site-config` key `siteID` is persisted under alongside the DID. Increment 2's template
+    /// generators re-derive `POSSEStableKey`-style rkeys at build time with no network — that
+    /// derivation is keyed on the site UUID (`siteID`), not just the DID, so both must be on disk
+    /// before the template can reconstruct a document's or the publication's at-URI.
+    static let siteIDConfigKey = "ATPROTO_SITE_ID"
     /// Optional `.site-config` escape hatch for a site description; nothing writes it yet (no
     /// Settings field exists for it), but the app already treats `.site-config` as hand-editable
     /// (git is the source of truth), so an owner can set it today and have it picked up here.
@@ -110,7 +115,7 @@ public actor StandardSitePublishCommand {
             await logError("couldn't publish site.standard.publication: \(error.localizedDescription)", source: source)
             return
         }
-        persistDID(publicationResult.did, siteDirectory: siteDirectory)
+        persistIdentity(did: publicationResult.did, siteID: siteID, siteDirectory: siteDirectory)
         ledger.publicationURI = publicationResult.uri
         try? ledger.save(to: configDirectory)
 
@@ -159,16 +164,24 @@ public actor StandardSitePublishCommand {
         }
     }
 
-    /// Persists the session DID into `.site-config`'s `ATPROTO_DID` on first successful publish
-    /// (needed by increment 2's build-time well-known/link-tag emission). Best-effort, like every
-    /// other write-through call site — a write failure must never turn a successful publish pass
-    /// into a failed one. Skipped once the recorded value already matches, mirroring
-    /// `DeployCommand.persistWorkerDeployed`'s idempotent-write shape.
-    private func persistDID(_ did: String, siteDirectory: URL) {
+    /// Persists the session DID and site UUID into `.site-config` (`ATPROTO_DID`/`ATPROTO_SITE_ID`)
+    /// on first successful publish — needed by increment 2's build-time well-known/link-tag
+    /// emission, which must reconstruct `POSSEStableKey`-style rkeys with no network. Best-effort,
+    /// like every other write-through call site — a write failure must never turn a successful
+    /// publish pass into a failed one. Each key is skipped once its recorded value already
+    /// matches, mirroring `DeployCommand.persistWorkerDeployed`'s idempotent-write shape.
+    private func persistIdentity(did: String, siteID: String, siteDirectory: URL) {
         let configURL = siteDirectory.appendingPathComponent(WebsiteAnalyticsAsset.configRelativePath)
         let config = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        guard SiteConfigFile.value(forKey: Self.didConfigKey, in: config) != did else { return }
-        let updated = SiteConfigFile.upsert([(Self.didConfigKey, did)], into: config)
+        var updates: [(String, String)] = []
+        if SiteConfigFile.value(forKey: Self.didConfigKey, in: config) != did {
+            updates.append((Self.didConfigKey, did))
+        }
+        if SiteConfigFile.value(forKey: Self.siteIDConfigKey, in: config) != siteID {
+            updates.append((Self.siteIDConfigKey, siteID))
+        }
+        guard !updates.isEmpty else { return }
+        let updated = SiteConfigFile.upsert(updates, into: config)
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 

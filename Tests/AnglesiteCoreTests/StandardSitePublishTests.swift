@@ -74,6 +74,21 @@ struct StandardSiteRecordsTests {
         #expect(document.tags[1] == "short")
     }
 
+    @Test("fnv1a matches the TypeScript port's fixture (standard-site.test.ts)")
+    func fnv1aFixture() {
+        // Cross-checked against `Resources/Template/scripts/standard-site.test.ts`'s
+        // "fnv1a matches the Swift POSSEStableKey.make fixture" test — the same four
+        // inputs/outputs appear literally in both files. If the TS port ever drifts from this
+        // implementation, one suite starts failing while the fixture in the other stays put,
+        // which is the signal to compare them side by side.
+        #expect(POSSEStableKey.make("") == "cbf29ce484222325")
+        #expect(POSSEStableKey.make("a") == "af63dc4c8601ec8c")
+        #expect(POSSEStableKey.make("11111111-2222-3333-4444-555555555555") == "5ff56bf05c1d58f9")
+        #expect(
+            POSSEStableKey.make("11111111-2222-3333-4444-555555555555\n/blog/hello-world/") == "2da1b8cd0c953401"
+        )
+    }
+
     @Test("rkeys are deterministic for the same site/path and differ across sites/paths")
     func rkeyDeterminism() {
         let publicationRkeyA = "anglesite-\(POSSEStableKey.make("site-1"))"
@@ -292,6 +307,9 @@ struct StandardSitePublishCommandTests {
 
         let config = try String(contentsOf: site.source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(SiteConfigFile.value(forKey: "ATPROTO_DID", in: config) == "did:plc:owner")
+        // Persisted alongside the DID: increment 2's template generators re-derive rkeys at build
+        // time with no network, and that derivation is keyed on siteID, not just the DID.
+        #expect(SiteConfigFile.value(forKey: "ATPROTO_SITE_ID", in: config) == "site-1")
 
         // Re-run: putRecord's create-or-update semantics make a repeat pass idempotent — same
         // rkeys, same resulting ledger, no error — even though every eligible post is re-put.

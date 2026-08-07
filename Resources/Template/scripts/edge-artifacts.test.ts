@@ -24,7 +24,9 @@ import {
   normalizeMTAStsMX,
   planMTAStsPolicy,
   resolveMTAStsMode,
+  planStandardSitePublication,
 } from "./edge-artifacts";
+import { standardSitePublicationURI } from "./standard-site.ts";
 import { NO_USAGE, type AIUsage, type LicensingPolicy } from "../src/lib/licensing.ts";
 import type { RobotsConfigEntry } from "../src/lib/robots-config.ts";
 
@@ -663,6 +665,43 @@ test("planMTAStsPolicy: preserves hand-authored policies and reports disabled/fi
 
   const disabled = planMTAStsPolicy({ mode: "disabled", mxRaw: undefined, existingContent: "old" });
   assert.match(disabled.note ?? "", /disabled/);
+});
+
+test("planStandardSitePublication: neither key set is silent, even with stray content on disk", () => {
+  const absent = planStandardSitePublication({ did: undefined, siteID: undefined, existingContent: null });
+  assert.deepEqual(absent.action, { kind: "none" });
+
+  const handAuthored = planStandardSitePublication({ did: undefined, siteID: undefined, existingContent: "hello" });
+  assert.deepEqual(handAuthored.action, { kind: "none" });
+});
+
+test("planStandardSitePublication: both keys set writes the derived at-URI with a trailing newline", () => {
+  const plan = planStandardSitePublication({ did: "did:plc:owner", siteID: "site-1", existingContent: null });
+  assert.deepEqual(plan.action, { kind: "write", content: `${standardSitePublicationURI("did:plc:owner", "site-1")}\n` });
+});
+
+test("planStandardSitePublication: overwrites its own prior output on redeploy (e.g. a reconnected account)", () => {
+  const priorURI = standardSitePublicationURI("did:plc:old-owner", "site-1");
+  const plan = planStandardSitePublication({ did: "did:plc:new-owner", siteID: "site-1", existingContent: priorURI });
+  assert.deepEqual(plan.action, { kind: "write", content: `${standardSitePublicationURI("did:plc:new-owner", "site-1")}\n` });
+});
+
+test("planStandardSitePublication: refuses to overwrite hand-authored content", () => {
+  const plan = planStandardSitePublication({ did: "did:plc:owner", siteID: "site-1", existingContent: "hand-authored text" });
+  assert.deepEqual(plan.action, { kind: "none" });
+  assert.match(plan.note ?? "", /refusing to overwrite/);
+});
+
+test("planStandardSitePublication: clears its own stale output once the identity is unset", () => {
+  const priorURI = standardSitePublicationURI("did:plc:owner", "site-1");
+  const plan = planStandardSitePublication({ did: undefined, siteID: undefined, existingContent: priorURI });
+  assert.deepEqual(plan.action, { kind: "delete-stale" });
+  assert.match(plan.note ?? "", /removed the previously generated file/);
+});
+
+test("planStandardSitePublication: never deletes hand-authored content just because the identity is unset", () => {
+  const plan = planStandardSitePublication({ did: undefined, siteID: undefined, existingContent: "hand-authored text" });
+  assert.deepEqual(plan.action, { kind: "none" });
 });
 
 test("buildRobotsTxt: adds a Disallow line per entry inside the User-agent: * group", () => {
