@@ -36,10 +36,14 @@ public struct StandardSitePublicationRecord: Encodable, Equatable, Sendable {
     public let name: String
     public let url: String
     public let description: String?
+    /// Square publication icon (≥256×256 recommended, ≤1 MB per the lexicon), uploaded via
+    /// `com.atproto.repo.uploadBlob` (v1.1, #1234). `nil` when the site has no installed icon, or
+    /// the icon exceeds the size limit.
+    public let icon: AtprotoPutRecordClient.BlobRef?
 
     enum CodingKeys: String, CodingKey {
         case type = "$type"
-        case name, url, description
+        case name, url, description, icon
     }
 
     /// Memberwise initializer.
@@ -47,12 +51,14 @@ public struct StandardSitePublicationRecord: Encodable, Equatable, Sendable {
     ///   - name: The site's display name.
     ///   - url: The site's canonical public URL.
     ///   - description: A short description of the site, if any.
-    public init(name: String, url: String, description: String?) {
+    ///   - icon: The site's uploaded icon blob, if any (v1.1, #1234).
+    public init(name: String, url: String, description: String?, icon: AtprotoPutRecordClient.BlobRef? = nil) {
         self.name = StandardSiteText.truncate(name, graphemeLimit: StandardSiteText.titleGraphemeLimit)
         self.url = url
         self.description = description.map {
             StandardSiteText.truncate($0, graphemeLimit: StandardSiteText.descriptionGraphemeLimit)
         }
+        self.icon = icon
     }
 }
 
@@ -77,10 +83,19 @@ public struct StandardSiteDocumentRecord: Encodable, Equatable, Sendable {
     /// Plain-text render of the body, for indexers; the lexicon's `content` open union is
     /// deliberately left unset (see the design doc — the git repo stays the canonical format).
     public let textContent: String?
+    /// Strong reference to the Bluesky post this document was cross-posted as, set on a later
+    /// pass once the POSSE pass has published it (v1.1, #1234) — `publishStandardSite` runs
+    /// before `syndicate` in `runPostDeploySequencing`, so this is always `nil` on the same pass
+    /// a document is first published and filled in on a subsequent deploy.
+    public let bskyPostRef: AtprotoPutRecordClient.StrongRef?
+    /// Cover image blob (≤1 MB per the lexicon), uploaded from the post's frontmatter `image`
+    /// field via `com.atproto.repo.uploadBlob` (v1.1, #1234). `nil` when the post has no cover
+    /// image, or it exceeds the size limit.
+    public let coverImage: AtprotoPutRecordClient.BlobRef?
 
     enum CodingKeys: String, CodingKey {
         case type = "$type"
-        case site, title, description, path, publishedAt, updatedAt, tags, textContent
+        case site, title, description, path, publishedAt, updatedAt, tags, textContent, bskyPostRef, coverImage
     }
 
     /// Memberwise initializer.
@@ -92,7 +107,9 @@ public struct StandardSiteDocumentRecord: Encodable, Equatable, Sendable {
         publishedAt: String,
         updatedAt: String?,
         tags: [String],
-        textContent: String?
+        textContent: String?,
+        bskyPostRef: AtprotoPutRecordClient.StrongRef? = nil,
+        coverImage: AtprotoPutRecordClient.BlobRef? = nil
     ) {
         self.site = site
         self.title = StandardSiteText.truncate(title, graphemeLimit: StandardSiteText.titleGraphemeLimit)
@@ -104,5 +121,7 @@ public struct StandardSiteDocumentRecord: Encodable, Equatable, Sendable {
         self.updatedAt = updatedAt
         self.tags = tags.map { StandardSiteText.truncate($0, graphemeLimit: StandardSiteText.tagGraphemeLimit) }
         self.textContent = textContent
+        self.bskyPostRef = bskyPostRef
+        self.coverImage = coverImage
     }
 }

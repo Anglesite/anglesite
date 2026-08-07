@@ -98,7 +98,10 @@ public actor StandardSitePublishCommand {
         let siteName = SiteConfigValues.siteName(sourceDirectory: siteDirectory) ?? siteID
         let description = nonBlank(SiteConfigFile.value(forKey: Self.descriptionConfigKey, in: config))
 
-        let publication = StandardSitePublicationRecord(name: siteName, url: siteURL.absoluteString, description: description)
+        let iconFileURL = siteDirectory
+            .appendingPathComponent(WebsiteIconAsset.publicDirectoryRelativePath, isDirectory: true)
+            .appendingPathComponent(WebsiteIconAsset.icon512Name)
+
         let publicationRkey = "anglesite-\(POSSEStableKey.make(siteID))"
 
         // One login for the whole run: every record write below reuses this session instead of
@@ -111,6 +114,13 @@ public actor StandardSitePublishCommand {
             await logError("couldn't sign in to publish: \(error.localizedDescription)", source: source)
             return
         }
+
+        let icon = await prepareImageBlob(
+            fileURL: iconFileURL, label: "site icon", pdsURL: bluesky.pdsURL, session: session, source: source
+        )
+        let publication = StandardSitePublicationRecord(
+            name: siteName, url: siteURL.absoluteString, description: description, icon: icon
+        )
 
         let publicationResult: AtprotoPutRecordClient.Result
         do {
@@ -133,9 +143,20 @@ public actor StandardSitePublishCommand {
         var updatedCount = 0
         var failedCount = 0
 
+        // Loaded once for the whole pass: every entry's `bskyPostRef` lookup below reads this
+        // same snapshot rather than re-loading per document.
+        let posseLedger = POSSESyndicationLog.load(from: configDirectory)
+
         for entry in plan.entries {
             let wasAlreadyPublished = ledger.entries.contains { $0.path == entry.path }
             let documentRkey = "anglesite-\(POSSEStableKey.make("\(siteID)\n\(entry.path)"))"
+            let bskyPostRef = await resolveBskyPostRef(
+                entry: entry, siteID: siteID, siteURL: siteURL, posseLedger: posseLedger,
+                bluesky: bluesky, session: session
+            )
+            let coverImage = await resolveCoverImage(
+                entry: entry, siteDirectory: siteDirectory, pdsURL: bluesky.pdsURL, session: session, source: source
+            )
             let document = StandardSiteDocumentRecord(
                 site: publicationResult.uri,
                 title: entry.title,
@@ -144,7 +165,9 @@ public actor StandardSitePublishCommand {
                 publishedAt: iso8601(entry.publishedAt),
                 updatedAt: entry.updatedAt.map(iso8601),
                 tags: entry.tags,
-                textContent: entry.textContent
+                textContent: entry.textContent,
+                bskyPostRef: bskyPostRef,
+                coverImage: coverImage
             )
             let documentResult: AtprotoPutRecordClient.Result
             do {
@@ -189,6 +212,43 @@ public actor StandardSitePublishCommand {
             }
         }
 
+        // Unpublish (v1.1, #1234): a ledgered document whose path no longer appears in the
+        // current plan means its source post was deleted, or renamed — deterministic rkeys are
+        // keyed on path, so a rename orphans the old record the same way a deletion does (see the
+        // design doc's open questions). Diff first, delete after, so a `deleteRecord` failure
+        // leaves the ledger entry in place for the next pass to retry rather than losing track of
+        // a record that's still live.
+        let currentPaths = Set(plan.entries.map(\.path))
+        let staleEntries = ledger.entries.filter { !currentPaths.contains($0.path) }
+        var unpublishedCount = 0
+        for staleEntry in staleEntries {
+            guard let rkey = staleEntry.uri.split(separator: "/").last else { continue }
+            do {
+                try await AtprotoPutRecordClient.deleteRecord(
+                    collection: "site.standard.document", rkey: String(rkey),
+                    pdsURL: bluesky.pdsURL, session: session, transport: transport
+                )
+            } catch {
+                failedCount += 1
+                await logError("couldn't unpublish \(staleEntry.path): \(error.localizedDescription)", source: source)
+                continue
+            }
+            ledger.entries.removeAll { $0.path == staleEntry.path }
+            do {
+                try ledger.save(to: configDirectory)
+            } catch {
+                await logError(
+                    "unpublished \(staleEntry.path), but its ledger update failed: \(error.localizedDescription)",
+                    source: source
+                )
+                continue
+            }
+            unpublishedCount += 1
+            await logCenter.append(
+                source: source, stream: .stdout, text: "standardsite: unpublished \(staleEntry.path)"
+            )
+        }
+
         // No per-document "skipped" bucket here on purpose: deterministic rkeys mean every
         // eligible document is always re-put ("updates are free," per the design doc), so each
         // plan entry lands in exactly one of the three counts above. A document being excluded
@@ -198,8 +258,104 @@ public actor StandardSitePublishCommand {
         // above ("skipped — ...") rather than a count folded into this summary.
         await logCenter.append(
             source: source, stream: .stdout,
-            text: "standardsite: done — published \(publishedCount), updated \(updatedCount), failed \(failedCount)"
+            text: "standardsite: done — published \(publishedCount), updated \(updatedCount), "
+                + "unpublished \(unpublishedCount), failed \(failedCount)"
         )
+    }
+
+    /// Resolves the strong reference to link `entry`'s document to the Bluesky post it was
+    /// cross-posted as (v1.1, #1234), or `nil` when there is none yet. Independent of
+    /// `POSSESyndicationCommand`/`BlueskyPOSSEClient` by design: both this pass and POSSE derive
+    /// the same deterministic Bluesky rkey from the same site + canonical URL inputs (see
+    /// ``POSSEStableKey``), and both authenticate the same Bluesky account, so the post's at-URI
+    /// is computable without any coordination — only its `cid` needs a lookup. Because
+    /// `publishStandardSite` runs *before* `syndicate` in `runPostDeploySequencing`, the earliest
+    /// a document can carry its `bskyPostRef` is the deploy *after* the one that first
+    /// cross-posted it — this reads whatever `POSSESyndicationLog` a prior deploy already wrote.
+    private func resolveBskyPostRef(
+        entry: StandardSiteDocumentPlan.Entry,
+        siteID: String,
+        siteURL: URL,
+        posseLedger: POSSESyndicationLog?,
+        bluesky: POSSECredentials.Bluesky,
+        session: AtprotoPutRecordClient.Session
+    ) async -> AtprotoPutRecordClient.StrongRef? {
+        guard let posseLedger,
+              let canonicalURL = URL(string: entry.path, relativeTo: siteURL)?.absoluteURL,
+              posseLedger.contains(canonicalURL: canonicalURL, platform: "bluesky")
+        else { return nil }
+        let rkey = "anglesite-\(POSSEStableKey.make("\(siteID)\n\(canonicalURL.absoluteString)\nbluesky"))"
+        // Best-effort: a lookup failure (network hiccup, the post since deleted) just means no
+        // linkage this pass, not a publish failure — the next pass tries again.
+        guard let ref = try? await AtprotoPutRecordClient.getRecord(
+            collection: "app.bsky.feed.post", repo: session.did, rkey: rkey,
+            pdsURL: bluesky.pdsURL, session: session, transport: transport
+        ) else { return nil }
+        return ref
+    }
+
+    /// Resolves `entry`'s frontmatter `image` field to an uploaded cover-image blob (v1.1,
+    /// #1234), or `nil` when the post has none. Only a root-relative path (`/uploads/hero.jpg` —
+    /// Astro's `public/` served at the site root, the same convention `LogoAsset`/`WebsiteIconAsset`
+    /// use) resolves to a local file; anything else (an external URL, a colocated-asset relative
+    /// path) is left unresolved rather than guessed at.
+    private func resolveCoverImage(
+        entry: StandardSiteDocumentPlan.Entry,
+        siteDirectory: URL,
+        pdsURL: URL,
+        session: AtprotoPutRecordClient.Session,
+        source: String
+    ) async -> AtprotoPutRecordClient.BlobRef? {
+        guard let sourcePath = entry.coverImageSourcePath, sourcePath.hasPrefix("/") else { return nil }
+        let fileURL = siteDirectory
+            .appendingPathComponent(WebsiteIconAsset.publicDirectoryRelativePath, isDirectory: true)
+            .appendingPathComponent(String(sourcePath.dropFirst()))
+        return await prepareImageBlob(
+            fileURL: fileURL, label: "\(entry.path) cover image", pdsURL: pdsURL, session: session, source: source
+        )
+    }
+
+    /// Reads and uploads one local image as a Standard.site blob field (v1.1, #1234) — shared by
+    /// the publication `icon` and each document's `coverImage`. Never throws: a missing file, an
+    /// unsupported extension, or an oversize image (see ``StandardSiteImageBlob`` — no
+    /// downscaling yet) all degrade to "no blob for this field" rather than failing the pass.
+    /// `.fileNotFound` stays silent — the common case is simply no icon/cover image configured,
+    /// nothing for the owner to act on — but the other two skip reasons mean the owner *did* set
+    /// something (an oversize file, or an extension this doesn't recognize) that's silently not
+    /// showing up on the Atmosphere side, so both are worth a log line.
+    private func prepareImageBlob(
+        fileURL: URL,
+        label: String,
+        pdsURL: URL,
+        session: AtprotoPutRecordClient.Session,
+        source: String
+    ) async -> AtprotoPutRecordClient.BlobRef? {
+        switch StandardSiteImageBlob.prepare(fileURL: fileURL) {
+        case .success(let prepared):
+            do {
+                return try await AtprotoPutRecordClient.uploadBlob(
+                    data: prepared.data, mimeType: prepared.mimeType,
+                    pdsURL: pdsURL, session: session, transport: transport
+                )
+            } catch {
+                await logError("couldn't upload \(label): \(error.localizedDescription)", source: source)
+                return nil
+            }
+        case .failure(.tooLarge(let bytes)):
+            await logCenter.append(
+                source: source, stream: .stdout,
+                text: "standardsite: skipped \(label) — \(bytes) bytes exceeds the 1 MB limit (no downscaling yet)"
+            )
+            return nil
+        case .failure(.unsupportedExtension(let ext)):
+            await logCenter.append(
+                source: source, stream: .stdout,
+                text: "standardsite: skipped \(label) — unrecognized image extension \"\(ext)\""
+            )
+            return nil
+        case .failure(.fileNotFound):
+            return nil
+        }
     }
 
     /// Persists the session DID into `.site-config`'s `ATPROTO_DID` on first successful publish
