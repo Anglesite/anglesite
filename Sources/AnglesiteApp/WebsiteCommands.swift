@@ -11,9 +11,13 @@ struct WebsiteCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Website") {
-            // Configure — in-app provider-backed views (spec §2.9). No site-settings
-            // sheet exists yet, so all three are planned.
-            PlannedItem("Website Settings…")
+            // Configure — in-app provider-backed views (spec §2.9). Website Settings opens
+            // the same package Info.plist editor (PlistEditorView, #242) as the navigator's
+            // Website row (#959); Analytics and Logs are separately tracked by #699 and still
+            // planned.
+            Button("Website Settings…") { model?.openWebsiteSettings() }
+                .keyboardShortcut(",", modifiers: [.command, .shift])
+                .disabled(model?.canOpenWebsiteSettings != true)
             PlannedItem("Analytics…")
             PlannedItem("Logs…")
 
