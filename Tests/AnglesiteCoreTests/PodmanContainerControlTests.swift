@@ -2,6 +2,7 @@
 // podman-driven containers are Linux-only (cross-platform port design §7).
 #if canImport(Glibc)
 import Testing
+import Foundation
 @testable import AnglesiteCore
 
 @Suite("PodmanContainerControl")
@@ -37,6 +38,29 @@ struct PodmanContainerControlTests {
     func parseHostPortInvalidInput() {
         #expect(PodmanContainerControl.parseHostPort(from: "") == nil)
         #expect(PodmanContainerControl.parseHostPort(from: "not-a-port-line\n") == nil)
+    }
+
+    @Test("outside a Flatpak sandbox, podman invocations exec podmanExecutable directly")
+    func podmanInvocationPassesThroughOutsideFlatpak() {
+        let control = PodmanContainerControl(
+            podmanExecutable: URL(fileURLWithPath: "/usr/bin/podman"),
+            flatpakHostSpawn: false
+        )
+        let invocation = control.podmanInvocation(["stop", "-t", "5", "anglesite-test"])
+        #expect(invocation.executable.path == "/usr/bin/podman")
+        #expect(invocation.arguments == ["stop", "-t", "5", "anglesite-test"])
+    }
+
+    @Test("inside a Flatpak sandbox, podman invocations route through the injected flatpak-spawn")
+    func podmanInvocationRoutesThroughFlatpakSpawn() {
+        let control = PodmanContainerControl(
+            podmanExecutable: URL(fileURLWithPath: "/usr/bin/podman"),
+            flatpakHostSpawn: true,
+            flatpakSpawnExecutable: URL(fileURLWithPath: "/some/other/prefix/bin/flatpak-spawn")
+        )
+        let invocation = control.podmanInvocation(["stop", "-t", "5", "anglesite-test"])
+        #expect(invocation.executable.path == "/some/other/prefix/bin/flatpak-spawn")
+        #expect(invocation.arguments == ["--host", "/usr/bin/podman", "stop", "-t", "5", "anglesite-test"])
     }
 }
 #endif
