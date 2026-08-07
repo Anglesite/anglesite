@@ -21,6 +21,9 @@ public enum TokenCapability: String, CaseIterable, Codable, Sendable {
     case pageShield
     /// Registrar domain search/registration.
     case registrar
+    /// Workers KV namespace management (list/create) — used to gate inbox-capture provisioning
+    /// (#764).
+    case kv
 }
 
 /// The set of permission groups a probe observed on the stored token.

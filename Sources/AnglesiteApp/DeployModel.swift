@@ -847,7 +847,8 @@ final class DeployModel {
             siteURL: siteURL,
             displayName: settings.displayName,
             apUsername: apUsername,
-            acknowledgesPaidPlan: acknowledgesPaidPlan
+            acknowledgesPaidPlan: acknowledgesPaidPlan,
+            inboxCaptureEnabled: settings.inboxCaptureEnabled ?? false
         )
 
         if case .webmentionPaidPlanConfirmationNeeded = provisionResult {

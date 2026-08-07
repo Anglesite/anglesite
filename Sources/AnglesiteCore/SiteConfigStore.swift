@@ -13,15 +13,6 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// Owner-facing display name override. `nil` falls back to the package marker's displayName.
     public var displayName: String?
 
-    /// Cloudflare account id owning this site's `INBOX_KV` namespace (#587). `nil` until a
-    /// provisioning flow sets it — `InboxSubmissionSync` no-ops without both this and
-    /// `inboxCaptureKVNamespaceID`.
-    public var inboxCaptureAccountID: String?
-
-    /// The provisioned `INBOX_KV` namespace id for this site (#587). See
-    /// `inboxCaptureAccountID`.
-    public var inboxCaptureKVNamespaceID: String?
-
     /// Mastodon server origin used for POSSE, for example `https://mastodon.social`.
     /// The access token is stored separately in the platform secret store.
     public var mastodonBaseURL: String?
@@ -95,6 +86,15 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// parameter), which is inert until that wiring lands.
     public var moderators: [String]?
 
+    /// Whether inbox capture's `/inbox` route should be live in the composed Worker (#764).
+    /// Kept separate from `provisionedWorkerResources` (resource existence) so "provisioned but
+    /// paused" and "never provisioned" are distinguishable — mirrors how `activeWorkerIDs`
+    /// (routing) is kept separate from `provisionedWorkerResources` for the `@dwk/workers`
+    /// catalog. `nil`/`false` = off; `provisionedWorkerResources`'s inbox fields are left
+    /// populated when paused so re-enabling reuses the same namespace instead of creating a new
+    /// one.
+    public var inboxCaptureEnabled: Bool?
+
     /// The ActivityPub handle (`DeployCoordinator.resolveEffectiveActivityPubUsername`'s value —
     /// the resolved `AP_USERNAME` override, or the hostname-derived default) as of the last
     /// successful deploy (#1239, design doc §"Owner-chosen username") — the baseline
@@ -124,8 +124,6 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
     public init(
         displayName: String? = nil,
-        inboxCaptureAccountID: String? = nil,
-        inboxCaptureKVNamespaceID: String? = nil,
         mastodonBaseURL: String? = nil,
         blueskyIdentifier: String? = nil,
         blueskyPDSURL: String? = nil,
@@ -139,13 +137,12 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         communityOutboxURL: URL? = nil,
         communityActorURL: URL? = nil,
         moderators: [String]? = nil,
+        inboxCaptureEnabled: Bool? = nil,
         lastDeployedAPUsername: String? = nil,
         activityPubHandleRenameAcknowledged: String? = nil,
         markdownForAgentsDisabled: Bool? = nil
     ) {
         self.displayName = displayName
-        self.inboxCaptureAccountID = inboxCaptureAccountID
-        self.inboxCaptureKVNamespaceID = inboxCaptureKVNamespaceID
         self.mastodonBaseURL = mastodonBaseURL
         self.blueskyIdentifier = blueskyIdentifier
         self.blueskyPDSURL = blueskyPDSURL
@@ -159,6 +156,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.communityOutboxURL = communityOutboxURL
         self.communityActorURL = communityActorURL
         self.moderators = moderators
+        self.inboxCaptureEnabled = inboxCaptureEnabled
         self.lastDeployedAPUsername = lastDeployedAPUsername
         self.activityPubHandleRenameAcknowledged = activityPubHandleRenameAcknowledged
         self.markdownForAgentsDisabled = markdownForAgentsDisabled
@@ -209,7 +207,36 @@ public actor SiteConfigStore {
         let fileURL = configDirectory.appendingPathComponent("settings.plist")
         guard fileManager.fileExists(atPath: fileURL.path) else { return SiteSettings() }
         let data = try Data(contentsOf: fileURL)
-        return (try? PropertyListDecoder().decode(SiteSettings.self, from: data)) ?? SiteSettings()
+        guard var settings = try? PropertyListDecoder().decode(SiteSettings.self, from: data) else {
+            return SiteSettings()
+        }
+        migrateLegacyInboxCaptureFields(into: &settings, from: data)
+        return settings
+    }
+
+    /// One-time, read-only migration for `inboxCaptureAccountID`/`inboxCaptureKVNamespaceID`
+    /// (#587) — top-level `SiteSettings` fields that `Resources/Template/integrations/docs/
+    /// inbox-setup.md` shipped instructions to hand-set before #764 folded inbox-capture ids into
+    /// `provisionedWorkerResources` instead. `PropertyListDecoder` silently drops unknown keys, so
+    /// without this, a `settings.plist` written by that old manual-setup step would lose its ids
+    /// on the next load. Only fills `provisionedWorkerResources` when it doesn't already carry
+    /// inbox ids of its own — a value the new Settings UI wrote always wins over a stale legacy
+    /// one. Not persisted here; the next `save()` naturally rewrites the file in the new shape.
+    private nonisolated static func migrateLegacyInboxCaptureFields(into settings: inout SiteSettings, from data: Data) {
+        guard settings.provisionedWorkerResources?.inboxAccountID == nil,
+              settings.provisionedWorkerResources?.inboxKVNamespaceID == nil,
+              let legacy = try? PropertyListDecoder().decode(LegacyInboxCaptureFields.self, from: data),
+              legacy.inboxCaptureAccountID != nil || legacy.inboxCaptureKVNamespaceID != nil
+        else { return }
+        var resources = settings.provisionedWorkerResources ?? .init()
+        resources.inboxAccountID = legacy.inboxCaptureAccountID
+        resources.inboxKVNamespaceID = legacy.inboxCaptureKVNamespaceID
+        settings.provisionedWorkerResources = resources
+    }
+
+    private struct LegacyInboxCaptureFields: Decodable {
+        var inboxCaptureAccountID: String?
+        var inboxCaptureKVNamespaceID: String?
     }
 
     /// Persist settings to `settings.plist` (XML plist, atomic), creating `Config/` if needed.

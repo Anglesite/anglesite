@@ -296,6 +296,9 @@
     "Active Model" : {
 
     },
+    "Active — namespace %@." : {
+
+    },
     "Active — used on ^[%lld page](inflect: true)" : {
 
     },
@@ -968,6 +971,9 @@
     "Connect & publish" : {
 
     },
+    "Connect a Cloudflare API token first, in Settings → Advanced → Credentials." : {
+
+    },
     "Connect a Domain" : {
 
     },
@@ -1105,7 +1111,13 @@
     "Couldn't reach this site" : {
 
     },
+    "Couldn't read your Cloudflare API token: %@" : {
+
+    },
     "Couldn't run the check" : {
+
+    },
+    "Couldn't save the inbox capture setting: %@" : {
 
     },
     "Couldn't save the worker change: %@" : {
@@ -1729,6 +1741,9 @@
     "Inbound Webmention requires the Workers Paid plan" : {
 
     },
+    "Inbox Capture" : {
+
+    },
     "Include Git history (.git)" : {
 
     },
@@ -2122,6 +2137,9 @@
     "Not checked yet." : {
 
     },
+    "Not enabled." : {
+
+    },
     "Not enough traffic yet — the retired skill's rule of thumb is 30+ days or 500+ visitors per variant before trusting an inconclusive result." : {
 
     },
@@ -2303,6 +2321,9 @@
 
     },
     "Pause" : {
+
+    },
+    "Paused — submissions namespace kept, not receiving new ones." : {
 
     },
     "People already follow you at this handle — it can't change without losing them." : {
@@ -3584,6 +3605,9 @@
     "Who does this site speak to?" : {
 
     },
+    "Will activate on next deploy." : {
+
+    },
     "Words or phrases to avoid" : {
 
     },
@@ -3603,6 +3627,9 @@
 
     },
     "You'll need to add these yourself" : {
+
+    },
+    "Your Cloudflare token can't manage KV namespaces — recreate it from Settings → Tokens." : {
 
     },
     "Your declared domain configuration (anglesite.json) doesn't match what's live on Cloudflare. Review and reconcile before deploying again." : {

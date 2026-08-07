@@ -49,6 +49,12 @@ public actor SocialWorkerProvisionCommand {
     /// Re-exported from ``DeployCommand`` so both commands share one token-resolution seam
     /// (Keychain in production, injected values in tests).
     public typealias TokenSource = DeployCommand.TokenSource
+    /// Resolves the Cloudflare account id that owns a token — used only by inbox-capture
+    /// provisioning (#764) to persist the id `InboxSubmissionSync` needs later. `nil` on any
+    /// resolution failure (mirrors `MicropubContentSync`'s/`ReceivedInteractionSync`'s existing
+    /// private `resolveAccountID` helpers, which return an optional rather than throwing — a
+    /// missing account id here fails the *step* via a nil-check, not this closure itself).
+    public typealias AccountIDSource = @Sendable (_ apiToken: String) async -> String?
     /// Runs one `wrangler <arguments>` invocation with `siteDirectory` as cwd, tagged with
     /// `source` for the debug pane. Injected so tests can fake wrangler without a container; the
     /// production conformer routes through the site's container runtime.
@@ -107,6 +113,7 @@ public actor SocialWorkerProvisionCommand {
     private let secretRunner: SecretRunner
     private let deployer: Deployer
     private let workerScriptNamesSource: DeployCommand.WorkerScriptNamesSource
+    private let accountIDSource: AccountIDSource
 
     /// Creates a provisioner. Every dependency defaults to its production conformer; tests (and
     /// `DeployModel`, which threads its own runner/deployer) override only the seams they need.
@@ -122,7 +129,10 @@ public actor SocialWorkerProvisionCommand {
         /// (`DeployCommand.defaultWorkerScriptNames` in production); injected here too so
         /// `provision()` can run that same check *before* any wrangler call touches the
         /// candidate name (#1075) instead of only after D1/KV/R2/secrets have already run.
-        workerScriptNamesSource: @escaping DeployCommand.WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames
+        workerScriptNamesSource: @escaping DeployCommand.WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames,
+        /// Same seam shape as `workerScriptNamesSource`; only used by the inbox-capture block
+        /// (#764) to persist the owning account id.
+        accountIDSource: @escaping AccountIDSource = SocialWorkerProvisionCommand.defaultAccountIDSource
     ) {
         self.tokenSource = tokenSource
         self.runner = runner
@@ -132,6 +142,7 @@ public actor SocialWorkerProvisionCommand {
         self.secretRunner = secretRunner
         self.deployer = deployer
         self.workerScriptNamesSource = workerScriptNamesSource
+        self.accountIDSource = accountIDSource
     }
 
     /// Provisions every Cloudflare resource the active workers need (D1, KV, R2, Queues,
@@ -181,7 +192,12 @@ public actor SocialWorkerProvisionCommand {
         /// `WorkerRouteClaims.wellKnownClaims(routeClaims)` for the GUI path (#934). Distinct from
         /// `routeClaims` above (`[WorkerRouteClaim]`, used only to compose `wrangler.toml`)
         /// because the collision check needs the `OwnedClaim` wrapper's owner attribution.
-        wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim] = []
+        wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim] = [],
+        /// Whether inbox capture's `/inbox` route should be provisioned this run
+        /// (`SiteSettings.inboxCaptureEnabled`, #764). `false` (the default) matches every
+        /// existing caller's behavior unchanged — the KV namespace is created (or, if
+        /// `knownResources`/a prior `wrangler.toml` already has one, reused) only when `true`.
+        inboxCaptureEnabled: Bool = false
     ) async -> Result {
         let token: String?
         do {
@@ -247,7 +263,7 @@ public actor SocialWorkerProvisionCommand {
                     return .failed(reason: "wrangler created D1 database \(name) but no database id was found", exitCode: 0, resources: resources)
                 }
                 resources.d1DatabaseID = id
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername, inboxCaptureEnabled: inboxCaptureEnabled) {
                     return failure
                 }
             }
@@ -274,7 +290,7 @@ public actor SocialWorkerProvisionCommand {
                     return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
                 }
                 resources.kvNamespaceID = id
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername, inboxCaptureEnabled: inboxCaptureEnabled) {
                     return failure
                 }
             }
@@ -294,7 +310,7 @@ public actor SocialWorkerProvisionCommand {
                     return failure
                 }
                 resources.r2BucketName = name
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername, inboxCaptureEnabled: inboxCaptureEnabled) {
                     return failure
                 }
             }
@@ -317,9 +333,47 @@ public actor SocialWorkerProvisionCommand {
                     return failure
                 }
                 resources.podBlobsR2BucketName = name
-                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername) {
+                if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername, inboxCaptureEnabled: inboxCaptureEnabled) {
                     return failure
                 }
+            }
+        }
+
+        if inboxCaptureEnabled {
+            // Namespace creation and account-id resolution are independent, separately-retriable
+            // steps (final-review finding, #1173): `accountIDSource` can return nil on a
+            // transient failure (its production default swallows any transport/API error), and
+            // if the only re-entry guard were "namespace already exists" that nil would be
+            // permanently stranded — `InboxSubmissionSync` requires both ids, so the feature would
+            // silently never activate. Gating each step on its own nil-check means a future
+            // provisioning run retries account resolution without ever re-creating a namespace
+            // that already exists.
+            if resources.inboxKVNamespaceID == nil {
+                let name = "\(siteName)-inbox"
+                let result = await runWrangler(
+                    siteDirectory: siteDirectory,
+                    arguments: ["kv", "namespace", "create", name, "--json"],
+                    environment: environment,
+                    source: source,
+                    resources: resources
+                )
+                let output: String
+                switch result {
+                case .success(let value):
+                    output = value
+                case .failure(let failure):
+                    return failure
+                }
+                guard let id = Self.extractResourceID(from: output) else {
+                    return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
+                }
+                resources.inboxKVNamespaceID = id
+            }
+            if resources.inboxAccountID == nil {
+                resources.inboxAccountID = await accountIDSource(token)
+            }
+            if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, inboxCaptureEnabled: inboxCaptureEnabled) {
+                return failure
             }
         }
 
@@ -331,7 +385,7 @@ public actor SocialWorkerProvisionCommand {
             // `wrangler secret put` (below) resolves the Worker's project name from
             // wrangler.toml in the working directory — persist it here first so that lookup
             // succeeds even on an ActivityPub-only first deploy.
-            if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername) {
+            if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername, inboxCaptureEnabled: inboxCaptureEnabled) {
                 return failure
             }
             let keys: ActivityPubKeyProvisioning.Secrets
@@ -424,7 +478,8 @@ public actor SocialWorkerProvisionCommand {
             if let failure = persistConfig(
                 siteDirectory: siteDirectory, siteName: siteName, workers: workers,
                 routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName,
-                apUsername: apUsername
+                apUsername: apUsername,
+                inboxCaptureEnabled: inboxCaptureEnabled
             ) {
                 return failure
             }
@@ -448,7 +503,8 @@ public actor SocialWorkerProvisionCommand {
             if let failure = persistConfig(
                 siteDirectory: siteDirectory, siteName: siteName, workers: workers,
                 routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName,
-                apUsername: apUsername
+                apUsername: apUsername,
+                inboxCaptureEnabled: inboxCaptureEnabled
             ) {
                 return failure
             }
@@ -472,13 +528,14 @@ public actor SocialWorkerProvisionCommand {
             if let failure = persistConfig(
                 siteDirectory: siteDirectory, siteName: siteName, workers: workers,
                 routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName,
-                apUsername: apUsername
+                apUsername: apUsername,
+                inboxCaptureEnabled: inboxCaptureEnabled
             ) {
                 return failure
             }
         }
 
-        if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername) {
+        if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, apUsername: apUsername, inboxCaptureEnabled: inboxCaptureEnabled) {
             return failure
         }
 
@@ -548,19 +605,17 @@ public actor SocialWorkerProvisionCommand {
         resources: WorkerComposition.ProvisionedResources,
         siteURL: String? = nil,
         displayName: String? = nil,
-        apUsername: String? = nil
+        apUsername: String? = nil,
+        inboxCaptureEnabled: Bool = false
     ) -> Result? {
         do {
-            // Called without `inboxCaptureEnabled`/`inboxKVNamespaceID` — #587's inbox-capture
-            // provisioning doesn't route through here yet. If/when it starts writing an
-            // `INBOX_KV` binding via those params elsewhere, this call site needs the same
-            // params or it will silently strip that binding on the next worker-composition
-            // deploy.
             let toml = try WorkerComposition.generateWranglerToml(
                 siteName: siteName,
                 workers: workers,
                 routeClaims: routeClaims,
                 resources: resources,
+                inboxCaptureEnabled: inboxCaptureEnabled,
+                inboxKVNamespaceID: resources.inboxKVNamespaceID,
                 siteURL: siteURL,
                 displayName: displayName,
                 apUsername: apUsername
@@ -634,12 +689,21 @@ public actor SocialWorkerProvisionCommand {
         let bucketNames = extractAllTomlStrings(named: "bucket_name", from: toml)
         return .init(
             d1DatabaseID: extractTomlString(named: "database_id", from: toml),
-            kvNamespaceID: extractTomlString(named: "id", from: toml),
+            // KV namespace ids are opaque Cloudflare-assigned strings, not deterministic names
+            // like the queue/bucket names above — they can't be classified by suffix. Instead,
+            // `wrangler.toml` can carry up to two `[[kv_namespaces]]` blocks (SOCIAL_KV and
+            // INBOX_KV), each with its own `binding = "…"` line immediately followed by its own
+            // `id = "…"` line (see `generateWranglerToml`'s `[[kv_namespaces]]` emission), so
+            // `extractKVNamespaceID` scopes the match to the binding line that precedes it. A
+            // flat first-`id`-match scrape (the pre-#1173 behavior) would misattribute INBOX_KV's
+            // id to this field whenever SOCIAL_KV wasn't also present.
+            kvNamespaceID: extractKVNamespaceID(binding: "SOCIAL_KV", from: toml),
             r2BucketName: bucketNames.first(where: { $0.hasSuffix("-media") }),
             queueName: queueNames.first(where: { $0.hasSuffix("-webmention") }),
             websubQueueName: queueNames.first(where: { $0.hasSuffix("-websub") }),
             microsubQueueName: queueNames.first(where: { $0.hasSuffix("-microsub") }),
-            podBlobsR2BucketName: bucketNames.first(where: { $0.hasSuffix("-pod-blobs") })
+            podBlobsR2BucketName: bucketNames.first(where: { $0.hasSuffix("-pod-blobs") }),
+            inboxKVNamespaceID: extractKVNamespaceID(binding: "INBOX_KV", from: toml)
         )
     }
 
@@ -661,6 +725,23 @@ public actor SocialWorkerProvisionCommand {
 
     private static func extractTomlString(named key: String, from toml: String) -> String? {
         extractAllTomlStrings(named: key, from: toml).first
+    }
+
+    /// Finds a `[[kv_namespaces]]` block by its `binding = "<name>"` line and returns the
+    /// `id = "…"` value immediately following it in that same block. `generateWranglerToml`
+    /// always emits `binding` immediately followed by `id` within a `[[kv_namespaces]]` block, so
+    /// matching that adjacency is enough to scope the match to the right block without a full
+    /// TOML parser.
+    private static func extractKVNamespaceID(binding: String, from toml: String) -> String? {
+        let escaped = NSRegularExpression.escapedPattern(for: binding)
+        let pattern = ##"(?m)^\s*binding\s*=\s*"@@BINDING@@"\s*\n\s*id\s*=\s*"([^"]+)""##
+            .replacingOccurrences(of: "@@BINDING@@", with: escaped)
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: toml, range: NSRange(toml.startIndex..., in: toml)),
+              match.numberOfRanges > 1,
+              let range = Range(match.range(at: 1), in: toml)
+        else { return nil }
+        return String(toml[range])
     }
 
     private static func extractAllTomlStrings(named key: String, from toml: String) -> [String] {
@@ -742,6 +823,12 @@ public actor SocialWorkerProvisionCommand {
     public static let defaultDeployer: Deployer = { token, siteID, siteDirectory, wellKnownDynamicClaims in
         await DeployCommand(tokenSource: { token }).deploy(
             siteID: siteID, siteDirectory: siteDirectory, wellKnownDynamicClaims: wellKnownDynamicClaims)
+    }
+
+    /// Default ``AccountIDSource`` for production: the token's first visible Cloudflare account,
+    /// via `HTTPCloudflareClient`. `nil` on any resolution failure.
+    public static let defaultAccountIDSource: AccountIDSource = { apiToken in
+        try? await HTTPCloudflareClient().accountID(apiToken: apiToken)
     }
 }
 
