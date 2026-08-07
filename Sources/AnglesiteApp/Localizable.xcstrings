@@ -3672,6 +3672,42 @@
     },
     "👥" : {
 
+    },
+    "Account" : {
+
+    },
+    "Atmosphere" : {
+
+    },
+    "Bluesky" : {
+
+    },
+    "Bluesky account connected" : {
+
+    },
+    "Bluesky account not connected" : {
+
+    },
+    "Connect a Bluesky account for POSSE syndication to turn this on." : {
+
+    },
+    "Connected" : {
+
+    },
+    "Couldn't save the Atmosphere setting: %@" : {
+
+    },
+    "Learn more about Atmosphere" : {
+
+    },
+    "Not Connected" : {
+
+    },
+    "Publish posts to the Atmosphere" : {
+
+    },
+    "When your Bluesky account is connected, Anglesite also publishes each post as a Standard.site record in your own account. That gives your posts richer preview cards on Bluesky and makes them discoverable by independent Atmosphere search tools, without changing where your site is hosted." : {
+
     }
   },
   "version" : "1.0"
