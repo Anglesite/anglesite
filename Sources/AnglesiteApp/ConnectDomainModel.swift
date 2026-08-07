@@ -202,10 +202,10 @@ final class ConnectDomainModel {
     }
 
     private func persistRegistrarInfo(_ info: RDAPDomainInfo, hostname: String, sourceDirectory: URL) {
-        let store = DomainConfigStore(sourceDirectory: sourceDirectory)
-        guard var config = try? store.load(), config.domain?.hostname == hostname else { return }
-        config.domain?.registrar = info.registrar
-        config.domain?.expiresAt = info.expiresAt
-        try? store.save(config)
+        DomainConfigStore.update(sourceDirectory: sourceDirectory) { config in
+            guard config.domain?.hostname == hostname else { return }
+            config.domain?.registrar = info.registrar
+            config.domain?.expiresAt = info.expiresAt
+        }
     }
 }
