@@ -550,6 +550,15 @@ extension HTTPCloudflareClient: CloudflareWriting {
         return .attached
     }
 
+    /// `PATCH /zones/{id}/settings/content_converter`, mapping `enabled` to `"on"/"off"` — same
+    /// shape as `setSpeedBrain`/`setECH`. See ``CloudflareWriting/setMarkdownForAgents(hostname:enabled:apiToken:)``.
+    public func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool {
+        guard let zoneID = try await resolveZoneID(domain: hostname, apiToken: apiToken) else { return false }
+        try await mutate(method: "PATCH", "/zones/\(zoneID)/settings/content_converter",
+                         body: ["value": enabled ? "on" : "off"], apiToken: apiToken)
+        return true
+    }
+
     /// Adds a zstd-first (zstd → brotli → gzip) `compress_response` rule to the zone's
     /// `http_response_compression` ruleset, creating the ruleset when absent. Idempotent by
     /// inspection: an existing zstd rule means return without writing, so repeated hardening

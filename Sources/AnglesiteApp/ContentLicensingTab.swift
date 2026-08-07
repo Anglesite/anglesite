@@ -325,6 +325,25 @@ struct ContentLicensingTab: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(
+                    "Serve a lightweight version of your pages to AI assistants",
+                    isOn: Binding(
+                        get: { model.markdownForAgentsEnabled },
+                        set: { newValue in Task { await model.setMarkdownForAgentsEnabled(newValue) } }))
+                    .toggleStyle(.switch)
+                Text(model.licensingPolicy.usage.blockAICrawlers
+                     ? "Applies only to AI agents you haven't refused above — one you've blocked never requests your pages in the first place, so this never overrides that refusal."
+                     : "When an AI assistant asks for a page, Cloudflare serves it a markdown version instead of the full HTML — a fraction of the tokens your full page costs. Human visitors see no change. Takes effect on your next deploy to a custom domain.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if let markdownForAgentsError = model.markdownForAgentsError {
+                    Text(markdownForAgentsError)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
+            }
         }
     }
 

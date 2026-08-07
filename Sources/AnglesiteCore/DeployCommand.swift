@@ -92,6 +92,11 @@ public actor DeployCommand {
     /// `wrangler` step; never fires on a failed/blocked deploy.
     public typealias DomainAttachObserver = @Sendable (CustomDomainAttachCommand.Result) -> Void
 
+    /// Fires once the Markdown for Agents step resolves (#1247) — only for a site whose domain
+    /// attach just confirmed a live zone; never fires when there's no custom domain, or on a
+    /// failed/blocked deploy.
+    public typealias MarkdownForAgentsObserver = @Sendable (MarkdownForAgentsCommand.Result) -> Void
+
     /// Returns the account's existing Worker script names for the given token. Production
     /// callers use `DeployCommand.defaultWorkerScriptNames` (`HTTPCloudflareClient`); tests
     /// inject a fake list or a throwing closure.
@@ -119,6 +124,9 @@ public actor DeployCommand {
     /// Exposed like `tokenSource`/`workerScriptNamesSource` so `DeployModel.runDeploy` can forward
     /// the exact same seam into a container-path `DeployCommand` it constructs on the fly (#1077).
     public nonisolated let customDomainAttachCommand: CustomDomainAttachCommand
+    /// Exposed like `customDomainAttachCommand` so `DeployModel.runDeploy` can forward the exact
+    /// same seam into a container-path `DeployCommand` it constructs on the fly (#1247).
+    public nonisolated let markdownForAgentsCommand: MarkdownForAgentsCommand
     /// Exposed like the other seams above so callers building a parallel `DeployCommand` (e.g.
     /// `SocialWorkerProvisionCommand`'s `defaultDeployer`) forward the same one rather than
     /// silently defaulting to production and diverging from a test's injected fake.
@@ -133,12 +141,14 @@ public actor DeployCommand {
         tokenSource: @escaping TokenSource = DeployCommand.keychainTokenSource,
         workerScriptNamesSource: @escaping WorkerScriptNamesSource = DeployCommand.defaultWorkerScriptNames,
         customDomainAttachCommand: CustomDomainAttachCommand = CustomDomainAttachCommand(),
+        markdownForAgentsCommand: MarkdownForAgentsCommand = MarkdownForAgentsCommand(),
         executor: any DeployExecutor = HostDeployExecutor(),
         domainConfigDriftSource: @escaping DomainConfigDriftSource = DeployCommand.defaultDomainConfigDriftSource
     ) {
         self.tokenSource = tokenSource
         self.workerScriptNamesSource = workerScriptNamesSource
         self.customDomainAttachCommand = customDomainAttachCommand
+        self.markdownForAgentsCommand = markdownForAgentsCommand
         self.executor = executor
         self.domainConfigDriftSource = domainConfigDriftSource
     }
@@ -165,6 +175,7 @@ public actor DeployCommand {
         wellKnownDynamicClaims: [WorkerRouteClaims.OwnedClaim] = [],
         onPreflight: PreflightObserver? = nil,
         onDomainAttach: DomainAttachObserver? = nil,
+        onMarkdownForAgents: MarkdownForAgentsObserver? = nil,
         onProgress: ProgressHandler? = nil
     ) async -> Result {
         // Pre-spawn checks. The token comes first so we never spend time on a build or scan
@@ -380,6 +391,15 @@ public actor DeployCommand {
                 let domainAttachOutcome = await customDomainAttachCommand.attach(
                     siteDirectory: siteDirectory, apiToken: token, source: "deploy:\(siteID)")
                 onDomainAttach?(domainAttachOutcome)
+                // Only a confirmed-attached custom domain has a zone to configure — a
+                // workers.dev-only site (or one not yet delegated) has nothing for Markdown for
+                // Agents to apply to (#1247).
+                if case .confirmed(let hostname) = domainAttachOutcome {
+                    let markdownOutcome = await markdownForAgentsCommand.apply(
+                        hostname: hostname, configDirectory: configDirectory, apiToken: token,
+                        source: "deploy:\(siteID)")
+                    onMarkdownForAgents?(markdownOutcome)
+                }
                 Self.persistSiteURL(url, siteDirectory: siteDirectory)
                 Self.persistWorkerDeployed(siteDirectory: siteDirectory)
                 if let configDirectory {
