@@ -75,4 +75,25 @@ if ! command -v swiftly >/dev/null 2>&1; then
   # shellcheck source=/dev/null
   . "$SWIFTLY_ENV"
 fi
-swiftly install latest -y
+
+# `swiftly install` fetches swift.org's PGP keys itself (separate from
+# verify_swiftly_tarball above, which only covers the swiftly binary) before
+# verifying the toolchain download. That fetch has been observed to fail fast
+# and deterministically within a single run — gpg importing a 0-byte temp
+# file — without reproducing on a fresh container or under direct network
+# pressure (curl and a standalone URLSession loop against the same URL both
+# came back clean), so retrying the whole command is more effective than
+# trying to fix a root cause that doesn't hold still.
+attempt=1
+max_attempts=3
+delay=5
+until swiftly install latest -y; do
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "install-swift-linux.sh: swiftly install latest -y failed after $max_attempts attempts" >&2
+    exit 1
+  fi
+  echo "install-swift-linux.sh: swiftly install latest -y failed (attempt $attempt/$max_attempts) — retrying in ${delay}s" >&2
+  sleep "$delay"
+  attempt=$((attempt + 1))
+  delay=$((delay * 2))
+done
