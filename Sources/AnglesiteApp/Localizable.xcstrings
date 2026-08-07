@@ -376,6 +376,12 @@
     "Advanced" : {
 
     },
+    "Agent Readiness" : {
+
+    },
+    "Agent Readiness…" : {
+
+    },
     "Agents" : {
 
     },
@@ -422,6 +428,9 @@
 
     },
     "Anglesite Website" : {
+
+    },
+    "Anglesite already supports this — redeploy the site to pick it up." : {
 
     },
     "Anglesite lost access to “%@”, likely after a restart. Locate it again to restore access." : {
@@ -735,10 +744,16 @@
     "Check Domain Config" : {
 
     },
+    "Check Score" : {
+
+    },
     "Check for domain config drift" : {
 
     },
     "Check whether Siri workflows are ready for this site" : {
+
+    },
+    "Checking Agent Readiness…" : {
 
     },
     "Checking Domain Config…" : {
@@ -827,6 +842,9 @@
 
     },
     "Cloudflare" : {
+
+    },
+    "Cloudflare's Agent Readiness score checks whether AI agents and assistants can discover, read, and act on your deployed site — the 2026 equivalent of a Lighthouse score, but for AI agents instead of browsers." : {
 
     },
     "Cloudflare's Content Signals Policy states a usage preference per purpose in robots.txt. It's a signal that well-behaved crawlers honor, not an enforced block." : {
@@ -1678,6 +1696,9 @@
 
     },
     "Is this email for you personally, or for a registered business?" : {
+
+    },
+    "Is this site ready for AI agents?" : {
 
     },
     "Join" : {
@@ -2682,6 +2703,9 @@
 
     },
     "Scan for Cleanup Opportunities" : {
+
+    },
+    "Scanning the deployed site for AI agent readiness…" : {
 
     },
     "Scanning…" : {
