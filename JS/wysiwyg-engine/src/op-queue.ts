@@ -14,6 +14,14 @@ export interface RejectedEvent {
   op: Op;
   reason: OpRejectionReason;
   message?: string;
+  /**
+   * The host's fresh model, present only when one arrived with the rejection and was adopted into
+   * `ModelSync` (version-mismatch). A rejection that carries this is also a *render* trigger: the
+   * engine's model moved even though the op did not apply, so a consumer that re-renders on
+   * "applied"/"model-updated" alone would leave its DOM projection showing the pre-rejection model
+   * while the engine holds the host's newer one.
+   */
+  model?: BlockModel;
 }
 
 export type OpQueueEvent = AppliedEvent | RejectedEvent;
@@ -29,6 +37,13 @@ function nextOpId(): string {
  * mechanism behind spec §9's "no silent loss." A rejection is never swallowed: it is always an
  * emitted `RejectedEvent`, and on version-mismatch the fresh model is adopted into `modelSync`
  * before the event fires, so `retry()` (the "replay" half of §9) targets current state.
+ *
+ * Not serialized: `submit()` does not queue or order concurrent calls. Every submission stamps its
+ * envelope with the model version current *at call time*, so two overlapping submissions against a
+ * host that advances its version per applied op both send the older version and the second
+ * spuriously version-mismatches. Callers in this slice submit one op per gesture, so this is not
+ * yet observable; real request serialization (a single in-flight op with the rest queued behind it,
+ * re-stamped as each completes) is deferred to a later slice.
  */
 export class OpQueue {
   #transport: HostTransport;
@@ -55,10 +70,12 @@ export class OpQueue {
       return result;
     }
 
+    let adopted: BlockModel | undefined;
     if (result.reason === "version-mismatch" && result.freshModel) {
       this.#modelSync.applyModel(result.freshModel);
+      adopted = result.freshModel;
     }
-    this.#emit({ type: "rejected", op, reason: result.reason, message: result.message });
+    this.#emit({ type: "rejected", op, reason: result.reason, message: result.message, model: adopted });
     return result;
   }
 

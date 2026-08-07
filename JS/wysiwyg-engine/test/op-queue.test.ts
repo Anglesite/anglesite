@@ -52,9 +52,30 @@ describe("OpQueue", () => {
 
     expect(result.status).toBe("rejected");
     expect(sync.version).toBe("v2"); // adopted the fresh model, not left stale
+    // The adopted model rides along on the event: a consumer that re-renders on "applied" alone
+    // would otherwise keep showing the pre-rejection model while the engine holds the newer one.
     expect(events).toEqual([
-      { type: "rejected", op, reason: "version-mismatch", message: expect.any(String) },
+      { type: "rejected", op, reason: "version-mismatch", message: expect.any(String), model: host.model },
     ]);
+  });
+
+  it("omits the model on a rejection that carried no fresh model", async () => {
+    const model = makeModel();
+    const host = new FixtureHost(model);
+    const sync = new ModelSync(model);
+    const queue = new OpQueue(host, sync);
+    const events: OpQueueEvent[] = [];
+    queue.onEvent((e) => events.push(e));
+
+    const op: Op = { kind: "setProp", blockId: "missing", propName: "title", value: "Hi", previousValue: "" };
+    await queue.submit(op);
+
+    expect(events).toHaveLength(1);
+    const [event] = events;
+    if (event?.type !== "rejected") throw new Error("expected a rejected event");
+    expect(event.reason).toBe("invalid-target");
+    expect(event.model).toBeUndefined();
+    expect(sync.version).toBe("v1"); // nothing adopted, nothing to re-render
   });
 
   it("retry() re-submits the op against the now-current version (the 'replay' path of spec §9)", async () => {

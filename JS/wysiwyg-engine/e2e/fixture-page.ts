@@ -1,6 +1,8 @@
 import { WysiwygEngine } from "../src/engine.js";
 import { FixtureHost } from "../src/testing/fixture-host.js";
+import { computeHandleRect } from "../src/selection.js";
 import { ROOT_PARENT_ID } from "../src/types.js";
+import type { HandleRect } from "../src/selection.js";
 import type { BlockModel, OpResult } from "../src/types.js";
 
 const initialModel: BlockModel = {
@@ -40,7 +42,9 @@ function render(model: BlockModel): void {
 }
 
 engine.onEvent((event) => {
-  if (event.type === "model-updated" || event.type === "applied") {
+  // A rejection carrying a model adopted the host's fresh one — that is a model swap the canvas
+  // must follow, exactly like "applied"/"model-updated", or the DOM silently drifts from the host.
+  if (event.type === "model-updated" || event.type === "applied" || (event.type === "rejected" && event.model)) {
     render(engine.modelSync.current);
   }
   if (event.type === "selection-changed") {
@@ -60,11 +64,16 @@ declare global {
     __engine: WysiwygEngine;
     __host: FixtureHost;
     __moveBlock: (blockId: string, toIndex: number) => Promise<OpResult>;
+    __computeHandleRect: (blockId: string) => HandleRect | null;
   }
 }
 
 window.__engine = engine;
 window.__host = host;
+// Bridged onto `window` (unlike `hitTest`, which the engine already exposes as a method) so
+// e2e/geometry.spec.ts can exercise it against a real layout engine — jsdom's
+// getBoundingClientRect is all zeros, so unit tests can only prove the wiring.
+window.__computeHandleRect = (blockId) => computeHandleRect(blockId);
 window.__moveBlock = (blockId, toIndex) => {
   const model = engine.modelSync.current;
   const fromIndex = model.rootIds.indexOf(blockId);

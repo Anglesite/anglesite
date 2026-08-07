@@ -109,6 +109,7 @@ export class FixtureHost implements HostTransport {
   #model: BlockModel;
   #listeners = new Set<(model: BlockModel) => void>();
   #forceRejectNext: { reason: OpRejectionReason; message?: string } | null = null;
+  #forcedMismatchCount = 0;
 
   constructor(initialModel: BlockModel) {
     this.#model = initialModel;
@@ -119,9 +120,29 @@ export class FixtureHost implements HostTransport {
   }
 
   /** Test hook: make the next sendOp() reject regardless of version, e.g. to simulate a host-side
-   *  failure unrelated to staleness. */
+   *  failure unrelated to staleness.
+   *
+   *  For `"version-mismatch"` the rejection also *advances the host's model* (see
+   *  `#withSyntheticHostEdit`) and returns the advanced model as `freshModel` — because a mismatch
+   *  means the host moved on. Returning the engine's own unchanged model here would make the
+   *  rejection indistinguishable from a no-op, and no test could then tell whether the engine
+   *  actually adopted and re-rendered the fresh model or silently desynced from the host. */
   forceReject(reason: OpRejectionReason, message?: string): void {
     this.#forceRejectNext = { reason, message };
+  }
+
+  /** Appends a synthetic root block the engine has never seen, so "did the fresh model land?" is
+   *  answerable by looking at the model (or the host's rendered DOM projection), not just at a
+   *  version string. */
+  #withSyntheticHostEdit(model: BlockModel): BlockModel {
+    this.#forcedMismatchCount += 1;
+    const id: BlockId = `host-edit-${this.#forcedMismatchCount}`;
+    const blocks: Record<BlockId, BlockNode> = {
+      ...model.blocks,
+      [id]: { id, kind: "astro", componentName: "HostEdit", props: {}, slots: {}, sourceSpan: [0, 0] },
+    };
+    const rootIds = [...model.rootIds, id];
+    return { ...model, blocks, rootIds, version: hashModel(rootIds, blocks) };
   }
 
   /** Test hook: mutate the model out from under a pending op, as an outside hand edit would
@@ -135,9 +156,9 @@ export class FixtureHost implements HostTransport {
     if (this.#forceRejectNext) {
       const { reason, message } = this.#forceRejectNext;
       this.#forceRejectNext = null;
-      return reason === "version-mismatch"
-        ? { status: "rejected", reason, message, freshModel: this.#model }
-        : { status: "rejected", reason, message };
+      if (reason !== "version-mismatch") return { status: "rejected", reason, message };
+      this.#model = this.#withSyntheticHostEdit(this.#model);
+      return { status: "rejected", reason, message, freshModel: this.#model };
     }
     if (envelope.targetVersion !== this.#model.version) {
       return { status: "rejected", reason: "version-mismatch", freshModel: this.#model, message: "stale model version" };

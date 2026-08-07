@@ -2,7 +2,9 @@
 //
 // jsdom's `getBoundingClientRect` always returns zeros (no layout engine), so
 // `computeHandleRect` here only proves the wiring (present block -> a rect shape, missing block ->
-// null); real handle geometry is covered by the Playwright e2e goldens.
+// null); real handle geometry is covered against a real browser layout engine by
+// e2e/geometry.spec.ts ("computeHandleRect() reports the selected block's real on-screen
+// geometry"), which asserts non-zero dimensions matching the element's own bounding box.
 import { describe, it, expect, beforeEach } from "vitest";
 import { SelectionState, findBlockElement, computeHandleRect } from "../src/selection.js";
 import { BLOCK_ID_ATTR } from "../src/hit-test.js";

@@ -103,6 +103,27 @@ describe("FixtureHost", () => {
     expect(result).toMatchObject({ status: "rejected", reason: "host-error", message: "boom" });
   });
 
+  it("a forced version-mismatch advances the host model so freshModel is observably different", async () => {
+    const host = new FixtureHost(makeModel());
+    const before = host.model;
+    host.forceReject("version-mismatch", "stale");
+
+    const result = await host.sendOp({
+      id: "op-1",
+      targetVersion: host.model.version,
+      op: { kind: "setProp", blockId: "b1", propName: "title", value: "Hi", previousValue: "" },
+    });
+
+    expect(result).toMatchObject({ status: "rejected", reason: "version-mismatch" });
+    if (result.status !== "rejected") throw new Error("expected rejected");
+    // Returning `before` unchanged would make an engine-side desync bug undetectable: adopting it
+    // and failing to adopt it look identical. The fresh model must carry a visible difference.
+    expect(result.freshModel).not.toBe(before);
+    expect(result.freshModel?.version).not.toBe(before.version);
+    expect(result.freshModel?.rootIds).toEqual(["b1", "b2", "host-edit-1"]);
+    expect(result.freshModel).toBe(host.model); // and it *is* the host's model, not a fiction
+  });
+
   it("notifies onModelUpdate listeners on simulateExternalEdit", () => {
     const host = new FixtureHost(makeModel());
     const seen: BlockModel[] = [];

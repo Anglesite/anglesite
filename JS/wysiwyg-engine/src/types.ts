@@ -119,10 +119,6 @@ export interface HostTransport {
   onModelUpdate(listener: (model: BlockModel) => void): () => void;
 }
 
-// Re-declared here (not in engine.ts) so test files can import both the engine's event type and
-// the protocol types from one place without creating an import cycle with op-queue.ts.
-export type EngineEvent =
-  | { type: "model-updated"; model: BlockModel }
-  | { type: "selection-changed"; blockId: BlockId | null }
-  | { type: "applied"; op: Op; inverse: Op; model: BlockModel }
-  | { type: "rejected"; op: Op; reason: OpRejectionReason; message?: string };
+// `EngineEvent` deliberately does NOT live here. It composes op-queue.ts's `AppliedEvent`/
+// `RejectedEvent` rather than restating their shape, and op-queue.ts imports this file — so it is
+// declared in engine.ts (which already depends on both) and re-exported from src/index.ts.
