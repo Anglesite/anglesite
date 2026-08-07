@@ -3574,13 +3574,31 @@
     "Account" : {
 
     },
+    "Atmosphere" : {
+
+    },
+    "Bluesky" : {
+
+    },
+    "Bluesky account connected" : {
+
+    },
+    "Bluesky account not connected" : {
+
+    },
     "Connect a Bluesky account for POSSE syndication to turn this on." : {
+
+    },
+    "Connected" : {
 
     },
     "Couldn't save the Atmosphere setting: %@" : {
 
     },
     "Learn more about Atmosphere" : {
+
+    },
+    "Not Connected" : {
 
     },
     "Publish posts to the Atmosphere" : {
