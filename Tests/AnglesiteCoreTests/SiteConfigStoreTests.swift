@@ -259,4 +259,32 @@ struct SiteConfigStoreTests {
         #expect(loaded.communityActorURL == nil)
         #expect(loaded.moderators == nil)
     }
+
+    @Test("inboxCaptureEnabled and ProvisionedResources' inbox fields round-trip through plist encode/decode")
+    func inboxCaptureFieldsRoundTrip() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SiteConfigStoreTests-inbox-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SiteConfigStore(configDirectory: dir)
+        let settings = SiteSettings(
+            provisionedWorkerResources: .init(inboxKVNamespaceID: "ns-1", inboxAccountID: "acct-1"),
+            inboxCaptureEnabled: true
+        )
+        try await store.save(settings)
+        let loaded = try await store.load()
+        #expect(loaded.inboxCaptureEnabled == true)
+        #expect(loaded.provisionedWorkerResources?.inboxKVNamespaceID == "ns-1")
+        #expect(loaded.provisionedWorkerResources?.inboxAccountID == "acct-1")
+    }
+
+    @Test("a settings.plist with no inboxCaptureEnabled key decodes it as nil")
+    func inboxCaptureEnabledDefaultsNilOnOldFile() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SiteConfigStoreTests-inbox-old-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try await SiteConfigStore(configDirectory: dir).save(SiteSettings(displayName: "Old Site"))
+        let loaded = try await SiteConfigStore(configDirectory: dir).load()
+        #expect(loaded.inboxCaptureEnabled == nil)
+        #expect(loaded.displayName == "Old Site")
+    }
 }

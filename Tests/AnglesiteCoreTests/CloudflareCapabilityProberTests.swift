@@ -12,6 +12,7 @@ struct CloudflareCapabilityProberTests {
             "accounts/acc1/workers/scripts": (200, #"{"success":true,"result":[]}"#),
             "accounts/acc1/challenges/widgets": (403, #"{"success":false}"#),
             "accounts/acc1/registrar/domains": (200, #"{"success":true,"result":[]}"#),
+            "accounts/acc1/storage/kv/namespaces": (403, #"{"success":false}"#),
             "zones/z1/settings/ssl": (200, #"{"success":true,"result":{"value":"strict"}}"#),
             "zones/z1/dns_records": (403, #"{"success":false}"#),
             "zones/z1/rulesets": (200, #"{"success":true,"result":[]}"#),
@@ -23,6 +24,7 @@ struct CloudflareCapabilityProberTests {
         #expect(caps.contains(.workers))
         #expect(!caps.contains(.turnstile))
         #expect(caps.contains(.registrar))
+        #expect(!caps.contains(.kv))
         #expect(caps.contains(.zoneSettings))
         #expect(!caps.contains(.dns))
         #expect(caps.contains(.rulesets))

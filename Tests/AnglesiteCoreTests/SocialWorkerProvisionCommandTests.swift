@@ -172,6 +172,190 @@ struct SocialWorkerProvisionCommandTests {
         #expect(toml.contains("bucket_name = \"my-site-media\""))
     }
 
+    @Test("inboxCaptureEnabled creates the INBOX_KV namespace, resolves the account id, and writes both into wrangler.toml")
+    func provisionsInboxCapture() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["kv", "namespace", "create", "my-site-inbox", "--json"]: .init(stdout: #"{"result":{"id":"inbox-kv-id"}}"#, stderr: "", exitCode: 0),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in "acct-1" }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            inboxCaptureEnabled: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.inboxKVNamespaceID == "inbox-kv-id")
+        #expect(resources.inboxAccountID == "acct-1")
+        #expect(await recorder.arguments == [
+            ["kv", "namespace", "create", "my-site-inbox", "--json"],
+        ])
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(toml.contains("main = \"worker/worker.ts\""))
+        #expect(toml.contains("id = \"inbox-kv-id\""))
+    }
+
+    @Test("inboxCaptureEnabled false never invokes wrangler kv namespace create")
+    func inboxCaptureDisabledNeverCreatesNamespace() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in
+                Issue.record("accountIDSource must not be called when inbox capture is disabled")
+                return nil
+            }
+        )
+
+        let result = await command.provision(siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [])
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.inboxKVNamespaceID == nil)
+        #expect(await recorder.arguments.isEmpty)
+    }
+
+    @Test("toggling inbox capture off after provisioning drops the route/binding but keeps the namespace id")
+    func inboxCaptureToggledOffAfterProvisioningDropsRouteKeepsNamespace() async throws {
+        // Regression coverage for the review's "provisioned, then paused" gap: unlike
+        // `inboxCaptureDisabledNeverCreatesNamespace` (which only covers "never provisioned,
+        // stays off"), this starts from a site that already has a live namespace
+        // (`knownResources.inboxKVNamespaceID` set) and re-provisions with the toggle off — the
+        // actual de-provisioning path the Settings UI toggle exists to support.
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in
+                Issue.record("accountIDSource must not be called when inbox capture is disabled")
+                return nil
+            }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            knownResources: .init(inboxKVNamespaceID: "existing-ns", inboxAccountID: "existing-acct"),
+            inboxCaptureEnabled: false
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        // The KV namespace and its staged submissions are never deleted by toggling off — only
+        // the wrangler.toml route/binding drops. The next re-enable reuses this same namespace
+        // instead of creating a new, orphaned one.
+        #expect(resources.inboxKVNamespaceID == "existing-ns")
+        #expect(resources.inboxAccountID == "existing-acct")
+        #expect(await recorder.arguments.isEmpty, "must not call wrangler kv namespace create/delete when toggling off")
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(!toml.contains("INBOX_KV"), "the [[kv_namespaces]] binding must drop once inbox capture is off")
+        #expect(!toml.contains("/inbox"), "the /inbox route claim must drop once inbox capture is off")
+    }
+
+    @Test("a namespace id already known from settings is reused, not recreated")
+    func inboxCaptureReusesKnownNamespace() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in
+                Issue.record("accountIDSource must not be called when the namespace id is already known")
+                return nil
+            }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            knownResources: .init(inboxKVNamespaceID: "existing-ns", inboxAccountID: "existing-acct"),
+            inboxCaptureEnabled: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.inboxKVNamespaceID == "existing-ns")
+        #expect(resources.inboxAccountID == "existing-acct")
+        #expect(await recorder.arguments.isEmpty)
+    }
+
+    @Test("a known namespace with a still-nil account id retries account resolution without re-creating the namespace")
+    func inboxCaptureRetriesStrandedAccountID() async throws {
+        // Regression coverage for the final-review finding: if a prior provisioning run created
+        // the KV namespace but `accountIDSource` returned nil that time (e.g. a transient
+        // Cloudflare API error), the account id must still be resolvable on a later run — it must
+        // not be permanently stranded just because the namespace already exists.
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in "acct-2" }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            knownResources: .init(inboxKVNamespaceID: "existing-ns", inboxAccountID: nil),
+            inboxCaptureEnabled: true
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        #expect(resources.inboxKVNamespaceID == "existing-ns")
+        #expect(resources.inboxAccountID == "acct-2")
+        #expect(await recorder.arguments.isEmpty, "must not call wrangler kv namespace create again for a namespace that already exists")
+    }
+
+    @Test("a KV creation failure for inbox capture is reported without corrupting resources")
+    func inboxCapturePartialFailure() async throws {
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([
+            ["kv", "namespace", "create", "my-site-inbox", "--json"]: .init(stdout: "KV failed", stderr: "", exitCode: 1),
+        ])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in "acct-1" }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            inboxCaptureEnabled: true
+        )
+
+        guard case .failed(let reason, let exitCode, let resources) = result else {
+            Issue.record("expected failure, got \(result)")
+            return
+        }
+        #expect(reason == "KV failed")
+        #expect(exitCode == 1)
+        #expect(resources.inboxKVNamespaceID == nil)
+    }
+
     @Test("provisions Micropub (real catalog id, requires indieauth) end-to-end")
     func provisionsMicropubWithIndieauth() async throws {
         let site = try temporaryDirectory()
@@ -624,6 +808,7 @@ struct SocialWorkerProvisionCommandTests {
         [[d1_databases]]
         database_id = "d1-id"
         [[kv_namespaces]]
+        binding = "SOCIAL_KV"
         id = "kv-id"
         [[r2_buckets]]
         bucket_name = "my-site-media"
@@ -1244,6 +1429,40 @@ struct SocialWorkerProvisionCommandTests {
 
         #expect(resources.r2BucketName == "my-site-media")
         #expect(resources.podBlobsR2BucketName == "my-site-pod-blobs")
+    }
+
+    @Test("readPersistedResources with only INBOX_KV present leaves SOCIAL_KV nil and recovers the inbox id")
+    func persistedInboxOnlyKVNamespaceClassification() throws {
+        // Regression coverage for the final-review finding: a flat first-`id = "…"`-match scrape
+        // would wrongly attribute INBOX_KV's id to kvNamespaceID (SOCIAL_KV's field) when
+        // SOCIAL_KV isn't present at all.
+        let site = try temporaryDirectory()
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [], inboxCaptureEnabled: true, inboxKVNamespaceID: "inbox-only-id"
+        )
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.kvNamespaceID == nil)
+        #expect(resources.inboxKVNamespaceID == "inbox-only-id")
+    }
+
+    @Test("readPersistedResources with both SOCIAL_KV and INBOX_KV present classifies each by binding")
+    func persistedBothKVNamespacesClassification() throws {
+        let site = try temporaryDirectory()
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [webmentionWorker],
+            resources: .init(kvNamespaceID: "social-id"),
+            inboxCaptureEnabled: true,
+            inboxKVNamespaceID: "inbox-id"
+        )
+        try toml.write(to: site.appendingPathComponent("wrangler.toml"), atomically: true, encoding: .utf8)
+
+        let resources = SocialWorkerProvisionCommand.readPersistedResources(from: site)
+
+        #expect(resources.kvNamespaceID == "social-id")
+        #expect(resources.inboxKVNamespaceID == "inbox-id")
     }
 
     @Test("provisions solid-pod's own BLOBS bucket, distinct from micropub's MEDIA bucket")
