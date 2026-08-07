@@ -3,9 +3,14 @@
 # SessionStart hook for Claude Code on the web.
 #
 # The Linux portable-target flow (see scripts/setup-dev-env.sh and
-# README.md#developing-on-linux) needs a Swift 6.3+ toolchain, installed via
-# swiftly, for `swift build`/`swift test` to work. Web session containers
-# don't ship one, so install it here.
+# README.md#developing-on-linux) needs a Swift 6.3+ toolchain for
+# `swift build`/`swift test` to work, and web session containers don't ship
+# one. The preferred install path is the cloud environment's **setup script**
+# (`bash scripts/install-swift-linux.sh`, cached with the environment — see
+# README.md#developing-on-linux); this hook is the per-session fallback for
+# environments without that cache, and it owns the part a setup script can't
+# do: persisting the toolchain's PATH/LD_LIBRARY_PATH into the session via
+# $CLAUDE_ENV_FILE.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
@@ -14,54 +19,13 @@ fi
 
 : "${CLAUDE_ENV_FILE:?CLAUDE_ENV_FILE must be set}"
 
-SWIFTLY_ENV="$HOME/.local/share/swiftly/env.sh"
-[ -f "$SWIFTLY_ENV" ] && . "$SWIFTLY_ENV"
-
-swift_version_ok() {
-  command -v swift >/dev/null 2>&1 || return 1
-  local version minor
-  version=$(swift --version 2>/dev/null | sed -n 's/^Swift version \([0-9.]*\).*/\1/p' | head -1)
-  minor=$(printf '%s' "${version:-0}" | awk -F. '{ printf "%d%02d", $1, $2 }')
-  [ "${minor:-0}" -ge 603 ]
-}
-
-# Verifies the downloaded swiftly tarball against swift.org's published PGP
-# signature (https://www.swift.org/install/linux/swiftly/), in an isolated
-# GNUPGHOME so this doesn't touch any real user keyring. Runs unattended on
-# every qualifying web session, unlike the manual install instructions this
-# mirrors, so skipping verification here would be a bigger risk than there.
-# Best-effort: if gpg isn't available, warn and fall through rather than
-# blocking session bootstrap on an optional tool.
-verify_swiftly_tarball() {
-  local tarball="$1" sig="$2"
-  if ! command -v gpg >/dev/null 2>&1; then
-    echo "warning: gpg not found — skipping swiftly signature verification" >&2
-    return 0
-  fi
-  local gpg_home
-  gpg_home=$(mktemp -d)
-  # shellcheck disable=SC2064 (expand gpg_home now, not at trap time)
-  trap "rm -rf '$gpg_home'" RETURN
-  curl -fsSL --compressed https://www.swift.org/keys/all-keys.asc \
-    | gpg --homedir "$gpg_home" --quiet --import -
-  gpg --homedir "$gpg_home" --quiet --verify "$sig" "$tarball"
-}
-
-if ! swift_version_ok; then
-  if ! command -v swiftly >/dev/null 2>&1; then
-    curl -fsSL -o /tmp/swiftly.tar.gz "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz"
-    curl -fsSL -o /tmp/swiftly.tar.gz.sig "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz.sig"
-    verify_swiftly_tarball /tmp/swiftly.tar.gz /tmp/swiftly.tar.gz.sig
-    tar zxf /tmp/swiftly.tar.gz -C /tmp
-    /tmp/swiftly init -y --no-modify-profile --skip-install
-    rm -f /tmp/swiftly.tar.gz /tmp/swiftly.tar.gz.sig /tmp/swiftly
-    . "$SWIFTLY_ENV"
-  fi
-  swiftly install latest -y
-fi
+# Idempotent: no-ops fast when the environment cache (or an earlier session)
+# already installed a Swift 6.3+ toolchain.
+"${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}/scripts/install-swift-linux.sh"
 
 # Persist swiftly's PATH for the rest of this session (env.sh itself is a
 # no-op re-source: it only prepends SWIFTLY_BIN_DIR if not already present).
+SWIFTLY_ENV="$HOME/.local/share/swiftly/env.sh"
 if [ -f "$SWIFTLY_ENV" ]; then
   echo ". \"$SWIFTLY_ENV\"" >> "$CLAUDE_ENV_FILE"
 fi
