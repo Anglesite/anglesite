@@ -1052,13 +1052,22 @@ function handleMicropub(
       }
       const form = await cloned.formData();
       const content = String(form.get("content") ?? form.get("properties[content]") ?? "");
-      // Form-encoded `photo`/`photo[]` fields carry a bare URL string per entry; the mf2
-      // `{ value, alt }` alt-text shape has no flat-form equivalent (per `@dwk/micropub`'s own
-      // `parseFormBody`, only one `photo[sub]` nested object can round-trip per request), so
-      // form-encoded photos never carry alt text — same fidelity Micropub form clients get today.
-      const rawPhotos = [...form.getAll("photo"), ...form.getAll("photo[]")].filter(
-        (value): value is string => typeof value === "string" && value.length > 0,
-      );
+      // Form-encoded `photo`/`photo[]`/`properties[photo][]` fields carry a bare URL string per
+      // entry — the mf2 `{ value, alt }` alt-text shape has no flat-form equivalent (per
+      // `@dwk/micropub`'s own `parseFormBody`, only one `photo[sub]` nested object can round-trip
+      // per request), so form-encoded photos never carry alt text — same fidelity Micropub form
+      // clients get today. `properties[photo][]` mirrors `content`'s `properties[content]`
+      // fallback two lines up — a client using that nesting convention for `content` would
+      // otherwise have its photos silently dropped from the fan-out (#1325 review). Walking
+      // `form.entries()` once (rather than concatenating separate `getAll()` calls) preserves
+      // submission order across mixed field names (#1325 review).
+      const photoFieldNames = new Set(["photo", "photo[]", "properties[photo][]"]);
+      const rawPhotos: string[] = [];
+      for (const [key, value] of form.entries()) {
+        if (photoFieldNames.has(key) && typeof value === "string" && value.length > 0) {
+          rawPhotos.push(value);
+        }
+      }
       return { content, photos: extractMf2Photos(rawPhotos) };
     } catch {
       // Can't recover the post content — skip the fan-out rather than publish an empty Note.
@@ -1098,7 +1107,10 @@ async function fanOutMicropubCreateToActivityPub(
   ctx: ExecutionContext,
 ): Promise<void> {
   if (!env.AP_PUBLISH_TOKEN) return;
-  if (!content) return;
+  // A photo-only create (no caption) must still fan out (#1240, #1325 review) — requiring
+  // `content` alone would drop exactly the case this issue exists to fix: a bare photo post
+  // with no text is a normal, common shape, and Pixelfed only needs the `attachment` to render.
+  if (!content && photos.length === 0) return;
   const location = micropubResponse.headers.get("location");
   if (!location) return;
 
