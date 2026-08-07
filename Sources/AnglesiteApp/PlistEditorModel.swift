@@ -901,16 +901,13 @@ final class PlistEditorModel {
             : nil
         activityPubUsername = DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: sourceDirectory) ?? ""
         activityPubUsernameError = nil
-        if let siteURLString = DeployCoordinator.resolveSiteURL(siteDirectory: sourceDirectory),
-            let siteURL = URL(string: siteURLString) {
-            activityPubUsernameLocked = await DeployCoordinator.isActivityPubHandleLocked(
-                siteURL: siteURL, configDirectory: configDirectory
-            )
-        } else {
-            // No known site URL yet means no deploy has ever run, so the actor can't possibly
-            // have federated.
-            activityPubUsernameLocked = false
-        }
+        // `siteURL` is nilable here (an unresolvable/malformed site URL doesn't skip the check,
+        // it just narrows it to the local outbox ledger) — see `isActivityPubHandleLocked`'s own
+        // doc comment for why that matters.
+        let siteURL = DeployCoordinator.resolveSiteURL(siteDirectory: sourceDirectory).flatMap(URL.init(string:))
+        activityPubUsernameLocked = await DeployCoordinator.isActivityPubHandleLocked(
+            siteURL: siteURL, configDirectory: configDirectory
+        )
     }
 
     /// Persists the ActivityPub handle override to `.site-config`'s `AP_USERNAME` key (#1239),

@@ -321,13 +321,21 @@ public enum DeployCoordinator {
     /// signal" (#1239): a non-empty followers collection or a non-empty outbox ledger. Advisory
     /// only, like every other check derived from `Source/`'s hand-editable state (see CLAUDE.md
     /// "Git is the source of truth") — ``activityPubHandleRenameNeedsConfirmation`` is the
-    /// consumer, not an enforcement gate. The followers check is a network call and best-effort:
-    /// a transport failure reads as "not locked" rather than blocking the deploy flow on it, so
-    /// the local, always-available outbox ledger is checked first.
-    public static func isActivityPubHandleLocked(siteURL: URL, configDirectory: URL) async -> Bool {
+    /// consumer, not an enforcement gate.
+    ///
+    /// `siteURL` is optional so the local, always-available outbox-ledger check still runs (and
+    /// can still report `true`) even when the caller has no resolvable site URL yet — a caller
+    /// with `lastDeployedAPUsername` set (the only way this function's result reaches the rename
+    /// check at all) has necessarily deployed successfully before, so a `nil`/unparseable URL at
+    /// *this* moment is a transient config gap, not evidence the actor never federated; treating
+    /// it as an automatic "not locked" would silently skip the one signal (a populated ledger)
+    /// that doesn't need a network round trip to answer. The network-only followers check is
+    /// still best-effort: skipped entirely without a URL, and a transport failure reads as "not
+    /// locked" rather than blocking the deploy flow on it.
+    public static func isActivityPubHandleLocked(siteURL: URL?, configDirectory: URL) async -> Bool {
         let ledger = ActivityPubOutboxLedger.load(from: configDirectory) ?? ActivityPubOutboxLedger()
         if !ledger.entries.isEmpty { return true }
-        guard let followers = try? await ActivityPubFollowersClient(siteURL: siteURL).collection() else {
+        guard let siteURL, let followers = try? await ActivityPubFollowersClient(siteURL: siteURL).collection() else {
             return false
         }
         return followers.totalItems > 0

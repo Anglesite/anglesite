@@ -737,15 +737,12 @@ final class DeployModel {
         let hasActivityPub = workers.contains(where: { $0.id == WorkerComposition.activitypubWorkerID })
         if hasActivityPub, let lastDeployedHandle = settings.lastDeployedAPUsername {
             let resolvedHandle = DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: siteDirectory)
-            let isHandleLocked: Bool
-            if let siteURLString = DeployCoordinator.resolveSiteURL(siteDirectory: siteDirectory),
-                let siteURL = URL(string: siteURLString) {
-                isHandleLocked = await DeployCoordinator.isActivityPubHandleLocked(
-                    siteURL: siteURL, configDirectory: configDirectory
-                )
-            } else {
-                isHandleLocked = false
-            }
+            // `siteURL` is nilable here (an unresolvable/malformed site URL doesn't skip the
+            // check) — see `isActivityPubHandleLocked`'s own doc comment for why that matters.
+            let siteURL = DeployCoordinator.resolveSiteURL(siteDirectory: siteDirectory).flatMap(URL.init(string:))
+            let isHandleLocked = await DeployCoordinator.isActivityPubHandleLocked(
+                siteURL: siteURL, configDirectory: configDirectory
+            )
             if DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
                 lastDeployedUsername: lastDeployedHandle, resolvedUsername: resolvedHandle, isLocked: isHandleLocked,
                 acknowledgedUsername: settings.activityPubHandleRenameAcknowledged

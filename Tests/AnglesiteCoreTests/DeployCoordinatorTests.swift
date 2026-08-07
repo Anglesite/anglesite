@@ -311,6 +311,27 @@ struct DeployCoordinatorTests {
             acknowledgedUsername: "example.com"))
     }
 
+    @Test("isActivityPubHandleLocked is true from a non-empty outbox ledger even with no resolvable site URL")
+    func isActivityPubHandleLockedTrueFromLedgerWithNoSiteURL() async throws {
+        let dir = try temporaryDirectory()
+        var ledger = ActivityPubOutboxLedger()
+        ledger.record(.init(canonicalURL: "https://example.com/posts/1", activityID: "https://example.com/activity/1", syncedAt: .now))
+        try ledger.save(to: dir)
+
+        let locked = await DeployCoordinator.isActivityPubHandleLocked(siteURL: nil, configDirectory: dir)
+
+        #expect(locked)
+    }
+
+    @Test("isActivityPubHandleLocked is false when the outbox ledger is empty and there's no site URL to check followers")
+    func isActivityPubHandleLockedFalseWithNoLedgerAndNoSiteURL() async throws {
+        let dir = try temporaryDirectory()
+
+        let locked = await DeployCoordinator.isActivityPubHandleLocked(siteURL: nil, configDirectory: dir)
+
+        #expect(!locked)
+    }
+
     @Test("persistProvisionedResources advances the ActivityPub handle baseline when a handle is supplied")
     func persistProvisionedResourcesAdvancesAPUsernameBaseline() async throws {
         let dir = try temporaryDirectory()
