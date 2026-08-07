@@ -696,7 +696,16 @@ struct PlistEditorView: View {
                 // Group keys are manifest-owned free text (design doc §3) — display-cased,
                 // never localized or enumerated here.
                 SettingsBox(verbatimTitle: group.name.capitalized) {
-                    workersGroupTable(group.rows)
+                    VStack(alignment: .leading, spacing: 8) {
+                        workersGroupTable(group.rows)
+                        // "ActivityPub"/"Fediverse" jargon is meaningless to most site owners
+                        // (#1005) — point them at a plain-language explainer instead of renaming
+                        // the manifest-owned worker row itself.
+                        if group.rows.contains(where: { $0.id == WorkerComposition.activitypubWorkerID }) {
+                            Link("Learn more about The Fediverse", destination: fediverseLearnMoreURL)
+                                .font(.caption)
+                        }
+                    }
                 }
             }
         }
@@ -739,6 +748,13 @@ struct PlistEditorView: View {
                     .frame(minWidth: 28, alignment: .leading)
             }
         }
+    }
+
+    /// FediDB's plain-language explainer of the Fediverse (#1005) — linked from the Workers tab
+    /// wherever the ActivityPub worker is offered, since "ActivityPub" means nothing to most
+    /// site owners.
+    private var fediverseLearnMoreURL: URL {
+        URL(string: "https://fedidb.com/welcome")!
     }
 
     private var displayDomain: String {

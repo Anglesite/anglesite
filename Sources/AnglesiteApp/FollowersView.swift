@@ -26,8 +26,8 @@ struct FollowersView: View {
                     detail: Text("Publish it at least once, then followers will appear here."))
             case .notActivated:
                 message(
-                    "ActivityPub isn't turned on for this site",
-                    detail: Text("Turn on ActivityPub in Settings ▸ Workers, then publish again."))
+                    "The Fediverse isn't turned on for this site",
+                    detail: Text("Turn on The Fediverse in Settings ▸ Workers, then publish again."))
             case .unreachable(let reason):
                 // `reason` is server-supplied (HTTP body / error description) — untrusted remote
                 // content, never a localization key or format string. `Text(reason)` binds to the
