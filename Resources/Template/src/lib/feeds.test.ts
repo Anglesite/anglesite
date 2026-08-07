@@ -13,6 +13,7 @@ import {
   photoImageHtml,
   type FeedEntry,
 } from "./feeds.ts";
+import { NO_USAGE, type AIUsage } from "./licensing.ts";
 
 const SITE = "https://example.com";
 
@@ -825,4 +826,141 @@ test("renderJsonFeed omits the url key from an author with no url (JSON.stringif
   const feed = JSON.parse(await res.text());
   assert.deepEqual(feed.authors, [{ name: "Ada Lovelace" }]);
   assert.equal("url" in feed.authors[0], false);
+});
+
+// --- RSL (#992) ------------------------------------------------------------------------------
+
+const CC_BY = { url: "https://creativecommons.org/licenses/by/4.0/", name: "CC BY 4.0" };
+
+test("toFeedItem: defaults license to null and assertsNothingExplicitly to false", () => {
+  const item = toFeedItem("blog", entry("blog", { title: "Hi", pubDate: "2026-01-02" }), SITE, "<p>Hi</p>");
+  assert.equal(item.license, null);
+  assert.equal(item.assertsNothingExplicitly, false);
+});
+
+test("toFeedItem: threads licenseInfo through onto the item", () => {
+  const item = toFeedItem(
+    "notes",
+    entry("notes", { publishDate: "2026-01-02" }),
+    SITE,
+    "<p>Hi</p>",
+    { license: CC_BY, assertsNothingExplicitly: false },
+  );
+  assert.deepEqual(item.license, CC_BY);
+  assert.equal(item.assertsNothingExplicitly, false);
+});
+
+test("renderRss: no rsl option omits the xmlns and every item's customData", async () => {
+  const res = await renderRss({
+    title: "All",
+    description: "d",
+    site: SITE,
+    items: [
+      { link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "hi", contentHtml: "<p>hi</p>" },
+    ],
+  });
+  const xml = await res.text();
+  assert.doesNotMatch(xml, /xmlns:rsl/);
+  assert.doesNotMatch(xml, /rsl:content/);
+});
+
+test("renderRss: rsl option adds the namespace and a per-item <rsl:content>", async () => {
+  const usage: AIUsage = { search: "yes", aiInput: "yes", aiTrain: "no", blockAICrawlers: false };
+  const res = await renderRss({
+    title: "All",
+    description: "d",
+    site: SITE,
+    items: [
+      {
+        link: `${SITE}/notes/a/`,
+        date: new Date("2026-01-02"),
+        summary: "hi",
+        contentHtml: "<p>hi</p>",
+        license: CC_BY,
+        assertsNothingExplicitly: false,
+      },
+    ],
+    rsl: { usage, holder: "Jane" },
+  });
+  const xml = await res.text();
+  assert.match(xml, /xmlns:rsl="https:\/\/rslstandard\.org\/rsl"/);
+  assert.match(xml, /<rsl:content url="\/notes\/a\/">/);
+  assert.match(xml, /<rsl:permits type="usage">search ai-input<\/rsl:permits>/);
+  assert.match(xml, /<rsl:copyright>Jane<\/rsl:copyright>/);
+});
+
+test("renderRss: rsl active but an item with nothing to declare gets no customData", async () => {
+  const res = await renderRss({
+    title: "All",
+    description: "d",
+    site: SITE,
+    items: [
+      { link: `${SITE}/notes/a/`, date: new Date("2026-01-02"), summary: "hi", contentHtml: "<p>hi</p>" },
+    ],
+    rsl: { usage: { ...NO_USAGE } },
+  });
+  const xml = await res.text();
+  assert.doesNotMatch(xml, /rsl:content/);
+});
+
+test("renderRss: a non-asserting item withholds regardless of a permissive site-wide usage", async () => {
+  const usage: AIUsage = { search: "yes", aiInput: "yes", aiTrain: "yes", blockAICrawlers: false };
+  const res = await renderRss({
+    title: "All",
+    description: "d",
+    site: SITE,
+    items: [
+      {
+        link: `${SITE}/bookmarks/a/`,
+        date: new Date("2026-01-02"),
+        summary: "hi",
+        contentHtml: "<p>hi</p>",
+        license: null,
+        assertsNothingExplicitly: true,
+      },
+    ],
+    rsl: { usage },
+  });
+  const xml = await res.text();
+  assert.match(xml, /<rsl:prohibits type="usage">all<\/rsl:prohibits>/);
+  assert.doesNotMatch(xml, /<rsl:permits/);
+});
+
+test("renderAtom: no rsl option omits the xmlns and every entry's <rsl:content>", async () => {
+  const xml = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [
+      { title: "A", link: `${SITE}/blog/a/`, date: new Date("2026-01-02"), summary: "hi", contentHtml: "<p>hi</p>" },
+    ],
+  }).text();
+  assert.doesNotMatch(xml, /xmlns:rsl/);
+  assert.doesNotMatch(xml, /rsl:content/);
+});
+
+test("renderAtom: rsl option adds the namespace and a per-entry <rsl:content> inside <entry>", async () => {
+  const usage: AIUsage = { search: "unset", aiInput: "no", aiTrain: "no", blockAICrawlers: false };
+  const xml = await renderAtom({
+    title: "All",
+    site: SITE,
+    feedUrl: `${SITE}/atom.xml`,
+    items: [
+      {
+        title: "A",
+        link: `${SITE}/articles/a/`,
+        date: new Date("2026-01-02"),
+        summary: "hi",
+        contentHtml: "<p>hi</p>",
+        license: CC_BY,
+        assertsNothingExplicitly: false,
+      },
+    ],
+    rsl: { usage },
+  }).text();
+  assert.match(xml, /<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom" xmlns:rsl="https:\/\/rslstandard\.org\/rsl">/);
+  const entry = xml.slice(xml.indexOf("<entry>"), xml.indexOf("</entry>"));
+  assert.match(entry, /<rsl:content url="\/articles\/a\/">/);
+  assert.match(entry, /<rsl:prohibits type="usage">ai-input ai-train<\/rsl:prohibits>/);
+  assert.match(entry, /<rsl:payment type="attribution">/);
 });

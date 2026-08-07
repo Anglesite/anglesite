@@ -69,6 +69,23 @@ struct PlistEditorModelLicensingTests {
         #expect(reloaded.defaultLicense == ccBY)
     }
 
+    @Test("toggling publishRSL is dirty, and round-trips through save/load (#992)")
+    func publishRSLDirtyTrackingAndSave() async throws {
+        let model = try makeModel()
+        await model.load()
+        #expect(model.licensingPolicy.publishRSL == false)
+
+        model.licensingPolicy.publishRSL = true
+        #expect(model.isLicensingDirty == true)
+
+        let saved = await model.saveLicensing()
+
+        #expect(saved == true)
+        #expect(model.isLicensingDirty == false)
+        let reloaded = try LicensingStore(sourceDirectory: model.sourceDirectory).load()
+        #expect(reloaded.publishRSL == true)
+    }
+
     // This test is the only thing standing between the repo and a reintroduced infinite-recursion
     // SIGSEGV: `model.licensingPolicy.usage.aiTrain = .yes` below writes through `@Observable`'s
     // generated setter for `licensingPolicy`, which is exactly the reentrant path described in

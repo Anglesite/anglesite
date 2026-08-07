@@ -1059,23 +1059,14 @@ struct SiteWindow: View {
             .background(Color(NSColor.windowBackgroundColor))
     }
 
-    /// Builds the Edit-menu Delete/Duplicate actions for the current Navigator selection, or nil
-    /// when there's no site or no selection. `delete`/`duplicate` are individually nil when the
-    /// selected row isn't a page/post (`canDelete`/`canDuplicate`), which is what disables the
-    /// individual menu items rather than hiding the whole group.
+    /// Builds the Edit-menu Duplicate/Publish/Unpublish actions for the current Navigator
+    /// selection, or nil when there's no site or no selection. Each is individually nil when the
+    /// selected row doesn't support that verb (`canDuplicate`/`canPublish`/`canUnpublish`), which
+    /// is what disables the individual menu items rather than hiding the whole group. Delete has
+    /// no action built here (#989) — see `NavigatorSelectionActions`.
     private func navigatorSelectionActions(for model: SiteWindowModel) -> NavigatorSelectionActions? {
         guard model.site != nil, let navigator = model.navigator, let id = navigator.selection else {
             return nil
-        }
-        let deleteAction: (() -> Void)?
-        if navigator.canDelete(id) {
-            deleteAction = {
-                guard let item = navigator.item(for: id) else { return }
-                contentDeleteTitle = "Delete “\(item.title)”?"
-                model.deleteConfirmation = item
-            }
-        } else {
-            deleteAction = nil
         }
         let duplicateAction: (() -> Void)?
         if navigator.canDuplicate(id) {
@@ -1102,6 +1093,6 @@ struct SiteWindow: View {
             unpublishAction = nil
         }
         return NavigatorSelectionActions(
-            delete: deleteAction, duplicate: duplicateAction, publish: publishAction, unpublish: unpublishAction)
+            duplicate: duplicateAction, publish: publishAction, unpublish: unpublishAction)
     }
 }
