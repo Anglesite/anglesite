@@ -70,6 +70,13 @@ test("validateLinkText: flags 'click here'", () => {
   assert.match(issues[0].message, /click here/);
 });
 
+test("validateLinkText: decodes entities before matching generic patterns", () => {
+  const html = '<a href="/about">click&nbsp;here</a>';
+  const issues = validateLinkText(html);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].rule, "link-text-generic");
+});
+
 test("validateLinkText: flags 'read more'", () => {
   const html = '<a href="/post">Read More</a>';
   const issues = validateLinkText(html);

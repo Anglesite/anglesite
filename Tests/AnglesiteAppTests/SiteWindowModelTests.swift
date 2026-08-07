@@ -550,6 +550,94 @@ extension SiteWindowModelTests {
         #expect(model.designInterviewModel === first)
     }
 
+    @Test("canOpenThemeApplyWizard requires both an open site and a resolvable bundled template")
+    func canOpenThemeApplyWizardTracksSite() {
+        let model = makeModel()
+        #expect(model.canOpenThemeApplyWizard == false)
+
+        model.site = siteWithNonexistentPackage()
+        // No bundled/override template resolves in this test process, so a site alone must not
+        // enable the menu item — the #1181 review flagged the earlier version of this check
+        // (`site != nil` only) for exactly that drift: enabled, but a click silently no-ops.
+        #expect(model.canOpenThemeApplyWizard == false)
+    }
+
+    @Test("openThemeApplyWizard no-ops when there is no open site")
+    func openThemeApplyWizardNoSiteIsNoOp() {
+        let model = makeModel()
+
+        model.openThemeApplyWizard()
+
+        #expect(model.themeApplyWizardModel == nil)
+    }
+
+    @Test("openThemeApplyWizard no-ops when the bundled template can't be resolved")
+    func openThemeApplyWizardNoTemplateIsNoOp() throws {
+        let model = makeModel()
+        model.site = siteWithNonexistentPackage()
+        let (settings, cleanup) = try makeIsolatedSettings()
+        defer { cleanup() }
+        let bareDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("theme-apply-wizard-bare-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: bareDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bareDir) }
+        settings.templatePathOverride = bareDir // exists, but isn't a template directory
+
+        model.openThemeApplyWizard(settings: settings)
+
+        #expect(model.themeApplyWizardModel == nil)
+    }
+
+    @Test("openThemeApplyWizard builds a fresh model from the open site when the template resolves")
+    func openThemeApplyWizardBuildsModel() throws {
+        let model = makeModel()
+        model.site = siteWithNonexistentPackage()
+        let (settings, cleanup) = try makeIsolatedSettings()
+        defer { cleanup() }
+        let template = try makeFixtureThemeTemplate()
+        defer { try? FileManager.default.removeItem(at: template) }
+        settings.templatePathOverride = template
+
+        model.openThemeApplyWizard(settings: settings)
+
+        #expect(model.themeApplyWizardModel != nil)
+        #expect(model.themeApplyWizardModel?.catalog.themes.map(\.id) == ["classic"])
+        #expect(model.themeApplyWizardModel?.businessType == "")
+    }
+
+    /// An isolated `AppSettings` backed by its own `UserDefaults` suite, mirroring
+    /// `TemplateRuntimeTests`' setup — never mutate `AppSettings.shared` directly, since that's a
+    /// real singleton other tests/suites could observe.
+    private func makeIsolatedSettings() throws -> (AppSettings, cleanup: () -> Void) {
+        let suiteName = "test-anglesite-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        return (AppSettings(defaults: defaults), { defaults.removePersistentDomain(forName: suiteName) })
+    }
+
+    /// A minimal on-disk template — `scripts/themes.ts` (what `TemplateRuntime.isTemplateDirectory`
+    /// checks for) plus `scripts/themes.json` (what `ThemeCatalog.load` actually reads) — good
+    /// enough for `openThemeApplyWizard` to resolve a real one-theme catalog.
+    private func makeFixtureThemeTemplate() throws -> URL {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("theme-apply-wizard-\(UUID().uuidString)")
+        let scriptsDir = root.appendingPathComponent("scripts", isDirectory: true)
+        try FileManager.default.createDirectory(at: scriptsDir, withIntermediateDirectories: true)
+        try Data("export const THEMES".utf8).write(to: scriptsDir.appendingPathComponent("themes.ts"))
+        let themesJSON = """
+        [
+          {
+            "id": "classic",
+            "displayName": "Classic",
+            "description": "Traditional, trustworthy, professional",
+            "bestFor": ["legal"],
+            "vars": { "color-primary": "#1e3a5f", "color-accent": "#c8a951" }
+          }
+        ]
+        """
+        try Data(themesJSON.utf8).write(to: scriptsDir.appendingPathComponent("themes.json"))
+        return root
+    }
+
     @Test("applyPendingDesignInterviewRequest presents the sheet when a request is pending for this site")
     func applyPendingDesignInterviewRequestConsumesPendingRequest() {
         let model = makeModel()
@@ -652,6 +740,35 @@ extension SiteWindowModelTests {
         #expect(plistModel.file.group == .metadata)
         #expect(model.mainPaneMode == .editor(plistModel.file))
         #expect(model.inspectorContext == nil)
+    }
+
+    @Test("canOpenWebsiteSettings requires an open site")
+    func canOpenWebsiteSettingsRequiresSite() {
+        let model = makeModel()
+        #expect(model.canOpenWebsiteSettings == false)
+    }
+
+    @Test("openWebsiteSettings opens the same package Info.plist as the navigator's .websiteSettings row (#959)")
+    func openWebsiteSettingsOpensInfoPlist() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+        #expect(model.canOpenWebsiteSettings)
+
+        model.openWebsiteSettings()
+
+        while model.activeEditor == nil { await Task.yield() }
+        guard case .plist(let plistModel) = model.activeEditor else {
+            Issue.record("expected the Info.plist to open as a .plist editor")
+            return
+        }
+        #expect(plistModel.file.url == package.infoPlistURL)
+        #expect(plistModel.file.group == .metadata)
     }
 
     @Test("applyNavigatorSelection navigates the preview to a directory's route for .directory, clearing any open editor/inspector")

@@ -185,6 +185,11 @@ public enum WorkerComposition {
     ///     (`SiteSettings.moderators`) — ignored for a Person actor. Emitted as a comma-joined
     ///     `AP_MODERATORS` var (Wrangler has no native list-valued var type); each IRI is filtered
     ///     through `isSafeTomlStringValue` individually, same as `siteURL`/`displayName`.
+    ///   - apUsername: The ActivityPub handle override (`.site-config`'s `AP_USERNAME`, #1239) —
+    ///     git-visible, unlike `displayName`, so the owner can hand-edit it outside the app. `nil`
+    ///     when unset, exactly like `displayName`; the composed Worker's `preferredUsername` then
+    ///     falls back to the serving hostname (`worker.ts`'s concern, not this function's). Never
+    ///     affects the actor IRI, which stays fixed regardless.
     /// - Returns: A complete wrangler.toml string.
     /// - Throws: ``ConfigError/invalidSiteName(_:)`` if `siteName` contains
     ///   characters outside `[A-Za-z0-9_-]`, or ``ConfigError/invalidRouteClaim(path:reason:)``
@@ -199,7 +204,8 @@ public enum WorkerComposition {
         siteURL: String? = nil,
         displayName: String? = nil,
         activityPubActorType: String? = nil,
-        moderators: [String]? = nil
+        moderators: [String]? = nil,
+        apUsername: String? = nil
     ) throws -> String {
         guard isValidSiteName(siteName) else {
             throw ConfigError.invalidSiteName(siteName)
@@ -485,6 +491,12 @@ public enum WorkerComposition {
         }
         if hasActivityPub, let displayName, !displayName.isEmpty, isSafeTomlStringValue(displayName) {
             varsLines.append("AP_DISPLAY_NAME = \"\(displayName)\"")
+        }
+        // AP_USERNAME (#1239): the WebFinger-visible handle override — omitted entirely when
+        // unset, exactly like AP_DISPLAY_NAME, so the composed Worker falls back to deriving it
+        // from the serving hostname.
+        if hasActivityPub, let apUsername, !apUsername.isEmpty, isSafeTomlStringValue(apUsername) {
+            varsLines.append("AP_USERNAME = \"\(apUsername)\"")
         }
         // Group actor config (V-5.1b, #907, design doc §4.1 D3): only "Group" ever emits a var —
         // an ordinary Person actor (the overwhelming common case) leaves both vars out entirely,

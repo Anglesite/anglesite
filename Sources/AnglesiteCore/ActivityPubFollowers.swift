@@ -2,12 +2,16 @@ import Foundation
 
 /// The site's single ActivityPub actor, as V-4.1 (#363) composed it into the template Worker.
 ///
-/// One fixed actor per site — there is no per-site username setting, by design (see the V-4.1
-/// design doc's scope section).
+/// One actor per site, at a permanently fixed IRI path. The WebFinger-visible *handle*
+/// (`preferredUsername`) is owner-configurable (#1239, design doc
+/// `2026-08-04-fediverse-handle-design.md`) via `.site-config`'s `AP_USERNAME` — see
+/// `DeployCoordinator.resolveActivityPubUsername` — but the IRI path below never changes:
+/// follows, signatures, and caches all bind to it.
 public enum ActivityPubActor {
-    /// The fixed actor username. Must stay in step with `ACTIVITYPUB_USERNAME` in
+    /// The fixed actor IRI path segment. Must stay in step with `ACTIVITYPUB_USERNAME` in
     /// `Resources/Template/worker/worker.ts`, which owns the value; `ActivityPubActorTests`
-    /// locks the pair together, since nothing else would catch a rename.
+    /// locks the pair together, since nothing else would catch a rename. Independent of the
+    /// owner-configurable handle (`AP_USERNAME`) — see this type's doc comment.
     public static let username = "site"
 
     /// `https://<site>/users/site` — the actor document, and the URL a Mastodon user pastes into

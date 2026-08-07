@@ -1,17 +1,24 @@
 #!/usr/bin/env npx tsx
 /**
- * Build-time generator for repo-owned edge artifacts: public/robots.txt and
- * public/.well-known/security.txt and public/.well-known/mta-sts.txt. Runs at prebuild (after csp.ts). robots.txt
- * is stable and committed; security.txt carries a per-build Expires and is
- * gitignored (generated only when SECURITY_TXT_MODE resolves to "generated" —
- * see docs/superpowers/specs/2026-07-14-well-known-support-design.md "First
- * implementation: repair security.txt"; originally
- * docs/superpowers/specs/2026-06-27-security-story-hardening-design.md §C1).
+ * Build-time generator for repo-owned edge artifacts: public/robots.txt,
+ * public/.well-known/security.txt, public/.well-known/mta-sts.txt,
+ * public/.well-known/atproto-did, and public/.well-known/site.standard.publication. Runs at
+ * prebuild (after csp.ts). robots.txt is stable and committed; the .well-known files are
+ * per-build/config-derived and gitignored (security.txt generated only when SECURITY_TXT_MODE
+ * resolves to "generated" — see docs/superpowers/specs/2026-07-14-well-known-support-design.md
+ * "First implementation: repair security.txt"; originally
+ * docs/superpowers/specs/2026-06-27-security-story-hardening-design.md §C1. atproto-did
+ * generated whenever ATPROTO_DID is set — #1235, one-click Bluesky domain-as-handle
+ * verification via the atproto HTTPS method. site.standard.publication is Standard.site/
+ * Atmosphere publishing's build-time verification counterpart to
+ * `StandardSitePublishCommand`'s post-deploy record writes (#1231) — see
+ * docs/superpowers/specs/2026-08-04-atproto-standard-site-design.md §4).
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfig } from "./config";
+import { isStandardSitePublicationURI, standardSitePublicationURI } from "./standard-site.ts";
 import {
   mayBlockAICrawlers,
   normalizePolicy,
@@ -333,6 +340,70 @@ export function isMTAStsMarkerOwned(content: string | null): boolean {
 export type MTAStsAction = { kind: "write"; content: string } | { kind: "none" };
 export interface MTAStsPlan { action: MTAStsAction; note?: string }
 
+/**
+ * Syntactically valid DID per the [W3C DID Core syntax](https://www.w3.org/TR/did-core/#did-syntax)
+ * (`did:<method-name>:<method-specific-id>`) — permissive enough to accept both `did:plc:` (base32)
+ * and `did:web:` (percent-encoded host, colons for ports/paths) identifiers.
+ */
+const ATPROTO_DID_PATTERN = /^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/;
+
+/** True when `value` (after trimming) is syntactically a DID. */
+export function isValidAtprotoDid(value: string): boolean {
+  return ATPROTO_DID_PATTERN.test(value.trim());
+}
+
+/**
+ * `/.well-known/atproto-did` (#1235) has no room for an ownership marker the way security.txt or
+ * mta-sts.txt do: the atproto HTTPS handle-verification method
+ * (https://atproto.com/specs/handle#https-method) requires the response body to be *exactly* the
+ * account DID, so any extra line or comment would break verification. Ownership is therefore
+ * inferred from shape instead of a literal marker: any existing file whose trimmed content is
+ * itself a syntactically valid DID is treated as Anglesite's own prior output (the endpoint's only
+ * legitimate content is a DID, and this lets reconnecting a different Bluesky account update the
+ * file on redeploy without a manual delete). Content that doesn't look like a DID is preserved as
+ * hand-authored, mirroring `isSecurityTxtMarkerOwned`'s refuse-to-overwrite posture.
+ */
+export function isAtprotoDidOwned(content: string | null): boolean {
+  return content !== null && isValidAtprotoDid(content);
+}
+
+export type AtprotoDidAction =
+  | { kind: "write"; content: string }
+  | { kind: "delete-stale" }
+  | { kind: "none" };
+export interface AtprotoDidPlan { action: AtprotoDidAction; note?: string }
+
+/**
+ * Decides what to do with `/.well-known/atproto-did` for one build, given the site's persisted
+ * `ATPROTO_DID` (#1231, `.site-config`) and whatever's already on disk. Pure, mirroring
+ * `planSecurityTxt`/`planMTAStsPolicy`'s shape so `applyAtprotoDidPlan` only carries the decision
+ * out.
+ */
+export function planAtprotoDid(params: { did: string | undefined; existingContent: string | null }): AtprotoDidPlan {
+  const { existingContent } = params;
+  const did = (params.did ?? "").trim();
+
+  if (did.length === 0) {
+    if (isAtprotoDidOwned(existingContent)) {
+      return { action: { kind: "delete-stale" }, note: "ATPROTO_DID is unset — removed the previously generated public/.well-known/atproto-did." };
+    }
+    return { action: { kind: "none" } };
+  }
+
+  if (!isValidAtprotoDid(did)) {
+    return { action: { kind: "none" }, note: "ATPROTO_DID is not a syntactically valid DID — no public/.well-known/atproto-did generated." };
+  }
+
+  if (existingContent !== null && existingContent.trim() !== did && !isAtprotoDidOwned(existingContent)) {
+    return {
+      action: { kind: "none" },
+      note: "public/.well-known/atproto-did already exists and doesn't look like a generated DID file — refusing to overwrite it.",
+    };
+  }
+
+  return { action: { kind: "write", content: `${did}\n` } };
+}
+
 /** Applies the same non-destructive ownership rules as security.txt to the MTA-STS policy. */
 export function planMTAStsPolicy(params: {
   mode: MTAStsMode;
@@ -466,6 +537,97 @@ function applyMTAStsPlan(publicDir: string): void {
   }
 }
 
+function applyAtprotoDidPlan(publicDir: string): void {
+  const wellKnownDir = resolve(publicDir, ".well-known");
+  const filePath = resolve(wellKnownDir, "atproto-did");
+  const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : null;
+  const plan = planAtprotoDid({ did: readConfig("ATPROTO_DID"), existingContent });
+  if (plan.note) console.log(plan.note);
+  switch (plan.action.kind) {
+    case "write":
+      mkdirSync(wellKnownDir, { recursive: true });
+      writeFileSync(filePath, plan.action.content, "utf-8");
+      console.log("Wrote public/.well-known/atproto-did");
+      break;
+    case "delete-stale":
+      rmSync(filePath);
+      break;
+    case "none":
+      break;
+  }
+}
+
+/** What `applyStandardSitePublicationPlan` should do to `public/.well-known/site.standard.publication` this build. */
+export type StandardSitePublicationAction =
+  | { kind: "write"; content: string }
+  | { kind: "delete-stale" }
+  | { kind: "none" };
+
+export interface StandardSitePublicationPlan { action: StandardSitePublicationAction; note?: string }
+
+/**
+ * Decides what to do with `site.standard.publication` for one build, given `.site-config`'s
+ * `ATPROTO_DID`/`ATPROTO_SITE_ID` (written by `StandardSitePublishCommand` on first successful
+ * publish — #1231) and whatever's already on disk. Pure so the lifecycle rules are unit-testable
+ * without touching the filesystem, mirroring `planSecurityTxt`/`planMTAStsPolicy`.
+ *
+ * Gated on both keys being present: a site that has never connected a Bluesky/Atmosphere account
+ * (the vast majority, pre-#1231-publish) has neither, and builds byte-identical to today — no
+ * empty or placeholder well-known file. Once both exist, the derivation is pure and offline (see
+ * `standard-site.ts`), so this never blocks the build on a network call.
+ */
+export function planStandardSitePublication(params: {
+  did: string | undefined;
+  siteID: string | undefined;
+  existingContent: string | null;
+}): StandardSitePublicationPlan {
+  const { did, siteID, existingContent } = params;
+  const markerOwned = isStandardSitePublicationURI(existingContent);
+
+  if (!did || !siteID) {
+    if (markerOwned) {
+      return {
+        action: { kind: "delete-stale" },
+        note: "ATPROTO_DID/ATPROTO_SITE_ID are unset but public/.well-known/site.standard.publication exists — removed the previously generated file.",
+      };
+    }
+    return { action: { kind: "none" } };
+  }
+
+  if (existingContent !== null && !markerOwned) {
+    return {
+      action: { kind: "none" },
+      note: "public/.well-known/site.standard.publication already exists and wasn't generated by Anglesite — refusing to overwrite it. Delete the file to let Anglesite generate it.",
+    };
+  }
+
+  return { action: { kind: "write", content: `${standardSitePublicationURI(did, siteID)}\n` } };
+}
+
+function applyStandardSitePublicationPlan(publicDir: string): void {
+  const wellKnownDir = resolve(publicDir, ".well-known");
+  const filePath = resolve(wellKnownDir, "site.standard.publication");
+  const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : null;
+  const plan = planStandardSitePublication({
+    did: readConfig("ATPROTO_DID"),
+    siteID: readConfig("ATPROTO_SITE_ID"),
+    existingContent,
+  });
+  if (plan.note) console.log(plan.note);
+  switch (plan.action.kind) {
+    case "write":
+      mkdirSync(wellKnownDir, { recursive: true });
+      writeFileSync(filePath, plan.action.content, "utf-8");
+      console.log("Wrote public/.well-known/site.standard.publication");
+      break;
+    case "delete-stale":
+      rmSync(filePath);
+      break;
+    case "none":
+      break;
+  }
+}
+
 /** What `main()` should do with `public/rsl.xml` this build. Mirrors `SecurityTxtPlan`/
  * `MTAStsPlan`'s shape so the decision (write / remove a stale file / leave alone) is pure and
  * unit-testable without touching the filesystem, the same way `planSecurityTxt`/`planMTAStsPolicy`
@@ -564,6 +726,8 @@ function main(): void {
 
   applySecurityTxtPlan(publicDir);
   applyMTAStsPlan(publicDir);
+  applyAtprotoDidPlan(publicDir);
+  applyStandardSitePublicationPlan(publicDir);
 }
 
 // Run only when invoked directly (e.g. `npx tsx scripts/edge-artifacts.ts`), never on import.

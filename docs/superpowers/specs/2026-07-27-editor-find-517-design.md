@@ -1,6 +1,16 @@
 # Edit ▸ Find for the remaining editor surfaces (#517)
 
-**Status:** approved for implementation
+**Status:** Partially superseded by #714 slice 3 and PR #1273 — this design's Component
+Editor half (the `.codePane` case, `ComponentEditorCodePane`'s STTextView-backed
+`NSTextFinder` wiring) never shipped: PR #1121 ("#714 slice 3: unified tabbed window
+inspector") deleted `ComponentEditorCodePane` before the plan below reached that task,
+replacing it with a bare SwiftUI `TextEditor` (`ComponentEditorView.sourcePane`) that has
+no STTextView/AppKit find surface to wire `NSTextFinder` into. PR #1273 closed #517's
+remaining scope by giving that `TextEditor` the same `.findNavigator`/`.plainText`
+treatment this design specifies for the plain-text editor (§ below), not the
+`.codePane`/`NSTextFinder` approach. The plain-text half of this design (PR #1065) shipped
+as written and is still accurate. Kept for historical record — do not implement new work
+against the `.codePane`/STTextView sections below.
 **Date:** 2026-07-27
 
 ## Context
