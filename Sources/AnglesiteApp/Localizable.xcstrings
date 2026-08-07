@@ -1029,6 +1029,9 @@
         }
       }
     },
+    "Couldn't enable Markdown for Agents for %@ — often a Cloudflare plan limit (Pro plan or higher). See the debug log for details." : {
+
+    },
     "Couldn't finish setup" : {
 
     },

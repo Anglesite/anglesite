@@ -35,65 +35,110 @@ private struct FakeError: Error {}
 struct MarkdownForAgentsCommandTests {
     private let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
 
-    private func makeConfigDir() throws -> URL {
+    private func makeSiteDir(config: String = "") throws -> URL {
         let dir = tmpDir.appendingPathComponent("markdown-for-agents-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if !config.isEmpty {
+            try config.write(to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        }
         return dir
     }
 
-    @Test("applies the zone setting when no opt-out is configured")
+    @Test("applies the zone setting and persists CF_MARKDOWN_FOR_AGENTS when no opt-out is configured")
     func appliesWhenNotOptedOut() async throws {
-        let dir = try makeConfigDir()
+        let dir = try makeSiteDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         let writer = FakeMarkdownWriter()
         let command = MarkdownForAgentsCommand(client: writer)
-        let result = await command.apply(hostname: "example.com", configDirectory: dir, apiToken: "t")
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
         #expect(result == .applied(hostname: "example.com"))
         #expect(writer.calls.count == 1)
         #expect(writer.calls.first?.hostname == "example.com")
         #expect(writer.calls.first?.enabled == true)
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("CF_MARKDOWN_FOR_AGENTS=example.com:on"))
     }
 
     @Test("applies with no configDirectory at all (defaults to enabled)")
     func appliesWithNoConfigDirectory() async throws {
+        let dir = try makeSiteDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
         let writer = FakeMarkdownWriter()
         let command = MarkdownForAgentsCommand(client: writer)
-        let result = await command.apply(hostname: "example.com", configDirectory: nil, apiToken: "t")
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: nil, apiToken: "t")
         #expect(result == .applied(hostname: "example.com"))
         #expect(writer.calls.count == 1)
     }
 
-    @Test("opts out with no network call when the owner disabled it in Site Settings")
-    func optsOutWhenDisabled() async throws {
-        let dir = try makeConfigDir()
+    @Test("a second deploy after a confirmed apply makes no further network call (#1321 review)")
+    func secondDeploySkipsNetworkCallWhenAlreadyApplied() async throws {
+        let dir = try makeSiteDir(config: "CF_MARKDOWN_FOR_AGENTS=example.com:on\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let writer = FakeMarkdownWriter()
+        let command = MarkdownForAgentsCommand(client: writer)
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
+        #expect(result == .applied(hostname: "example.com"))
+        #expect(writer.calls.isEmpty)
+    }
+
+    @Test("opts out with no network call when never applied and the owner disabled it from the start")
+    func optsOutWithNoNetworkCallWhenNeverApplied() async throws {
+        let dir = try makeSiteDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         try await SiteConfigStore(configDirectory: dir).save(SiteSettings(markdownForAgentsDisabled: true))
         let writer = FakeMarkdownWriter()
         let command = MarkdownForAgentsCommand(client: writer)
-        let result = await command.apply(hostname: "example.com", configDirectory: dir, apiToken: "t")
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
         #expect(result == .optedOut)
         #expect(writer.calls.isEmpty)
     }
 
+    @Test("opting out after a prior apply calls the API to turn the zone setting back off")
+    func optingOutAfterPriorApplyTurnsOff() async throws {
+        let dir = try makeSiteDir(config: "CF_MARKDOWN_FOR_AGENTS=example.com:on\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try await SiteConfigStore(configDirectory: dir).save(SiteSettings(markdownForAgentsDisabled: true))
+        let writer = FakeMarkdownWriter()
+        let command = MarkdownForAgentsCommand(client: writer)
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
+        #expect(result == .optedOut)
+        #expect(writer.calls.count == 1)
+        #expect(writer.calls.first?.enabled == false)
+        let config = try String(contentsOf: dir.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("CF_MARKDOWN_FOR_AGENTS=example.com:off"))
+    }
+
+    @Test("a later deploy after opting back in re-applies with a fresh network call")
+    func optingBackInReapplies() async throws {
+        let dir = try makeSiteDir(config: "CF_MARKDOWN_FOR_AGENTS=example.com:off\n")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let writer = FakeMarkdownWriter()
+        let command = MarkdownForAgentsCommand(client: writer)
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
+        #expect(result == .applied(hostname: "example.com"))
+        #expect(writer.calls.count == 1)
+        #expect(writer.calls.first?.enabled == true)
+    }
+
     @Test("reports .zoneNotFound when the token can't see the zone yet")
     func reportsZoneNotFound() async throws {
-        let dir = try makeConfigDir()
+        let dir = try makeSiteDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         let writer = FakeMarkdownWriter()
         writer.result = .success(false)
         let command = MarkdownForAgentsCommand(client: writer)
-        let result = await command.apply(hostname: "example.com", configDirectory: dir, apiToken: "t")
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
         #expect(result == .zoneNotFound(hostname: "example.com"))
     }
 
     @Test("reports .failed without throwing when the Cloudflare API call fails")
     func reportsFailedOnThrow() async throws {
-        let dir = try makeConfigDir()
+        let dir = try makeSiteDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         let writer = FakeMarkdownWriter()
         writer.result = .failure(FakeError())
         let command = MarkdownForAgentsCommand(client: writer)
-        let result = await command.apply(hostname: "example.com", configDirectory: dir, apiToken: "t")
+        let result = await command.apply(hostname: "example.com", siteDirectory: dir, configDirectory: dir, apiToken: "t")
         #expect(result == .failed(hostname: "example.com"))
     }
 }

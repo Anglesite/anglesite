@@ -396,8 +396,8 @@ public actor DeployCommand {
                 // Agents to apply to (#1247).
                 if case .confirmed(let hostname) = domainAttachOutcome {
                     let markdownOutcome = await markdownForAgentsCommand.apply(
-                        hostname: hostname, configDirectory: configDirectory, apiToken: token,
-                        source: "deploy:\(siteID)")
+                        hostname: hostname, siteDirectory: siteDirectory, configDirectory: configDirectory,
+                        apiToken: token, source: "deploy:\(siteID)")
                     onMarkdownForAgents?(markdownOutcome)
                 }
                 Self.persistSiteURL(url, siteDirectory: siteDirectory)
