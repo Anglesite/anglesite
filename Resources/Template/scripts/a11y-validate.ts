@@ -82,6 +82,48 @@ const GENERIC_LINK_PATTERNS = [
 ];
 
 /**
+ * Strip HTML tags, repeating until the string stabilizes so that
+ * overlapping/nested tag-like sequences (e.g. "<<script>script>") can't
+ * survive a single removal pass.
+ */
+function stripTags(html: string): string {
+  let previous: string;
+  let current = html;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, "");
+  } while (current !== previous);
+  return current;
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+/**
+ * Decode the small set of HTML entities that commonly appear in authored
+ * link text (mirrors what a DOM parser's textContent would have resolved).
+ */
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
+    if (entity[0] === "#") {
+      const codePoint =
+        entity[1]?.toLowerCase() === "x"
+          ? parseInt(entity.slice(2), 16)
+          : parseInt(entity.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+    const replacement = NAMED_ENTITIES[entity.toLowerCase()];
+    return replacement ?? match;
+  });
+}
+
+/**
  * Validate link text quality.
  * html-validate catches empty links (wcag/h30).
  * Heuristic catches generic phrases ("click here", "read more").
@@ -98,9 +140,7 @@ export function validateLinkText(html: string): A11yIssue[] {
 
   while ((match = linkRegex.exec(html)) !== null) {
     const attrs = match[1];
-    const linkInnerHtml = match[2];
-    const parsed = new DOMParser().parseFromString(linkInnerHtml, "text/html");
-    const text = (parsed.body.textContent ?? "").trim();
+    const text = decodeEntities(stripTags(match[2])).trim();
     if (!text || /aria-label\s*=/.test(attrs)) continue;
 
     for (const pattern of GENERIC_LINK_PATTERNS) {
