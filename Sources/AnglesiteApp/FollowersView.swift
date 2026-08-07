@@ -27,7 +27,7 @@ struct FollowersView: View {
             case .notActivated:
                 message(
                     "The Fediverse isn't turned on for this site",
-                    detail: Text("Turn on The Fediverse in Settings ▸ Workers, then publish again."))
+                    detail: Text("Turn on the Fediverse in Settings ▸ Workers, then publish again."))
             case .unreachable(let reason):
                 // `reason` is server-supplied (HTTP body / error description) — untrusted remote
                 // content, never a localization key or format string. `Text(reason)` binds to the

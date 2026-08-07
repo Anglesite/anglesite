@@ -3216,9 +3216,6 @@
     "Turn On and Route Reports" : {
 
     },
-    "Turn on The Fediverse in Settings ▸ Workers, then publish again." : {
-
-    },
     "Turn on private vulnerability reporting for %@/%@?" : {
       "localizations" : {
         "en" : {
@@ -3228,6 +3225,9 @@
           }
         }
       }
+    },
+    "Turn on the Fediverse in Settings ▸ Workers, then publish again." : {
+
     },
     "Type" : {
 
