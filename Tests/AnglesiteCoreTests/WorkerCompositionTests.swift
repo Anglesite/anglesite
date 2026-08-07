@@ -441,6 +441,45 @@ struct WorkerCompositionTests {
         #expect(!toml.contains("AP_DISPLAY_NAME"))
     }
 
+    @Test("activitypub with a known handle override emits an AP_USERNAME var")
+    func activitypubWithUsernameEmitsVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], apUsername: "alice"
+        )
+        #expect(toml.contains("[vars]"))
+        #expect(toml.contains("AP_USERNAME = \"alice\""))
+    }
+
+    @Test("activitypub with no handle override omits AP_USERNAME but not other vars")
+    func activitypubWithoutUsernameOmitsVar() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(siteName: "my-site", workers: [activitypub])
+        #expect(!toml.contains("AP_USERNAME"))
+    }
+
+    @Test("apUsername and displayName vars coexist in one [vars] block when both are known")
+    func apUsernameAndDisplayNameCoexist() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub],
+            displayName: "Alice's Blog", apUsername: "alice"
+        )
+        let varsRange = try #require(toml.range(of: "[vars]"))
+        let afterVars = toml[varsRange.upperBound...]
+        #expect(afterVars.contains("AP_DISPLAY_NAME = \"Alice's Blog\""))
+        #expect(afterVars.contains("AP_USERNAME = \"alice\""))
+    }
+
+    @Test("an apUsername containing a double quote is rejected, not interpolated raw into TOML")
+    func apUsernameWithDoubleQuoteIsRejected() throws {
+        let activitypub = worker(WorkerComposition.activitypubWorkerID, d1: false, kv: false, r2: false)
+        let toml = try WorkerComposition.generateWranglerToml(
+            siteName: "my-site", workers: [activitypub], apUsername: "alice\" INJECTED"
+        )
+        #expect(!toml.contains("AP_USERNAME"))
+    }
+
     @Test("siteURL is ignored when webmention receive isn't active")
     func siteURLIgnoredWithoutWebmention() throws {
         let toml = try WorkerComposition.generateWranglerToml(
