@@ -101,11 +101,25 @@ struct AgentReadinessScanningTests {
         #expect(mcp.status == .neutral)
     }
 
-    @Test("agentReadinessResult throws malformedResponse when the finished scan has no agentReadiness section")
-    func resultMissingAgentReadinessThrows() async throws {
+    @Test("agentReadinessResult returns nil (not an error) when a 200 result has no agentReadiness section yet")
+    func resultMissingAgentReadinessReturnsNil() async throws {
+        // The base scan (page load, requests) can land before its async processors —
+        // agentReadiness included — finish, so this is "not ready yet", same as a 404, not a
+        // hard failure. See the doc comment on `agentReadinessResult` for the full reasoning.
         let client = HTTPCloudflareClient(transport: fakeTransport([
             "/accounts?per_page=1": (200, accountsJSON),
             "/urlscanner/v2/result/": (200, "{\"meta\":{\"processors\":{}}}"),
+        ]))
+
+        let report = try await client.agentReadinessResult(scanID: UUID(), apiToken: "t")
+        #expect(report == nil)
+    }
+
+    @Test("agentReadinessResult throws malformedResponse when the response doesn't decode at all")
+    func resultUndecodableThrows() async throws {
+        let client = HTTPCloudflareClient(transport: fakeTransport([
+            "/accounts?per_page=1": (200, accountsJSON),
+            "/urlscanner/v2/result/": (200, "not json"),
         ]))
 
         await #expect(throws: CloudflareError.malformedResponse) {

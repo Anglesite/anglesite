@@ -415,6 +415,28 @@ public struct HTTPCloudflareClient: CloudflareReading {
         return (data, http)
     }
 
+    /// GET `path` with no body, mapping 401/403 to ``CloudflareError/unauthorized`` and any other
+    /// non-2xx status to ``CloudflareError/http(status:)`` — the read-side counterpart to
+    /// `send(method:_:body:apiToken:)`, for endpoints (like URL Scanner) that don't wrap responses
+    /// in the `{success, result, errors}` v4 envelope `getEnvelope`/`get` assume, so those helpers
+    /// don't fit. `passthroughStatuses` lets a caller opt specific non-2xx statuses out of the
+    /// `.http` mapping to inspect the raw response itself (e.g. a 404 that means "not ready yet"
+    /// rather than "doesn't exist").
+    private func fetchRaw(
+        _ path: String, apiToken: String, passthroughStatuses: Set<Int> = []
+    ) async throws -> (Data, HTTPURLResponse) {
+        guard let url = URL(string: Self.base + path) else { throw CloudflareError.malformedResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, http) = try await transport(request)
+        if passthroughStatuses.contains(http.statusCode) { return (data, http) }
+        if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        return (data, http)
+    }
+
     private func mutate<Body: Encodable & Sendable>(
         method: String,
         _ path: String,
@@ -808,22 +830,27 @@ extension HTTPCloudflareClient: AgentReadinessScanning {
         return scanID
     }
 
-    /// `GET /accounts/{id}/urlscanner/v2/result/{scan_id}`. A 404 means the scan hasn't finished
-    /// processing yet (the URL Scanner API's documented behavior for an in-flight scan id) — that
-    /// maps to `nil` rather than an error so callers can poll in a loop without special-casing it.
+    /// `GET /accounts/{id}/urlscanner/v2/result/{scan_id}`. Two different "not ready yet" shapes
+    /// both map to `nil` rather than an error, so callers can poll in a loop without
+    /// special-casing either: a 404 (the URL Scanner API's documented behavior for an in-flight
+    /// scan id that hasn't produced *any* result yet), and a 200 whose `meta.processors` doesn't
+    /// carry an `agentReadiness` section yet. That second case matters because the scan's base
+    /// result (page load, requests) can land before its async processors — `agentReadiness`
+    /// included — finish; without it, the very first poll (or every poll before that processor
+    /// completes) would otherwise hard-fail with `.malformedResponse` instead of just meaning "not
+    /// done yet". This was flagged in review (#1248) as unverified against a live scan — Cloudflare
+    /// doesn't document a separate in-progress marker (e.g. on `task`) to distinguish that from a
+    /// scan that's genuinely finished with no Agent Readiness data at all, so a persistently
+    /// missing section still resolves the same way an in-progress one does: the caller's poll loop
+    /// times out and surfaces "didn't finish in time" rather than a hard error either way. A
+    /// response that doesn't even decode as the expected shape is left as `.malformedResponse` —
+    /// that's a different, more clearly broken case than an optional inner section being absent.
     public func agentReadinessResult(scanID: UUID, apiToken: String) async throws -> AgentReadinessReport? {
         let accountID = try await resolveAccountID(apiToken: apiToken)
-        guard let url = URL(string: Self.base + "/accounts/\(accountID)/urlscanner/v2/result/\(scanID.uuidString.lowercased())") else {
-            throw CloudflareError.malformedResponse
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let (data, http) = try await transport(request)
+        let (data, http) = try await fetchRaw(
+            "/accounts/\(accountID)/urlscanner/v2/result/\(scanID.uuidString.lowercased())",
+            apiToken: apiToken, passthroughStatuses: [404])
         if http.statusCode == 404 { return nil }
-        if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
-        guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
         let result: CFScanResult
         do {
             result = try JSONDecoder().decode(CFScanResult.self, from: data)
@@ -831,7 +858,7 @@ extension HTTPCloudflareClient: AgentReadinessScanning {
             throw CloudflareError.malformedResponse
         }
         guard let readiness = result.meta?.processors?.agentReadiness else {
-            throw CloudflareError.malformedResponse
+            return nil
         }
         return Self.mapAgentReadinessReport(readiness)
     }
