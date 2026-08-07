@@ -82,6 +82,25 @@ const GENERIC_LINK_PATTERNS = [
 ];
 
 /**
+ * Strips HTML tags from `html` to recover its plain-text content, looping the removal to a
+ * fixed point (re-running until a pass makes no further change) rather than a single
+ * `replace(/<[^>]*>/g, "")` call — the fixed-point form is the standard mitigation for
+ * CodeQL's "incomplete multi-character sanitization" rule class, which #1310 originally
+ * (and incorrectly) tried to satisfy by parsing with `DOMParser` instead. `DOMParser` is a
+ * browser API with no global in the plain Node.js (`npx tsx`) runtime this script actually
+ * runs under, which broke every real invocation — see the regression this restores.
+ */
+export function stripTags(html: string): string {
+  let previous: string;
+  let current = html;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, "");
+  } while (current !== previous);
+  return current;
+}
+
+/**
  * Validate link text quality.
  * html-validate catches empty links (wcag/h30).
  * Heuristic catches generic phrases ("click here", "read more").
@@ -99,8 +118,7 @@ export function validateLinkText(html: string): A11yIssue[] {
   while ((match = linkRegex.exec(html)) !== null) {
     const attrs = match[1];
     const linkInnerHtml = match[2];
-    const parsed = new DOMParser().parseFromString(linkInnerHtml, "text/html");
-    const text = (parsed.body.textContent ?? "").trim();
+    const text = stripTags(linkInnerHtml).trim();
     if (!text || /aria-label\s*=/.test(attrs)) continue;
 
     for (const pattern of GENERIC_LINK_PATTERNS) {

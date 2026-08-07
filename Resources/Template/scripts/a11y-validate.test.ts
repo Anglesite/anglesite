@@ -5,6 +5,7 @@ import {
   validateLinkText,
   validateImageAlt,
   validateHtml,
+  stripTags,
 } from "./a11y-validate";
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,37 @@ test("validateLinkText: flags empty link text", () => {
 test("validateLinkText: does not flag empty links with aria-label", () => {
   const html = '<a href="/page" aria-label="Home"></a>';
   assert.deepEqual(validateLinkText(html), []);
+});
+
+test("validateLinkText: strips nested markup instead of crashing (no DOMParser in Node)", () => {
+  const html = '<a href="/about"><span>click <b>here</b></span></a>';
+  const issues = validateLinkText(html);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].rule, "link-text-generic");
+  assert.match(issues[0].message, /click here/);
+});
+
+// ---------------------------------------------------------------------------
+// stripTags
+// ---------------------------------------------------------------------------
+
+test("stripTags: removes simple tags", () => {
+  assert.equal(stripTags("<b>hello</b> <i>world</i>"), "hello world");
+});
+
+test("stripTags: removes nested tags", () => {
+  assert.equal(stripTags("<span>click <b>here</b></span>"), "click here");
+});
+
+test("stripTags: is a fixed point — running it again changes nothing further", () => {
+  // The property the fixed-point loop guarantees: whatever it returns has no more tags to
+  // strip, so re-running stripTags on its own output is always a no-op.
+  const once = stripTags("<<b>a<i>b</i>c</b>>");
+  assert.equal(stripTags(once), once);
+});
+
+test("stripTags: is a no-op on plain text", () => {
+  assert.equal(stripTags("no markup here"), "no markup here");
 });
 
 // ---------------------------------------------------------------------------
