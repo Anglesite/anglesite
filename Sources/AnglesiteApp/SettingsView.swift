@@ -421,7 +421,6 @@ private struct CloudflareOAuthStatusRow: View {
     /// posture in this same file.
     @State private var isConnected = false
     @State private var canAutoRefresh = false
-    @State private var isBusy = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -429,10 +428,8 @@ private struct CloudflareOAuthStatusRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 statusLabel
                 Button("Sign Out") { signOut() }
-                    .disabled(!isConnected || isBusy)
-                if isBusy {
-                    ProgressView().controlSize(.small)
-                } else if let errorMessage {
+                    .disabled(!isConnected)
+                if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -465,8 +462,6 @@ private struct CloudflareOAuthStatusRow: View {
     }
 
     private func signOut() {
-        isBusy = true
-        defer { isBusy = false }
         do {
             try KeychainStore().clearCloudflareOAuthCredential()
             isConnected = false

@@ -124,11 +124,8 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("runAudit() surfaces the no-token failure after isRunning has already flipped true")
     func runAuditNoTokenAvailable() async throws {
-        let previousEnv = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
-        unsetenv("CLOUDFLARE_API_TOKEN")
-        defer {
-            if let previousEnv { setenv("CLOUDFLARE_API_TOKEN", previousEnv, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
-        }
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
         let declared = DomainConfig(domain: .init(hostname: "example.com"))
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
@@ -157,21 +154,21 @@ struct DomainConfigAuditModelTests {
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
         // Token available for the audit step, so phase reaches `.results` with a non-empty plan —
-        // reconcile()'s own guard requires that starting phase.
+        // reconcile()'s own guard requires that starting phase. Claimed explicitly via the shared
+        // coordinator (#1211 review) rather than relying on ambient/leaked env state.
         let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: StubWriter(), keychain: InMemorySecretStore())
         model.configure(site: site)
+        let auditToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
         model.runAudit()
         while model.isRunning { await Task.yield() }
+        auditToken.release()
         guard case .results = model.phase else {
             Issue.record("expected .results before exercising reconcile()'s no-token path, got \(model.phase)")
             return
         }
 
-        let previousEnv = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
-        unsetenv("CLOUDFLARE_API_TOKEN")
-        defer {
-            if let previousEnv { setenv("CLOUDFLARE_API_TOKEN", previousEnv, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
-        }
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
 
         model.reconcile()
         #expect(model.isRunning)

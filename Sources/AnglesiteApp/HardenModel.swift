@@ -76,6 +76,12 @@ final class HardenModel {
         guard !domain.isEmpty else { return }
         guard !isRunning else { return }
 
+        // Flip out of .idle/.preview synchronously, before the Task (and its `await apiToken()`
+        // hop, which can now do a real OAuth-refresh network round trip) even starts — matching
+        // DomainConfigAuditModel's runAudit()/reconcile(), so isRunning can't under-report while a
+        // token resolves (#1211 review).
+        phase = .resolvingZone(domain: domain)
+
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
             await self?.runResolveAndPlan(domain: domain)
@@ -85,6 +91,12 @@ final class HardenModel {
     func apply() {
         guard case .preview(let plan, let domain, let zoneID) = phase else { return }
         guard !plan.isEmpty else { return }
+
+        // Flip to .applying synchronously before the Task starts (see resolveAndPlan()'s comment)
+        // — this also closes a double-click hole: apply()'s only guard was `case .preview = phase`
+        // with no isRunning check, so a second click while the token was still resolving used to
+        // pass the same guard, cancel `inFlight`, and silently restart (#1211 review).
+        phase = .applying(plan: plan, domain: domain)
 
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
@@ -111,8 +123,6 @@ final class HardenModel {
             return
         }
 
-        phase = .resolvingZone(domain: domain)
-
         do {
             guard let zoneID = try await reader.resolveZoneID(domain: domain, apiToken: token) else {
                 phase = .failed(reason: "Zone not found for \"\(domain)\". Check the domain and ensure your API token has Zone Read permission.")
@@ -134,8 +144,6 @@ final class HardenModel {
             phase = .failed(reason: "No Cloudflare API token found.")
             return
         }
-
-        phase = .applying(plan: plan, domain: domain)
 
         let executor = HardenExecutor(reader: reader, writer: writer)
         let result = await executor.execute(
