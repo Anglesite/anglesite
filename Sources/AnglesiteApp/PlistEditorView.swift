@@ -13,6 +13,7 @@ struct PlistEditorView: View {
         case licensing = "Licensing"
         case emailSecurity = "Email Security"
         case securityReports = "Security Reports"
+        case social = "Social"
         case workers = "Workers"
         var id: Self { self }
 
@@ -24,6 +25,7 @@ struct PlistEditorView: View {
             case .licensing: return "checkmark.seal"
             case .emailSecurity: return "envelope.badge.shield.half.filled"
             case .securityReports: return "doc.text.magnifyingglass"
+            case .social: return "at"
             case .workers: return "bolt.fill"
             }
         }
@@ -36,6 +38,7 @@ struct PlistEditorView: View {
     @State private var isConfirmingEnablePVRForConfiguredRepo = false
     @FocusState private var titleFocused: Bool
     @FocusState private var languageFocused: Bool
+    @FocusState private var activityPubUsernameFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +55,11 @@ struct PlistEditorView: View {
         .onChange(of: languageFocused) { wasFocused, isFocused in
             if wasFocused && !isFocused {
                 Task { await model.saveLang() }
+            }
+        }
+        .onChange(of: activityPubUsernameFocused) { wasFocused, isFocused in
+            if wasFocused && !isFocused {
+                model.saveActivityPubUsername(model.activityPubUsername)
             }
         }
         .onChange(of: selectedTab) { oldValue, _ in
@@ -203,6 +211,8 @@ struct PlistEditorView: View {
                         emailSecurityTab
                     case .securityReports:
                         securityReportsTab
+                    case .social:
+                        socialTab
                     case .workers:
                         workersTab
                     }
@@ -661,6 +671,64 @@ struct PlistEditorView: View {
         }
     }
 
+    private var socialTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsBox(title: "Bluesky") {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Account")
+                            .frame(minWidth: 160, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Image(systemName: model.blueskyConnected ? "checkmark.circle.fill" : "circle.dashed")
+                                .foregroundStyle(model.blueskyConnected ? .green : .secondary)
+                                .frame(width: 18)
+                            Text(model.blueskyConnected ? "Connected" : "Not Connected")
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(model.blueskyConnected ? "Bluesky account connected" : "Bluesky account not connected")
+                    }
+                }
+            }
+            SettingsBox(title: "Atmosphere") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Publish posts to the Atmosphere", isOn: publishToAtmosphereBinding)
+                        .toggleStyle(.switch)
+                        .disabled(!model.blueskyConnected)
+                    Text(
+                        "When your Bluesky account is connected, Anglesite also publishes each post as a Standard.site record in your own account. That gives your posts richer preview cards on Bluesky and makes them discoverable by independent Atmosphere search tools, without changing where your site is hosted."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    if !model.blueskyConnected {
+                        Text("Connect a Bluesky account for POSSE syndication to turn this on.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let socialError = model.socialError {
+                        Label(socialError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.callout)
+                    }
+                    Link(destination: URL(string: "https://standard.site/")!) {
+                        Label("Learn more about Atmosphere", systemImage: "arrow.up.forward.app")
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .task { await model.loadSocial() }
+    }
+
+    private var publishToAtmosphereBinding: Binding<Bool> {
+        Binding(
+            get: { model.publishToAtmosphere },
+            set: { newValue in
+                Task { await model.setPublishToAtmosphere(newValue) }
+            }
+        )
+    }
+
     private var workersTab: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
@@ -696,10 +764,22 @@ struct PlistEditorView: View {
                 // Group keys are manifest-owned free text (design doc §3) — display-cased,
                 // never localized or enumerated here.
                 SettingsBox(verbatimTitle: group.name.capitalized) {
-                    workersGroupTable(group.rows)
+                    VStack(alignment: .leading, spacing: 8) {
+                        workersGroupTable(group.rows)
+                        // "ActivityPub"/"Fediverse" jargon is meaningless to most site owners
+                        // (#1005) — point them at a plain-language explainer instead of renaming
+                        // the manifest-owned worker row itself.
+                        if group.rows.contains(where: { $0.id == WorkerComposition.activitypubWorkerID }) {
+                            Link("Learn more about The Fediverse", destination: Self.fediverseLearnMoreURL)
+                                .font(.caption)
+                        }
+                    }
                 }
             }
 
+            if model.activityPubActive {
+                activityPubHandleSection
+            }
             SettingsBox(title: "Inbox Capture") {
                 inboxCaptureSection
             }
@@ -724,6 +804,36 @@ struct PlistEditorView: View {
                 Label(inboxCaptureError, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.callout)
+            }
+        }
+    }
+
+    /// The Fediverse handle field (#1239) — lives with the ActivityPub activation flow itself,
+    /// not a buried Settings pane the owner must discover, pre-filled with the hostname default.
+    private var activityPubHandleSection: some View {
+        SettingsBox(title: "Fediverse Handle") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 4) {
+                    Text("@")
+                        .foregroundStyle(.secondary)
+                    TextField("handle", text: $model.activityPubUsername)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(model.activityPubUsernameLocked)
+                        .focused($activityPubUsernameFocused)
+                        .onSubmit { model.saveActivityPubUsername(model.activityPubUsername) }
+                        .frame(minWidth: 200)
+                }
+                if let error = model.activityPubUsernameError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                Text(model.activityPubUsernameLocked
+                    ? "People already follow you at this handle — it can't change without losing them."
+                    : "This is how people find and follow you across social networks. Once someone follows you it can't change without losing them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -778,6 +888,12 @@ struct PlistEditorView: View {
             }
         }
     }
+
+    /// FediDB's plain-language explainer of the Fediverse (#1005) — linked from the Workers tab
+    /// wherever the ActivityPub worker is offered, since "ActivityPub" means nothing to most
+    /// site owners. Force-unwrapped like `BuyDomainModel.cloudflareDashboardURL` and
+    /// `ConnectDomainModel.cloudflareDomainsURL` — a hardcoded literal, never a runtime value.
+    private static let fediverseLearnMoreURL = URL(string: "https://fedidb.com/welcome")!
 
     private var displayDomain: String {
         let domain = MTAStsPolicyAsset.normalizedDomain(model.mtaStsSettings.domain)

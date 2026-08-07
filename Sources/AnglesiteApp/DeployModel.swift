@@ -54,6 +54,10 @@ final class DeployModel {
     /// as a Workers Custom Domain (#1077), captured from the deploy's `onDomainAttach` observer.
     /// `nil` before any deploy has completed this session; only ever set on a `.succeeded` deploy.
     private(set) var domainAttachStatus: CustomDomainAttachCommand.Result?
+    /// Outcome of applying the Markdown for Agents zone setting (#1247), captured from the
+    /// deploy's `onMarkdownForAgents` observer. `nil` before any deploy has completed this
+    /// session, or when the deploy never confirmed a custom domain (no zone to apply it to).
+    private(set) var markdownForAgentsStatus: MarkdownForAgentsCommand.Result?
     /// Whether the deploy currently in flight (or most recently completed) is this site's first
     /// successful publish — captured from `.site-config`'s `CF_WORKER_DEPLOYED` *before* the
     /// deploy pipeline runs (#1180), so it reflects the site's history going into this attempt,
@@ -94,6 +98,15 @@ final class DeployModel {
     /// plan. Reuses `pendingDeploy` to park and retry, same as the token-prompt and
     /// worker-name-conflict flows.
     var webmentionPaidPlanConfirmationPresented: Bool = false
+    /// Bound to a `.sheet` in `SiteWindow` for the ActivityPub handle-rename confirmation (#1239)
+    /// — the resolved handle differs from the last-deployed baseline and the actor has already
+    /// federated. Reuses `pendingDeploy` to park and retry, same as the other confirmation
+    /// flows; unlike them, `runDeploy` reuses the generic `.failed` `Phase` rather than a
+    /// dedicated one (see `runDeploy`'s own comment on this check for why).
+    var activityPubHandleRenameConfirmationPresented: Bool = false
+    /// The handle change awaiting confirmation on ``activityPubHandleRenameConfirmationPresented``
+    /// — `nil` outside that flow.
+    private(set) var activityPubHandleRenameChange: (from: String, to: String)?
     /// Bound to a `.sheet` in `SiteWindow` for a `.conflict` domain-attach outcome (#1077) — the
     /// transfer domain is already attached to a *different* Worker. Dismiss-only; doesn't block
     /// the drawer or further deploys, since wrangler already succeeded by the time this runs.
@@ -224,7 +237,7 @@ final class DeployModel {
     /// the user can act, since the background run's own reset/outcome always presents as `false`.
     private var awaitingUserAction: Bool {
         workerNameConflictPresented || webmentionPaidPlanConfirmationPresented || blockedPresented
-            || domainConfigDriftPresented
+            || domainConfigDriftPresented || activityPubHandleRenameConfirmationPresented
     }
 
     /// Renders the captured log lines as plain text for the "Copy log" affordance on failure.
@@ -480,6 +493,58 @@ final class DeployModel {
         webmentionPaidPlanConfirmationPresented = false
     }
 
+    /// Called by the handle-rename confirmation sheet's "Keep `@old@…`" button (#1239). Reverts
+    /// `.site-config`'s `AP_USERNAME` to the pre-change handle (removing the key entirely when
+    /// that handle is just the hostname default, matching `PlistEditorModel.saveActivityPubUsername`'s
+    /// own dedup), then retries the parked deploy — which re-resolves to the reverted handle, so
+    /// `runDeploy`'s check passes without needing an acknowledgment.
+    func keepCurrentActivityPubHandleAndRetry() async {
+        guard let pending = pendingDeploy, let change = activityPubHandleRenameChange else { return }
+        let defaultUsername = DeployCoordinator.defaultActivityPubUsername(siteDirectory: pending.siteDirectory)
+        let configURL = pending.siteDirectory.appendingPathComponent(".site-config")
+        let existing = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        let updated = change.from == defaultUsername
+            ? SiteConfigFile.remove(["AP_USERNAME"], from: existing)
+            : SiteConfigFile.upsert([("AP_USERNAME", change.from)], into: existing)
+        if updated != existing {
+            try? updated.write(to: configURL, atomically: true, encoding: .utf8)
+        }
+        pendingDeploy = nil
+        activityPubHandleRenameChange = nil
+        // Deliberately NOT clearing activityPubHandleRenameConfirmationPresented here — mirrors
+        // renameWorkerAndRetry's identical reasoning: the sheet stays open while the retried
+        // deploy runs, and runDeploy's terminal cases dismiss it once the outcome is known.
+        deploy(
+            siteID: pending.siteID, siteDirectory: pending.siteDirectory,
+            configDirectory: pending.configDirectory, currentRoutes: pending.currentRoutes,
+            containerControlProvider: pending.containerControlProvider, siteName: pending.siteName)
+    }
+
+    /// Called by the handle-rename confirmation sheet's "Switch to `@new@…`" button (#1239).
+    /// Persists the acknowledgment into `SiteSettings` (keyed to this exact handle — a
+    /// *different* future rename still prompts) and retries the parked deploy.
+    func useNewActivityPubHandleAndRetry() async {
+        guard let pending = pendingDeploy, let change = activityPubHandleRenameChange else { return }
+        let configStore = SiteConfigStore(configDirectory: pending.configDirectory)
+        var settings = (try? await configStore.load()) ?? SiteSettings()
+        settings.activityPubHandleRenameAcknowledged = change.to
+        try? await configStore.save(settings)
+        pendingDeploy = nil
+        activityPubHandleRenameChange = nil
+        // Deliberately NOT clearing activityPubHandleRenameConfirmationPresented here — same
+        // reasoning as keepCurrentActivityPubHandleAndRetry above.
+        deploy(
+            siteID: pending.siteID, siteDirectory: pending.siteDirectory,
+            configDirectory: pending.configDirectory, currentRoutes: pending.currentRoutes,
+            containerControlProvider: pending.containerControlProvider, siteName: pending.siteName)
+    }
+
+    func cancelActivityPubHandleRenameConfirmation() {
+        pendingDeploy = nil
+        activityPubHandleRenameChange = nil
+        activityPubHandleRenameConfirmationPresented = false
+    }
+
     func dismissDrawer() {
         drawerPresented = false
     }
@@ -582,6 +647,7 @@ final class DeployModel {
                 tokenSource: command.tokenSource,
                 workerScriptNamesSource: command.workerScriptNamesSource,
                 customDomainAttachCommand: command.customDomainAttachCommand,
+                markdownForAgentsCommand: command.markdownForAgentsCommand,
                 executor: ContainerDeployExecutor(
                     control: cc.control,
                     siteID: cc.siteID,
@@ -660,8 +726,49 @@ final class DeployModel {
             currentMilestonePhase = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
+            activityPubHandleRenameConfirmationPresented = false
             transition(siteID: siteID, to: .failed(reason: reason, exitCode: nil))
             return .failed(reason: reason, exitCode: nil)
+        }
+
+        // ActivityPub handle-rename confirmation (#1239, design doc §"Owner-chosen username"):
+        // once an actor has federated, a resolved-handle change from the last-deployed baseline
+        // is asked about — phrased in consequences to the owner's followers — rather than
+        // silently deployed. Placed here (after `workers`/`settings` are known, before any
+        // Cloudflare call) so it never provisions or publishes anything under a handle the owner
+        // hasn't confirmed. Mirrors the routeClaims-invalid early return above: reuses the
+        // generic `.failed` phase/result rather than a dedicated `Phase` case, since several
+        // views (`DeployDrawerView` et al.) match `Phase` exhaustively and a new case would need
+        // updating all of them — this flow's shape (park + a park-and-retry sheet) doesn't need
+        // one to work correctly, the same way `SocialWorkerProvisionCommand.Result`'s webmention
+        // paid-plan case already folds into `.failed` for callers with no dedicated case.
+        let hasActivityPub = workers.contains(where: { $0.id == WorkerComposition.activitypubWorkerID })
+        if hasActivityPub, let lastDeployedHandle = settings.lastDeployedAPUsername {
+            let resolvedHandle = DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: siteDirectory)
+            // `siteURL` is nilable here (an unresolvable/malformed site URL doesn't skip the
+            // check) — see `isActivityPubHandleLocked`'s own doc comment for why that matters.
+            let siteURL = DeployCoordinator.resolveSiteURL(siteDirectory: siteDirectory).flatMap(URL.init(string:))
+            let isHandleLocked = await DeployCoordinator.isActivityPubHandleLocked(
+                siteURL: siteURL, configDirectory: configDirectory
+            )
+            if DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+                lastDeployedUsername: lastDeployedHandle, resolvedUsername: resolvedHandle, isLocked: isHandleLocked,
+                acknowledgedUsername: settings.activityPubHandleRenameAcknowledged
+            ), let resolvedHandle {
+                let reason = "Changing your Fediverse handle from @\(lastDeployedHandle) to @\(resolvedHandle) disconnects the people who already follow you — confirm to continue"
+                subscription.cancel()
+                _ = await logTask.value
+                currentMilestone = nil
+                currentMilestonePhase = nil
+                workerNameConflictPresented = false
+                webmentionPaidPlanConfirmationPresented = false
+                pendingDeploy = (siteID, siteDirectory, configDirectory, currentRoutes, containerControlProvider, siteName)
+                activityPubHandleRenameChange = (from: lastDeployedHandle, to: resolvedHandle)
+                drawerPresented = false
+                activityPubHandleRenameConfirmationPresented = presentation == .foreground
+                transition(siteID: siteID, to: .failed(reason: reason, exitCode: nil))
+                return .failed(reason: reason, exitCode: nil)
+            }
         }
 
         let socialCommand = SocialWorkerProvisionCommand(
@@ -692,6 +799,9 @@ final class DeployModel {
                     onDomainAttach: { [weak self] outcome in
                         Task { @MainActor in self?.domainAttachStatus = outcome }
                     },
+                    onMarkdownForAgents: { [weak self] outcome in
+                        Task { @MainActor in self?.markdownForAgentsStatus = outcome }
+                    },
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
                             self?.currentMilestone = progress.label
@@ -720,6 +830,12 @@ final class DeployModel {
             siteDirectory: siteDirectory, siteID: siteID, siteName: siteName
         )
         let siteURL = DeployCoordinator.resolveSiteURL(siteDirectory: siteDirectory)
+        let apUsername = DeployCoordinator.resolveActivityPubUsername(siteDirectory: siteDirectory)
+        // The handle this deploy will actually serve (override-or-hostname-default, #1239) — used
+        // below to advance the `lastDeployedAPUsername` baseline, distinct from `apUsername`
+        // (the raw `.site-config` override, `nil` unless the owner set one) threaded to
+        // `provision()` for the wrangler.toml var.
+        let resolvedApUsername = DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: siteDirectory)
         let acknowledgesPaidPlan = settings.webmentionReceivePaidPlanAcknowledged ?? false
         let provisionResult = await socialCommand.provision(
             siteID: siteID,
@@ -730,6 +846,7 @@ final class DeployModel {
             knownResources: settings.provisionedWorkerResources ?? .init(),
             siteURL: siteURL,
             displayName: settings.displayName,
+            apUsername: apUsername,
             acknowledgesPaidPlan: acknowledgesPaidPlan,
             inboxCaptureEnabled: settings.inboxCaptureEnabled ?? false
         )
@@ -741,6 +858,7 @@ final class DeployModel {
             currentMilestone = nil
             currentMilestonePhase = nil
             workerNameConflictPresented = false
+            activityPubHandleRenameConfirmationPresented = false
             transition(siteID: siteID, to: .webmentionPaidPlanConfirmationNeeded)
             drawerPresented = false
             webmentionPaidPlanConfirmationPresented = presentation == .foreground
@@ -754,20 +872,22 @@ final class DeployModel {
         // provision result's resources, not settings, so a hub provisioned in this very run
         // pings on its first deploy.
         let websubProvisioned: Bool
+        // Gate for the ActivityPub outbox backfill below (#926) — mirrors `websubProvisioned`'s
+        // shape, but only needs the worker to be active (unlike WebSub, backfill doesn't depend
+        // on a specific provisioned resource). Computed before the persist call below too: it
+        // also gates whether this deploy advances the `lastDeployedAPUsername` baseline (#1239).
+        let activitypubProvisioned = workers.contains(where: { $0.id == WorkerComposition.activitypubWorkerID })
         if case .succeeded(_, let resources, _) = provisionResult {
             await DeployCoordinator.persistProvisionedResources(
                 configStore: configStore, settings: settings,
-                effectiveActiveIDs: effectiveActiveIDs, resources: resources
+                effectiveActiveIDs: effectiveActiveIDs, resources: resources,
+                apUsername: activitypubProvisioned ? resolvedApUsername : nil
             )
             websubProvisioned = workers.contains(where: { $0.id == WorkerComposition.websubWorkerID })
                 && resources.websubQueueName != nil
         } else {
             websubProvisioned = false
         }
-        // Gate for the ActivityPub outbox backfill below (#926) — mirrors `websubProvisioned`'s
-        // shape, but only needs the worker to be active (unlike WebSub, backfill doesn't depend
-        // on a specific provisioned resource).
-        let activitypubProvisioned = workers.contains(where: { $0.id == WorkerComposition.activitypubWorkerID })
 
         let result = provisionResult.asDeployCommandResult
 
@@ -827,6 +947,7 @@ final class DeployModel {
             currentMilestone = nil
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
+            activityPubHandleRenameConfirmationPresented = false
             if let settings = try? await SiteConfigStore(configDirectory: configDirectory).load() {
                 sourceBundleStatus = await SourceBundleStatus.check(siteDirectory: siteDirectory, settings: settings)
             }
@@ -856,6 +977,7 @@ final class DeployModel {
         case .failed(let reason, let exit):
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
+            activityPubHandleRenameConfirmationPresented = false
             transition(siteID: siteID, to: .failed(reason: reason, exitCode: exit))
             guard presentation == .foreground else { return result }
             let capturedLog = logText   // snapshot before the suspension; a later deploy clears logLines
@@ -878,6 +1000,7 @@ final class DeployModel {
             drawerPresented = false
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
+            activityPubHandleRenameConfirmationPresented = false
             blockedPresented = presentation == .foreground
         case .workerNameConflict(let name):
             // Parks the provider, not the resolved `containerControl` snapshot above — the
@@ -888,6 +1011,7 @@ final class DeployModel {
             workerNameConflictError = nil
             workerNameConflictPresented = presentation == .foreground
             webmentionPaidPlanConfirmationPresented = false
+            activityPubHandleRenameConfirmationPresented = false
         case .domainConfigDrift(let findings):
             transition(siteID: siteID, to: .domainConfigDrift(findings: findings))
             // Same reasoning as `.blocked`: the modal sheet carries the actionable info, and
@@ -896,6 +1020,7 @@ final class DeployModel {
             drawerPresented = false
             workerNameConflictPresented = false
             webmentionPaidPlanConfirmationPresented = false
+            activityPubHandleRenameConfirmationPresented = false
             domainConfigDriftPresented = presentation == .foreground
         }
         return result

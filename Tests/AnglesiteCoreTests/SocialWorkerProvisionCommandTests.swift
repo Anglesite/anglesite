@@ -229,6 +229,47 @@ struct SocialWorkerProvisionCommandTests {
         #expect(await recorder.arguments.isEmpty)
     }
 
+    @Test("toggling inbox capture off after provisioning drops the route/binding but keeps the namespace id")
+    func inboxCaptureToggledOffAfterProvisioningDropsRouteKeepsNamespace() async throws {
+        // Regression coverage for the review's "provisioned, then paused" gap: unlike
+        // `inboxCaptureDisabledNeverCreatesNamespace` (which only covers "never provisioned,
+        // stays off"), this starts from a site that already has a live namespace
+        // (`knownResources.inboxKVNamespaceID` set) and re-provisions with the toggle off — the
+        // actual de-provisioning path the Settings UI toggle exists to support.
+        let site = try temporaryDirectory()
+        let recorder = WranglerRecorder([:])
+        let command = SocialWorkerProvisionCommand(
+            tokenSource: { "token" },
+            runner: recorder.runner,
+            deployer: DeployRecorder(result: .succeeded(url: URL(string: "https://my-site.example.workers.dev")!, duration: 1)).deployer,
+            accountIDSource: { _ in
+                Issue.record("accountIDSource must not be called when inbox capture is disabled")
+                return nil
+            }
+        )
+
+        let result = await command.provision(
+            siteID: "site-1", siteDirectory: site, siteName: "my-site", workers: [],
+            knownResources: .init(inboxKVNamespaceID: "existing-ns", inboxAccountID: "existing-acct"),
+            inboxCaptureEnabled: false
+        )
+
+        guard case .succeeded(_, let resources, _) = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        // The KV namespace and its staged submissions are never deleted by toggling off — only
+        // the wrangler.toml route/binding drops. The next re-enable reuses this same namespace
+        // instead of creating a new, orphaned one.
+        #expect(resources.inboxKVNamespaceID == "existing-ns")
+        #expect(resources.inboxAccountID == "existing-acct")
+        #expect(await recorder.arguments.isEmpty, "must not call wrangler kv namespace create/delete when toggling off")
+
+        let toml = try String(contentsOf: site.appendingPathComponent("wrangler.toml"), encoding: .utf8)
+        #expect(!toml.contains("INBOX_KV"), "the [[kv_namespaces]] binding must drop once inbox capture is off")
+        #expect(!toml.contains("/inbox"), "the /inbox route claim must drop once inbox capture is off")
+    }
+
     @Test("a namespace id already known from settings is reused, not recreated")
     func inboxCaptureReusesKnownNamespace() async throws {
         let site = try temporaryDirectory()

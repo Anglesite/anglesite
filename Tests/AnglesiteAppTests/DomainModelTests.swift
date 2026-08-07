@@ -3,6 +3,26 @@ import Foundation
 @testable import AnglesiteAppCore
 @testable import AnglesiteCore
 
+/// A `POSSEHTTPTransport` whose calls suspend until the test explicitly resolves them —
+/// mirrors `ConnectDomainModelTests.ControllableRDAPLookupService`, used to exercise a
+/// verification still in flight when the sheet is dismissed/reopened out from under it.
+private actor ControllableATProtoDIDTransport {
+    private var continuations: [CheckedContinuation<(Data, HTTPURLResponse), Error>] = []
+
+    func fetch(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func resolve(callIndex index: Int, body: String, status: Int = 200) {
+        let http = HTTPURLResponse(url: URL(string: "https://example.com")!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        continuations[index].resume(returning: (Data(body.utf8), http))
+    }
+
+    func callCount() -> Int { continuations.count }
+}
+
 @MainActor
 @Suite struct DomainModelTests {
     private actor RecordingOps: DomainOperationsService {
@@ -91,5 +111,130 @@ import Foundation
 
         #expect(await ops.deletedNames == ["_atproto.example.com"])
         #expect(await ops.deletedSourceDirectories == [tmp])
+    }
+
+    // MARK: - useAsBlueskyHandle (#1235)
+
+    private static let did = "did:plc:z72i7hdynmk6r22z27h6tvur"
+
+    private func makeConfiguredSite(siteConfig: String) throws -> (site: CurrentSite, url: URL) {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        try siteConfig.write(to: tmp.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+        return (CurrentSite(id: "s1", packageURL: tmp, sourceDirectory: tmp), tmp)
+    }
+
+    private func loadDomain(_ model: DomainModel, domain: String) async {
+        model.domainInput = domain
+        model.resolveAndLoad()
+        // See `submitAddRecordWithBlueskyContextWritesThroughWithPurpose`'s comment: `repeat`-`while`,
+        // not a plain `while`, since `phase` flips from inside the spawned `Task`.
+        repeat { await Task.yield() } while model.isRunning
+    }
+
+    @Test func useAsBlueskyHandleFallsBackToTXTWhenNoATprotoDIDConfigured() async throws {
+        let (site, tmp) = try makeConfiguredSite(siteConfig: "SITE_URL=https://example.com\n")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = DomainModel(ops: RecordingOps())
+        model.configure(site: site)
+        await loadDomain(model, domain: "example.com")
+
+        model.useAsBlueskyHandle()
+
+        guard case .addingRecord(let draft, _, _) = model.phase else {
+            Issue.record("expected .addingRecord, got \(model.phase)")
+            return
+        }
+        #expect(draft.context == .bluesky)
+        #expect(model.blueskyHandlePhase == .idle)
+    }
+
+    @Test func useAsBlueskyHandleFallsBackToTXTWhenDomainIsNotTheDeployedSite() async throws {
+        // ATPROTO_DID is configured, but SITE_URL points at a different host than the domain
+        // loaded in this sheet — the well-known file can't possibly be served there.
+        let (site, tmp) = try makeConfiguredSite(
+            siteConfig: "SITE_URL=https://elsewhere.example\nATPROTO_DID=\(Self.did)\n")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = DomainModel(ops: RecordingOps())
+        model.configure(site: site)
+        await loadDomain(model, domain: "example.com")
+
+        model.useAsBlueskyHandle()
+
+        guard case .addingRecord(let draft, _, _) = model.phase else {
+            Issue.record("expected .addingRecord, got \(model.phase)")
+            return
+        }
+        #expect(draft.context == .bluesky)
+    }
+
+    @Test func useAsBlueskyHandleVerifiesTheWellKnownEndpointWhenEligible() async throws {
+        let (site, tmp) = try makeConfiguredSite(
+            siteConfig: "SITE_URL=https://example.com\nATPROTO_DID=\(Self.did)\n")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = DomainModel(ops: RecordingOps(), atprotoDIDTransport: { request in
+            let http = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(Self.did.utf8), http)
+        })
+        model.configure(site: site)
+        await loadDomain(model, domain: "example.com")
+
+        model.useAsBlueskyHandle()
+        repeat { await Task.yield() } while model.isRunning
+
+        #expect(model.blueskyHandlePhase == .verified(domain: "example.com"))
+        // The DNS record flow was never touched — no draft, still `.loaded`.
+        guard case .loaded = model.phase else {
+            Issue.record("expected .loaded, got \(model.phase)")
+            return
+        }
+    }
+
+    @Test func useAsBlueskyHandleReportsFailureOnMismatch() async throws {
+        let (site, tmp) = try makeConfiguredSite(
+            siteConfig: "SITE_URL=https://example.com\nATPROTO_DID=\(Self.did)\n")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = DomainModel(ops: RecordingOps(), atprotoDIDTransport: { request in
+            let http = HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!
+            return (Data(), http)
+        })
+        model.configure(site: site)
+        await loadDomain(model, domain: "example.com")
+
+        model.useAsBlueskyHandle()
+        repeat { await Task.yield() } while model.isRunning
+
+        guard case .failed = model.blueskyHandlePhase else {
+            Issue.record("expected .failed, got \(model.blueskyHandlePhase)")
+            return
+        }
+    }
+
+    @Test func dismissingSheetDuringVerificationDoesNotClobberResetState() async throws {
+        let (site, tmp) = try makeConfiguredSite(
+            siteConfig: "SITE_URL=https://example.com\nATPROTO_DID=\(Self.did)\n")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let transport = ControllableATProtoDIDTransport()
+        let model = DomainModel(ops: RecordingOps(), atprotoDIDTransport: { request in
+            try await transport.fetch(request)
+        })
+        model.configure(site: site)
+        await loadDomain(model, domain: "example.com")
+
+        model.useAsBlueskyHandle()
+        // Let the spawned `Task` actually start and suspend inside `transport.fetch`, so
+        // dismissal below races a verification that's genuinely still in flight.
+        while await transport.callCount() == 0 { await Task.yield() }
+        #expect(model.blueskyHandlePhase == .verifying(domain: "example.com"))
+
+        model.dismissSheet()
+        #expect(model.blueskyHandlePhase == .idle)
+
+        // The in-flight fetch finally resolves *after* dismissal cancelled its `Task` — the
+        // result must not land and clobber the `.idle` reset (the bug this test guards).
+        await transport.resolve(callIndex: 0, body: Self.did)
+        for _ in 0..<5 { await Task.yield() }
+
+        #expect(model.blueskyHandlePhase == .idle)
     }
 }

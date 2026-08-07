@@ -770,27 +770,35 @@ In `Sources/AnglesiteCore/SocialWorkerProvisionCommand.swift`:
 **3d. Add the new provisioning block**, after the existing solid-pod/webdav R2 block and before the ActivityPub block (i.e., insert after the closing `}` of the block ending at what's currently line 318, before `let hasActivityPub = ...` at line 320):
 
 ```swift
-        if inboxCaptureEnabled, resources.inboxKVNamespaceID == nil {
-            let name = "\(siteName)-inbox"
-            let result = await runWrangler(
-                siteDirectory: siteDirectory,
-                arguments: ["kv", "namespace", "create", name, "--json"],
-                environment: environment,
-                source: source,
-                resources: resources
-            )
-            let output: String
-            switch result {
-            case .success(let value):
-                output = value
-            case .failure(let failure):
-                return failure
+        if inboxCaptureEnabled {
+            // Namespace creation and account-id resolution are independent, separately-retriable
+            // steps: `accountIDSource` can return nil on a transient failure, and if the only
+            // re-entry guard were "namespace already exists" that nil would be permanently
+            // stranded — gate each step on its own nil-check instead of one combined guard.
+            if resources.inboxKVNamespaceID == nil {
+                let name = "\(siteName)-inbox"
+                let result = await runWrangler(
+                    siteDirectory: siteDirectory,
+                    arguments: ["kv", "namespace", "create", name, "--json"],
+                    environment: environment,
+                    source: source,
+                    resources: resources
+                )
+                let output: String
+                switch result {
+                case .success(let value):
+                    output = value
+                case .failure(let failure):
+                    return failure
+                }
+                guard let id = Self.extractResourceID(from: output) else {
+                    return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
+                }
+                resources.inboxKVNamespaceID = id
             }
-            guard let id = Self.extractResourceID(from: output) else {
-                return .failed(reason: "wrangler created KV namespace \(name) but no namespace id was found", exitCode: 0, resources: resources)
+            if resources.inboxAccountID == nil {
+                resources.inboxAccountID = await accountIDSource(token)
             }
-            resources.inboxKVNamespaceID = id
-            resources.inboxAccountID = await accountIDSource(token)
             if let failure = persistConfig(siteDirectory: siteDirectory, siteName: siteName, workers: workers, routeClaims: routeClaims, resources: resources, siteURL: siteURL, displayName: displayName, inboxCaptureEnabled: inboxCaptureEnabled) {
                 return failure
             }

@@ -23,6 +23,14 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// Bluesky PDS origin. `nil` uses the public `https://bsky.social` service.
     public var blueskyPDSURL: String?
 
+    /// Explicit opt-in/opt-out for `StandardSitePublishCommand`'s post-deploy Atmosphere pass
+    /// (#1233). `nil` means "no explicit choice yet" — the app defaults this **on** once a
+    /// Bluesky account is connected (the design's "the app advises; connecting the account is
+    /// the owner's intent" call), so callers should read this as `publishToAtmosphere ?? true`
+    /// rather than treating `nil` as off. An explicit `false` always wins, even with a Bluesky
+    /// credential configured.
+    public var publishToAtmosphere: Bool?
+
     /// Git commit SHA of `Source/`'s `HEAD` at the time of the last successful deployed-source
     /// bundle upload to R2 (#799, spec §C.4 — the code side of a future Worker-triggered bake).
     /// `nil` until the first successful upload. Compared against the current `HEAD` (via
@@ -87,6 +95,30 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// one.
     public var inboxCaptureEnabled: Bool?
 
+    /// The ActivityPub handle (`DeployCoordinator.resolveEffectiveActivityPubUsername`'s value —
+    /// the resolved `AP_USERNAME` override, or the hostname-derived default) as of the last
+    /// successful deploy (#1239, design doc §"Owner-chosen username") — the baseline
+    /// `DeployCoordinator.activityPubHandleRenameNeedsConfirmation` compares the *next* deploy's
+    /// resolved handle against, so a change made after the actor has already federated surfaces
+    /// a consequence-phrased confirmation instead of silently stranding followers. `nil` until
+    /// the first successful deploy with ActivityPub active.
+    public var lastDeployedAPUsername: String?
+
+    /// The specific ActivityPub handle the owner has explicitly confirmed switching to (#1239,
+    /// `DeployModel.useNewActivityPubHandleAndRetry`'s "switch to `@new@…`" choice on the
+    /// consequence-phrased rename-confirmation sheet). Compared by `DeployCoordinator
+    /// .activityPubHandleRenameNeedsConfirmation` against the *current* resolved handle — set to
+    /// exactly the handle just acknowledged, so a retried deploy under that handle doesn't
+    /// re-prompt, but a *different* subsequent change still does. `nil` outside that flow.
+    public var activityPubHandleRenameAcknowledged: String?
+
+    /// Owner opt-out from Markdown for Agents (#1247) — the Cloudflare zone setting that serves
+    /// an HTML→Markdown-converted response to requests carrying `Accept: text/markdown`, cutting
+    /// AI-agent token usage. `nil`/`false` (the default) means enabled: `DeployCommand` turns the
+    /// zone setting on for every site with a confirmed custom domain, matching the issue's
+    /// default-on ask. `true` means the owner explicitly opted out in Site Settings.
+    public var markdownForAgentsDisabled: Bool?
+
     /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
     /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
@@ -95,6 +127,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         mastodonBaseURL: String? = nil,
         blueskyIdentifier: String? = nil,
         blueskyPDSURL: String? = nil,
+        publishToAtmosphere: Bool? = nil,
         deployedSourceBundleCommit: String? = nil,
         activeWorkerIDs: [String]? = nil,
         activeWorkerIDsMigratedToAnglesiteJSON: [String]? = nil,
@@ -104,12 +137,16 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         communityOutboxURL: URL? = nil,
         communityActorURL: URL? = nil,
         moderators: [String]? = nil,
-        inboxCaptureEnabled: Bool? = nil
+        inboxCaptureEnabled: Bool? = nil,
+        lastDeployedAPUsername: String? = nil,
+        activityPubHandleRenameAcknowledged: String? = nil,
+        markdownForAgentsDisabled: Bool? = nil
     ) {
         self.displayName = displayName
         self.mastodonBaseURL = mastodonBaseURL
         self.blueskyIdentifier = blueskyIdentifier
         self.blueskyPDSURL = blueskyPDSURL
+        self.publishToAtmosphere = publishToAtmosphere
         self.deployedSourceBundleCommit = deployedSourceBundleCommit
         self.activeWorkerIDs = activeWorkerIDs
         self.activeWorkerIDsMigratedToAnglesiteJSON = activeWorkerIDsMigratedToAnglesiteJSON
@@ -120,6 +157,9 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.communityActorURL = communityActorURL
         self.moderators = moderators
         self.inboxCaptureEnabled = inboxCaptureEnabled
+        self.lastDeployedAPUsername = lastDeployedAPUsername
+        self.activityPubHandleRenameAcknowledged = activityPubHandleRenameAcknowledged
+        self.markdownForAgentsDisabled = markdownForAgentsDisabled
     }
 }
 
@@ -167,7 +207,36 @@ public actor SiteConfigStore {
         let fileURL = configDirectory.appendingPathComponent("settings.plist")
         guard fileManager.fileExists(atPath: fileURL.path) else { return SiteSettings() }
         let data = try Data(contentsOf: fileURL)
-        return (try? PropertyListDecoder().decode(SiteSettings.self, from: data)) ?? SiteSettings()
+        guard var settings = try? PropertyListDecoder().decode(SiteSettings.self, from: data) else {
+            return SiteSettings()
+        }
+        migrateLegacyInboxCaptureFields(into: &settings, from: data)
+        return settings
+    }
+
+    /// One-time, read-only migration for `inboxCaptureAccountID`/`inboxCaptureKVNamespaceID`
+    /// (#587) — top-level `SiteSettings` fields that `Resources/Template/integrations/docs/
+    /// inbox-setup.md` shipped instructions to hand-set before #764 folded inbox-capture ids into
+    /// `provisionedWorkerResources` instead. `PropertyListDecoder` silently drops unknown keys, so
+    /// without this, a `settings.plist` written by that old manual-setup step would lose its ids
+    /// on the next load. Only fills `provisionedWorkerResources` when it doesn't already carry
+    /// inbox ids of its own — a value the new Settings UI wrote always wins over a stale legacy
+    /// one. Not persisted here; the next `save()` naturally rewrites the file in the new shape.
+    private nonisolated static func migrateLegacyInboxCaptureFields(into settings: inout SiteSettings, from data: Data) {
+        guard settings.provisionedWorkerResources?.inboxAccountID == nil,
+              settings.provisionedWorkerResources?.inboxKVNamespaceID == nil,
+              let legacy = try? PropertyListDecoder().decode(LegacyInboxCaptureFields.self, from: data),
+              legacy.inboxCaptureAccountID != nil || legacy.inboxCaptureKVNamespaceID != nil
+        else { return }
+        var resources = settings.provisionedWorkerResources ?? .init()
+        resources.inboxAccountID = legacy.inboxCaptureAccountID
+        resources.inboxKVNamespaceID = legacy.inboxCaptureKVNamespaceID
+        settings.provisionedWorkerResources = resources
+    }
+
+    private struct LegacyInboxCaptureFields: Decodable {
+        var inboxCaptureAccountID: String?
+        var inboxCaptureKVNamespaceID: String?
     }
 
     /// Persist settings to `settings.plist` (XML plist, atomic), creating `Config/` if needed.

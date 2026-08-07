@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 /// Weak reference box, used to hold class-typed associated values in `EditorFocusRegistry.Focus`
 /// without retaining them — an `enum` case can't be declared `weak` directly the way a stored
@@ -11,25 +10,28 @@ final class Weak<T: AnyObject> {
     init(_ value: T) { self.value = value }
 }
 
-/// Tracks which editor surface currently owns keyboard focus, app-wide, across all three editor
-/// kinds (#517). `EditMenuSkeletonCommands`'s Find menu and `FormatCommands`'s Format menu both
+/// Tracks which editor surface currently owns keyboard focus, app-wide, across the editor kinds
+/// (#517). `EditMenuSkeletonCommands`'s Find menu and `FormatCommands`'s Format menu both
 /// dispatch through this single registry — the app's own `CommandGroup(before: .textEditing)`
-/// already claims ⌘F/⌘G/⇧⌘G/⌥⌘F globally, so none of the three surfaces' native find mechanisms
-/// (Markdown's custom bus, SwiftUI's `.findNavigator`, AppKit's `NSTextFinder`) can rely on the
-/// standard responder chain to reach them — the menu must know what's focused and dispatch
-/// explicitly. Replaces the Markdown-only `MarkdownEditorFocusRegistry` from #808.
+/// already claims ⌘F/⌘G/⇧⌘G/⌥⌘F globally, so neither surface's native find mechanism (Markdown's
+/// custom bus, SwiftUI's `.findNavigator`) can rely on the standard responder chain to reach it —
+/// the menu must know what's focused and dispatch explicitly. Replaces the Markdown-only
+/// `MarkdownEditorFocusRegistry` from #808.
+///
+/// `.plainText` covers both the plain-text file editor (`.text`/`.plist`) and the Component
+/// Editor's Source-mode `TextEditor` (`ComponentEditorView.sourcePane`, #517 follow-up) — both
+/// are SwiftUI `TextEditor`s using `.findNavigator`, so they share the case. An earlier
+/// `.codePane(Weak<NSResponder>)` case existed for the Component Editor's code pane when it was
+/// STTextView-backed (AppKit's `NSTextFinder` via `performTextFinderAction`); #714 slice 3 deleted
+/// that view in favor of a bare SwiftUI `TextEditor`, and this case followed it once the Source
+/// pane got the same `.findNavigator` treatment as the plain-text editor rather than an
+/// AppKit-bridged one.
 @MainActor @Observable
 final class EditorFocusRegistry {
     static let shared = EditorFocusRegistry()
 
     enum Focus {
         case markdown(Weak<MarkdownEditorController>)
-        /// No current registrar: `ComponentEditorCodePane`, the last view that activated this
-        /// case, was retired with the unified inspector (#714 slice 3) — the in-pane code zones it
-        /// showed dropped in favor of the Design/Source mode picker. Kept (not deleted) as the
-        /// seam for a future code-editing surface; `EditMenuSkeletonCommands`'s `.codePane`
-        /// branches stay dead code alongside it for the same reason.
-        case codePane(Weak<NSResponder>)
         case plainText(isPresented: Binding<Bool>)
     }
 

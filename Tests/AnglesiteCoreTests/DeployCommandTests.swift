@@ -1415,19 +1415,23 @@ struct DeployCommandTests {
         let command = DeployCommand(
             tokenSource: { "test-token" },
             customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            markdownForAgentsCommand: MarkdownForAgentsCommand(client: writer),
             executor: executor
         )
 
         var observed: CustomDomainAttachCommand.Result?
+        var observedMarkdown: MarkdownForAgentsCommand.Result?
         let result = await command.deploy(
             siteID: "test", siteDirectory: siteDir,
-            onDomainAttach: { observed = $0 }
+            onDomainAttach: { observed = $0 },
+            onMarkdownForAgents: { observedMarkdown = $0 }
         )
         guard case .succeeded = result else {
             Issue.record("expected .succeeded, got \(result)")
             return
         }
         #expect(observed == .confirmed(hostname: "example.com"))
+        #expect(observedMarkdown == .applied(hostname: "example.com"))
         let config = try String(contentsOf: siteDir.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(config.contains("CF_DOMAIN_ATTACHED=example.com"))
         // #1124: a domain confirmed attached *in this same deploy* must win immediately —

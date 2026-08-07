@@ -42,7 +42,7 @@ const jsonLd = blogPostingSchema(
 // anglesite:imports — integration component imports are injected here on setup
 ---
 
-<BaseLayout title={title} description={description} license={license} lang={lang}>
+<BaseLayout title={title} description={description} license={license} lang={lang} documentPath={Astro.url.pathname}>
   <Schema slot="head" item={jsonLd} />
   <p><a href="/blog/">← All posts</a></p>
   <article class="h-entry">

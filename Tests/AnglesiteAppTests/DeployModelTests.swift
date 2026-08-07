@@ -68,6 +68,7 @@ private final class FakeDomainAttachWriter: CloudflareWriting, @unchecked Sendab
     func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
 }
 
 private struct StubTokenVerifying: TokenVerifying {
@@ -78,23 +79,15 @@ private struct StubTokenVerifying: TokenVerifying {
 }
 
 /// `hasUsableToken()` falls back to the real `CLOUDFLARE_API_TOKEN` process environment variable
-/// when no `tokenAvailabilityOverride` is supplied — which the three sign-in tests below
-/// deliberately don't supply, since they're exercising that fallback (and the keychain check)
-/// directly. `DomainConfigAuditModelTests`/`OnionRoutingModelTests` elsewhere in this target set
-/// that same process-wide env var via a bare `setenv` in their `init()` and never restore it, so
-/// whenever those suites happen to run first in the same test process, this var leaks into every
-/// later test — including these — and made them fail only when run as part of the full
-/// `AnglesiteAppTests` target, never in isolation. Call at the top of a test body (before any
-/// `await`, so no other test's `deploy()` check can interleave) to clear it for the duration and
-/// restore whatever was there afterwards.
-private func clearCloudflareAPITokenEnvForTest() -> () -> Void {
-    let previous = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]
-    unsetenv("CLOUDFLARE_API_TOKEN")
-    return {
-        if let previous { setenv("CLOUDFLARE_API_TOKEN", previous, 1) } else { unsetenv("CLOUDFLARE_API_TOKEN") }
-    }
-}
-
+/// when no `tokenAvailabilityOverride` is supplied — which the four tests below that call
+/// `CloudflareAPITokenTestEnvironment.shared.claimClear()` deliberately don't supply, since they're
+/// exercising that fallback (and the keychain check) directly. `DomainConfigAuditModelTests`/
+/// `OnionRoutingModelTests` elsewhere in this target want that same process-wide env var *set* for
+/// their own tests, and Swift Testing can run unrelated suites concurrently, so both sides claim
+/// the var through the shared `CloudflareAPITokenTestEnvironment` coordinator rather than touching
+/// `setenv`/`unsetenv` directly — it serializes the two incompatible desired states against each
+/// other instead of letting them race. Claim at the top of a test body (before any other `await`,
+/// so no other test's `deploy()` check can interleave) and release via `defer`.
 @Suite("DeployModel")
 @MainActor
 struct DeployModelTests {
@@ -280,6 +273,7 @@ struct DeployModelTests {
         let command = DeployCommand(
             tokenSource: { "test-token" },
             customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            markdownForAgentsCommand: MarkdownForAgentsCommand(client: writer),
             executor: executor
         )
         let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
@@ -312,6 +306,7 @@ struct DeployModelTests {
         let command = DeployCommand(
             tokenSource: { "test-token" },
             customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            markdownForAgentsCommand: MarkdownForAgentsCommand(client: writer),
             executor: executor
         )
         let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
@@ -706,8 +701,8 @@ struct DeployModelTests {
 
     @Test("an OAuth credential in the keychain lets a deploy proceed without the sign-in sheet")
     func oauthCredentialSatisfiesHasUsableToken() async {
-        let restoreEnv = clearCloudflareAPITokenEnvForTest()
-        defer { restoreEnv() }
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
         let executor = GatedDeployExecutor()
         let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
         let keychain = InMemorySecretStore()
@@ -731,8 +726,8 @@ struct DeployModelTests {
 
     @Test("an expired OAuth credential with no refresh token re-presents the sign-in sheet")
     func deadOAuthCredentialDoesNotSatisfyHasUsableToken() async {
-        let restoreEnv = clearCloudflareAPITokenEnvForTest()
-        defer { restoreEnv() }
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
         let executor = GatedDeployExecutor()
         let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
         let keychain = InMemorySecretStore()
@@ -753,8 +748,8 @@ struct DeployModelTests {
 
     @Test("signInWithCloudflare persists the credential and dispatches the parked deploy on success")
     func signInSuccessPersistsAndDispatches() async throws {
-        let restoreEnv = clearCloudflareAPITokenEnvForTest()
-        defer { restoreEnv() }
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
         let executor = GatedDeployExecutor()
         let command = DeployCommand(tokenSource: { "test-token" }, executor: executor)
         let keychain = InMemorySecretStore()
@@ -803,8 +798,8 @@ struct DeployModelTests {
 
     @Test("signInWithCloudflare keeps the sheet open with a message on failure")
     func signInFailureStaysOnSheet() async {
-        let restoreEnv = clearCloudflareAPITokenEnvForTest()
-        defer { restoreEnv() }
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
         let command = DeployCommand(tokenSource: { "test-token" }, executor: GatedDeployExecutor())
         struct Boom: Error {}
         let client = CloudflareOAuthClient(

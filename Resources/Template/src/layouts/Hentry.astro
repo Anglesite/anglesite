@@ -71,7 +71,13 @@ const replyCite = cited(d.inReplyTo);
 const likeCite = cited(d.likeOf);
 ---
 
-<BaseLayout title={title ?? "Post"} description={d.summary} license={license} lang={d.lang || undefined}>
+<BaseLayout
+  title={title ?? "Post"}
+  description={d.summary}
+  license={license}
+  lang={d.lang || undefined}
+  documentPath={Astro.url.pathname}
+>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-entry">
     <DraftBadge draft={d.draft} />
