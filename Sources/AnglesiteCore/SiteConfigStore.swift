@@ -87,6 +87,23 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// parameter), which is inert until that wiring lands.
     public var moderators: [String]?
 
+    /// The ActivityPub handle (`DeployCoordinator.resolveEffectiveActivityPubUsername`'s value —
+    /// the resolved `AP_USERNAME` override, or the hostname-derived default) as of the last
+    /// successful deploy (#1239, design doc §"Owner-chosen username") — the baseline
+    /// `DeployCoordinator.activityPubHandleRenameNeedsConfirmation` compares the *next* deploy's
+    /// resolved handle against, so a change made after the actor has already federated surfaces
+    /// a consequence-phrased confirmation instead of silently stranding followers. `nil` until
+    /// the first successful deploy with ActivityPub active.
+    public var lastDeployedAPUsername: String?
+
+    /// The specific ActivityPub handle the owner has explicitly confirmed switching to (#1239,
+    /// `DeployModel.useNewActivityPubHandleAndRetry`'s "switch to `@new@…`" choice on the
+    /// consequence-phrased rename-confirmation sheet). Compared by `DeployCoordinator
+    /// .activityPubHandleRenameNeedsConfirmation` against the *current* resolved handle — set to
+    /// exactly the handle just acknowledged, so a retried deploy under that handle doesn't
+    /// re-prompt, but a *different* subsequent change still does. `nil` outside that flow.
+    public var activityPubHandleRenameAcknowledged: String?
+
     /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
     /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
@@ -105,7 +122,9 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         webmentionReceivePaidPlanAcknowledged: Bool? = nil,
         communityOutboxURL: URL? = nil,
         communityActorURL: URL? = nil,
-        moderators: [String]? = nil
+        moderators: [String]? = nil,
+        lastDeployedAPUsername: String? = nil,
+        activityPubHandleRenameAcknowledged: String? = nil
     ) {
         self.displayName = displayName
         self.inboxCaptureAccountID = inboxCaptureAccountID
@@ -122,6 +141,8 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.communityOutboxURL = communityOutboxURL
         self.communityActorURL = communityActorURL
         self.moderators = moderators
+        self.lastDeployedAPUsername = lastDeployedAPUsername
+        self.activityPubHandleRenameAcknowledged = activityPubHandleRenameAcknowledged
     }
 }
 

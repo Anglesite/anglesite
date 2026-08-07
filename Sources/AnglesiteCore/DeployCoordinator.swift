@@ -261,6 +261,96 @@ public enum DeployCoordinator {
         return nil
     }
 
+    /// The site's ActivityPub handle override (`.site-config`'s `AP_USERNAME`, #1239, design doc
+    /// `2026-08-04-fediverse-handle-design.md`) — git-visible, unlike `SiteSettings.displayName`,
+    /// so the owner (or a hand edit outside the app) is the source of truth. `nil` when unset;
+    /// `WorkerComposition.generateWranglerToml` then omits the `AP_USERNAME` var entirely and the
+    /// composed Worker derives the handle from the serving hostname (`worker.ts`'s concern, not
+    /// this function's). Read-through, unvalidated: a syntactically invalid value is threaded
+    /// into `wrangler.toml` as-is and degrades to the hostname default at *request* time
+    /// (`worker.ts`'s `resolvePreferredUsername`) — the same defense-in-depth posture
+    /// `resolveSiteURL` and every other hand-editable `.site-config` value already follows here.
+    public static func resolveActivityPubUsername(siteDirectory: URL) -> String? {
+        let config = (try? WebsiteAnalyticsAsset.loadConfig(siteDirectory: siteDirectory)) ?? ""
+        guard let value = WebsiteAnalyticsAsset.configValue("AP_USERNAME", in: config) else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// RFC 7565 `acct:` userpart ∩ Mastodon remote-username grammar (#1239, design doc
+    /// §"Owner-chosen username") — the same rule `worker.ts`'s `isValidApUsername` re-checks at
+    /// request time. Exposed here so the app's handle-entry field (Workers tab / first-deploy
+    /// confirmation) can validate at entry, per the design doc, without duplicating the regex.
+    public static func isValidActivityPubUsername(_ value: String) -> Bool {
+        guard let regex = try? Regex("^[a-zA-Z0-9_]([a-zA-Z0-9_.-]*[a-zA-Z0-9_])?$") else { return false }
+        return value.wholeMatch(of: regex) != nil
+    }
+
+    /// The default ActivityPub handle: the site's best-known serving hostname (``resolveSiteURL``)
+    /// with a leading `www.` stripped — mirrors `worker.ts`'s `defaultApUsername` exactly, so the
+    /// app's pre-filled handle field and rename-detection agree with what the composed Worker
+    /// will actually serve. `nil` before any deploy has ever run and no custom domain is
+    /// configured, same as ``resolveSiteURL``.
+    public static func defaultActivityPubUsername(siteDirectory: URL) -> String? {
+        guard let siteURL = resolveSiteURL(siteDirectory: siteDirectory), let host = URL(string: siteURL)?.host else {
+            return nil
+        }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
+    /// The ActivityPub handle the composed Worker will actually serve for this site right now:
+    /// ``resolveActivityPubUsername``'s override when set *and* syntactically valid, else
+    /// ``defaultActivityPubUsername`` — mirrors `worker.ts`'s `resolvePreferredUsername` exactly
+    /// (including falling back on an invalid override), so the app's handle field default and
+    /// rename-detection compare apples to apples with what a peer would actually see after the
+    /// next deploy. `nil` only when neither a usable override nor a resolvable site URL exists
+    /// yet (a site that has never deployed).
+    public static func resolveEffectiveActivityPubUsername(siteDirectory: URL) -> String? {
+        let fallback = defaultActivityPubUsername(siteDirectory: siteDirectory)
+        guard let override = resolveActivityPubUsername(siteDirectory: siteDirectory),
+            isValidActivityPubUsername(override)
+        else {
+            return fallback
+        }
+        return override
+    }
+
+    /// Whether this site's ActivityPub actor has already federated — the design doc's "lock
+    /// signal" (#1239): a non-empty followers collection or a non-empty outbox ledger. Advisory
+    /// only, like every other check derived from `Source/`'s hand-editable state (see CLAUDE.md
+    /// "Git is the source of truth") — ``activityPubHandleRenameNeedsConfirmation`` is the
+    /// consumer, not an enforcement gate. The followers check is a network call and best-effort:
+    /// a transport failure reads as "not locked" rather than blocking the deploy flow on it, so
+    /// the local, always-available outbox ledger is checked first.
+    public static func isActivityPubHandleLocked(siteURL: URL, configDirectory: URL) async -> Bool {
+        let ledger = ActivityPubOutboxLedger.load(from: configDirectory) ?? ActivityPubOutboxLedger()
+        if !ledger.entries.isEmpty { return true }
+        guard let followers = try? await ActivityPubFollowersClient(siteURL: siteURL).collection() else {
+            return false
+        }
+        return followers.totalItems > 0
+    }
+
+    /// Whether this deploy's resolved ActivityPub handle differs from the last-deployed baseline
+    /// AND the actor has already federated (#1239, design doc §"Owner-chosen username" — the
+    /// lock signal from ``isActivityPubHandleLocked``). A pre-federation handle change, or a
+    /// first-ever deploy (`lastDeployedUsername` still `nil`), never triggers this — only a
+    /// change that would actually strand existing followers does. `acknowledgedUsername` is the
+    /// specific handle the owner already confirmed switching to (`DeployModel`'s "switch to
+    /// `@new@…`" retry) — once set to exactly `resolvedUsername`, that one handle stops
+    /// re-prompting, but a *different* subsequent change still does. Pure so it unit-tests
+    /// without the network/disk calls ``isActivityPubHandleLocked`` needs; the caller
+    /// (`DeployModel`) decides how to surface a `true` result — presenting the
+    /// consequence-phrased confirmation sheet before proceeding, per the house rule on advisory
+    /// questions.
+    public static func activityPubHandleRenameNeedsConfirmation(
+        lastDeployedUsername: String?, resolvedUsername: String?, isLocked: Bool, acknowledgedUsername: String? = nil
+    ) -> Bool {
+        guard isLocked, let lastDeployedUsername, let resolvedUsername else { return false }
+        guard resolvedUsername != acknowledgedUsername else { return false }
+        return lastDeployedUsername != resolvedUsername
+    }
+
     /// Persists the newly-provisioned Cloudflare resources and advances the `lastDeployedWorkerIDs`
     /// baseline to `effectiveActiveIDs` (#709) after a successful provision — the diff baseline
     /// `WorkerActivation.removedIDs` compares the *next* deploy's plan against. Best-effort, like
@@ -271,11 +361,21 @@ public enum DeployCoordinator {
         configStore: SiteConfigStore,
         settings: SiteSettings,
         effectiveActiveIDs: Set<String>,
-        resources: WorkerComposition.ProvisionedResources
+        resources: WorkerComposition.ProvisionedResources,
+        /// This deploy's resolved ActivityPub handle (``resolveEffectiveActivityPubUsername``,
+        /// #1239) — advances `settings.lastDeployedAPUsername`, the baseline
+        /// ``activityPubHandleRenameNeedsConfirmation`` compares the *next* deploy against.
+        /// `nil` when ActivityPub isn't active this deploy; leaves the baseline unchanged so a
+        /// deactivated-then-reactivated actor is still compared against its real last-served
+        /// handle rather than losing the baseline.
+        apUsername: String? = nil
     ) async {
         var updated = settings
         updated.lastDeployedWorkerIDs = Array(effectiveActiveIDs).sorted()
         updated.provisionedWorkerResources = resources
+        if let apUsername {
+            updated.lastDeployedAPUsername = apUsername
+        }
         try? await configStore.save(updated)
     }
 

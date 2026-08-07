@@ -128,6 +128,9 @@ export interface WorkerEnv extends IndieAuthEnv {
    * (`SiteSettings.moderators`), ignored for a `Person` actor; comma-joined because Wrangler vars
    * have no native list type — a moderator IRI containing a literal comma is excluded entirely on
    * the Swift side (`WorkerComposition.generateWranglerToml`) rather than corrupting the join.
+   * `AP_USERNAME` overrides the WebFinger-visible handle (#1239, design doc
+   * `2026-08-04-fediverse-handle-design.md`) — see `resolvePreferredUsername` below; it never
+   * changes the actor **IRI**, which stays `ACTIVITYPUB_USERNAME` (`/users/site`) permanently.
    * See `WorkerComposition.generateWranglerToml` (Swift) for the binding generation.
    */
   ACTOR?: DurableObjectNamespace<ActivityPubObject>;
@@ -137,6 +140,7 @@ export interface WorkerEnv extends IndieAuthEnv {
   AP_DISPLAY_NAME?: string;
   AP_ACTOR_TYPE?: string;
   AP_MODERATORS?: string;
+  AP_USERNAME?: string;
   /**
    * Solid-OIDC signing key (V-storage, identity layer for `@dwk/solid-pod`). Optional: a site
    * that hasn't provisioned Solid-OIDC has none of it bound, and every `/oidc/*` route degrades
@@ -1077,13 +1081,54 @@ async function fanOutMicropubCreateToActivityPub(
 }
 
 /**
- * Fixed identity for this app's single-actor-per-site model (V-4.1, #363) — no per-site
- * Settings field for a custom handle; see the design doc §"Actor identity source". WebFinger
- * (`.well-known/webfinger`, so `@site@domain` search resolves) is composed by
- * `handleWebFinger` below (V-4.4, #366); Mastodon can still follow this actor by pasting its
- * URL directly into search even where WebFinger isn't active.
+ * The actor **IRI** (`/users/site`) for this app's single-actor-per-site model (V-4.1, #363).
+ * Fixed forever, independent of the WebFinger-visible handle (#1239, design doc
+ * `2026-08-04-fediverse-handle-design.md` §"Actor IRI stays /users/site — permanently"):
+ * follows, signatures, and caches bind to the IRI, so it must never change even as the owner
+ * renames their handle. `@dwk/activitypub` ties one `actor.username` to *both* the IRI and the
+ * displayed `preferredUsername` (`resolveConfig`/`deriveIris`), so `activityPubConfig` below
+ * always passes this fixed constant and `resolvePreferredUsername`'s (possibly different) value
+ * is patched onto the served actor document and WebFinger map separately, rather than handed to
+ * the package at all. WebFinger (`.well-known/webfinger`, so `@<handle>@domain` search resolves)
+ * is composed by `handleWebFinger` below (V-4.4, #366); Mastodon can still follow this actor by
+ * pasting its URL directly into search even where WebFinger isn't active.
  */
 const ACTIVITYPUB_USERNAME = "site";
+
+/**
+ * RFC 7565 `acct:` userpart ∩ Mastodon remote-username grammar (#1239, design doc §"Owner-chosen
+ * username"): case-insensitive `[a-z0-9_]` at both ends, `[a-z0-9_.-]` interior. No length cap
+ * beyond WebFinger practicality.
+ */
+const AP_USERNAME_PATTERN = /^[a-z0-9_](?:[a-z0-9_.-]*[a-z0-9_])?$/i;
+
+/** Whether `value` is a syntactically valid WebFinger local-part per {@link AP_USERNAME_PATTERN}. */
+export function isValidApUsername(value: string): boolean {
+  return AP_USERNAME_PATTERN.test(value);
+}
+
+/**
+ * The default `preferredUsername`: the serving origin's hostname with a leading `www.` stripped
+ * (design doc §"The default: domain as username"). Needs no configuration — the caller already
+ * has `baseUrl`'s host from the request origin.
+ */
+export function defaultApUsername(host: string): string {
+  return host.startsWith("www.") ? host.slice(4) : host;
+}
+
+/**
+ * Resolve the WebFinger-visible `preferredUsername`: `env.AP_USERNAME`, re-validated at request
+ * time — because `.site-config` is hand-editable, a stray edit must degrade to the default handle
+ * rather than produce a malformed `acct:` resource or actor document (design doc §"Validation") —
+ * falling back to {@link defaultApUsername} when unset, blank, or invalid. Never affects the actor
+ * IRI; see {@link ACTIVITYPUB_USERNAME}.
+ */
+export function resolvePreferredUsername(env: WorkerEnv, host: string): string {
+  const fallback = defaultApUsername(host);
+  const override = env.AP_USERNAME?.trim();
+  if (!override || !isValidApUsername(override)) return fallback;
+  return override;
+}
 
 /**
  * Exported for `worker.test.ts` — a pure, synchronous mapping from `env` to
@@ -1121,13 +1166,49 @@ export function activityPubConfig(request: Request, env: WorkerEnv): ActivityPub
 }
 
 /**
+ * Rewrites the served actor document's `preferredUsername` (and FEP-2c59 `webfinger` back-link)
+ * from `ACTIVITYPUB_USERNAME` to the resolved, possibly-overridden handle (#1239). Necessary
+ * because `@dwk/activitypub` derives both the actor IRI and these two fields from one
+ * `actor.username` (see {@link ACTIVITYPUB_USERNAME}'s doc comment) — this package has no seam to
+ * decouple them, so the one JSON field pair is patched on the response rather than the package's
+ * routing forked. A no-op for every other route (inbox, outbox, collections, NodeInfo, …), for a
+ * non-`GET`/`HEAD` request, and for a non-2xx response.
+ */
+async function withPreferredUsername(
+  request: Request,
+  response: Response,
+  actorPath: string,
+  preferredUsername: string,
+  host: string,
+): Promise<Response> {
+  const method = request.method.toUpperCase();
+  if (
+    new URL(request.url).pathname !== actorPath ||
+    (method !== "GET" && method !== "HEAD") ||
+    !response.ok
+  ) {
+    return response;
+  }
+  if (method === "HEAD") return response;
+  const doc = (await response.json()) as Record<string, unknown>;
+  doc.preferredUsername = preferredUsername;
+  if (typeof doc.webfinger === "string") {
+    doc.webfinger = `acct:${preferredUsername}@${host}`;
+  }
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  return new Response(JSON.stringify(doc), { status: response.status, headers });
+}
+
+/**
  * ActivityPub actor (V-4.1, #363).
  *
  * Composes `@dwk/activitypub`'s actor document, follower/following/outbox collections, and
  * signed server-to-server inbox — the Fediverse-facing half of this site. Returns 503 when
  * ActivityPub isn't fully provisioned (`ACTOR`/`AP_PRIVATE_KEY`/`AP_PUBLIC_KEY` unbound) rather
  * than letting `@dwk/activitypub` throw its own loud startup error, matching every other
- * composed handler in this file.
+ * composed handler in this file. The served actor document's `preferredUsername` is patched to
+ * the resolved handle post hoc — see {@link withPreferredUsername}.
  */
 function handleActivityPub(
   request: Request,
@@ -1138,18 +1219,31 @@ function handleActivityPub(
   if (!config) {
     return Promise.resolve(new Response("ActivityPub is not configured", { status: 503 }));
   }
+  const baseUrl = new URL(request.url).origin;
+  const host = new URL(baseUrl).hostname;
+  const preferredUsername = resolvePreferredUsername(env, host);
+  const actorPath = `/users/${ACTIVITYPUB_USERNAME}`;
   const activitypub = createActivityPub(config);
-  return activitypub(request, env as unknown as ActivityPubEnv, ctx);
+  return activitypub(request, env as unknown as ActivityPubEnv, ctx).then((response) =>
+    withPreferredUsername(request, response, actorPath, preferredUsername, host),
+  );
 }
 
 /**
  * WebFinger discovery (V-4.4, #366): resolves `acct:<username>@<host>` to this site's
- * ActivityPub actor, so `@site@domain` search works in Mastodon and other fediverse clients.
+ * ActivityPub actor, so `@<handle>@domain` search works in Mastodon and other fediverse clients.
  * `@dwk/webfinger`'s handler is RFC 7033-conformant on its own (query validation, CORS, JRD
  * body, 400/404); this function only supplies the resource map. The actor is WebFinger's only
  * controlled resource today, so — like every other composed handler in this file — this
  * returns 503 when ActivityPub isn't provisioned rather than constructing an always-empty
  * endpoint.
+ *
+ * Serves the canonical `acct:<preferredUsername>@<host>` plus aliases (#1239, design doc
+ * §"Migration for already-federated sites"): the legacy fixed `acct:site@<host>` handle (so an
+ * already-federated actor's old handle keeps resolving after this site adopts the new default)
+ * and, when an override is active, the hostname-derived default (so a stale reference to the
+ * pre-override handle also resolves). Each alias's JRD `subject` is the canonical handle, not the
+ * alias itself, so a client that follows the alias still learns the actor's real handle.
  */
 function handleWebFinger(
   request: Request,
@@ -1162,19 +1256,25 @@ function handleWebFinger(
   }
   const baseUrl = new URL(request.url).origin;
   const host = new URL(baseUrl).hostname;
-  const webfinger = createWebfinger({
-    resources: {
-      [`acct:${config.actor.username}@${host}`]: {
-        links: [
-          {
-            rel: "self",
-            type: "application/activity+json",
-            href: `${baseUrl}/users/${config.actor.username}`,
-          },
-        ],
-      },
-    },
-  });
+  const preferredUsername = resolvePreferredUsername(env, host);
+  const actorHref = `${baseUrl}/users/${ACTIVITYPUB_USERNAME}`;
+  const canonicalAcct = `acct:${preferredUsername}@${host}`;
+  const selfLink = {
+    rel: "self",
+    type: "application/activity+json",
+    href: actorHref,
+  };
+  const resources: Record<string, { subject?: string; links: (typeof selfLink)[] }> = {
+    [canonicalAcct]: { links: [selfLink] },
+  };
+  const aliasLocals = new Set<string>();
+  if (ACTIVITYPUB_USERNAME !== preferredUsername) aliasLocals.add(ACTIVITYPUB_USERNAME);
+  const hostDefault = defaultApUsername(host);
+  if (hostDefault !== preferredUsername) aliasLocals.add(hostDefault);
+  for (const local of aliasLocals) {
+    resources[`acct:${local}@${host}`] = { subject: canonicalAcct, links: [selfLink] };
+  }
+  const webfinger = createWebfinger({ resources });
   return webfinger(request, {}, ctx);
 }
 

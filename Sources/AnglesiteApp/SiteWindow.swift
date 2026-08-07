@@ -608,6 +608,13 @@ struct SiteWindow: View {
                 model.deploy.cancelWebmentionPaidPlanConfirmation()
             }
         }
+        .sheet(isPresented: $bindableModel.deploy.activityPubHandleRenameConfirmationPresented) {
+            if let change = model.deploy.activityPubHandleRenameChange {
+                ActivityPubHandleRenameSheetView(model: model.deploy, change: change) {
+                    model.deploy.cancelActivityPubHandleRenameConfirmation()
+                }
+            }
+        }
         .sheet(isPresented: $bindableModel.deploy.domainConfigDriftPresented) {
             if case .domainConfigDrift(let findings) = model.deploy.phase {
                 DomainConfigDriftSheetView(

@@ -36,6 +36,7 @@ struct PlistEditorView: View {
     @State private var isConfirmingEnablePVRForConfiguredRepo = false
     @FocusState private var titleFocused: Bool
     @FocusState private var languageFocused: Bool
+    @FocusState private var activityPubUsernameFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +53,11 @@ struct PlistEditorView: View {
         .onChange(of: languageFocused) { wasFocused, isFocused in
             if wasFocused && !isFocused {
                 Task { await model.saveLang() }
+            }
+        }
+        .onChange(of: activityPubUsernameFocused) { wasFocused, isFocused in
+            if wasFocused && !isFocused {
+                model.saveActivityPubUsername(model.activityPubUsername)
             }
         }
         .onChange(of: selectedTab) { oldValue, _ in
@@ -699,8 +705,42 @@ struct PlistEditorView: View {
                     workersGroupTable(group.rows)
                 }
             }
+
+            if model.activityPubActive {
+                activityPubHandleSection
+            }
         }
         .task { await model.loadWorkers() }
+    }
+
+    /// The Fediverse handle field (#1239) — lives with the ActivityPub activation flow itself,
+    /// not a buried Settings pane the owner must discover, pre-filled with the hostname default.
+    private var activityPubHandleSection: some View {
+        SettingsBox(title: "Fediverse Handle") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 4) {
+                    Text("@")
+                        .foregroundStyle(.secondary)
+                    TextField("handle", text: $model.activityPubUsername)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(model.activityPubUsernameLocked)
+                        .focused($activityPubUsernameFocused)
+                        .onSubmit { model.saveActivityPubUsername(model.activityPubUsername) }
+                        .frame(minWidth: 200)
+                }
+                if let error = model.activityPubUsernameError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                Text(model.activityPubUsernameLocked
+                    ? "People already follow you at this handle — it can't change without losing them."
+                    : "This is how people find and follow you across social networks. Once someone follows you it can't change without losing them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func workersGroupTable(_ rows: [PlistEditorModel.WorkerRow]) -> some View {
