@@ -68,4 +68,40 @@ struct DomainConfigStoreUpdateTests {
 
         #expect(!saved)
     }
+
+    @Test("concurrent update() calls mutating the same section don't drop each other's change (#1255)")
+    func concurrentUpdatesToSameSectionDoNotLoseData() throws {
+        let dir = try tempSourceDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Each producer reads the current `workers.active` set, adds its own entry, and saves —
+        // exactly the "two producers mutate the same top-level section" shape #1255 describes.
+        // Before the fix, concurrent calls could both `load()` the same stale snapshot before
+        // either `save()`d, so the second save would silently drop the first producer's entry.
+        // Kept small (same order of magnitude as the #1189 precedent test's 3 producers) — every
+        // producer here blocks on the same NSLock while doing synchronous file I/O, and a wider
+        // fan-out onto DispatchQueue.global() adds real contention to the shared GCD thread pool
+        // CI's full parallel test run is already tight on (see VsockTCPProxyTests's own
+        // flakiness notes).
+        let producerCount = 4
+        let group = DispatchGroup()
+        for i in 0..<producerCount {
+            group.enter()
+            DispatchQueue.global().async {
+                defer { group.leave() }
+                DomainConfigStore.update(sourceDirectory: dir) { config in
+                    var active = Set(config.workers?.active ?? [])
+                    active.insert("worker-\(i)")
+                    config.workers = DomainConfig.Workers(active: active.sorted())
+                }
+            }
+        }
+        group.wait()
+
+        let reloaded = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(
+            reloaded.workers?.active?.count == producerCount,
+            "every concurrent update() must survive, not just the last writer"
+        )
+    }
 }
