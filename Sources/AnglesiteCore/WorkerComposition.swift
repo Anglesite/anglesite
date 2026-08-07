@@ -129,12 +129,21 @@ public enum WorkerComposition {
         /// `BLOBS`) — deterministic (`\(siteName)-pod-blobs`), distinct from `r2BucketName`
         /// (Micropub's `MEDIA` bucket) since the two hold semantically different content.
         public var podBlobsR2BucketName: String?
+        /// The provisioned `INBOX_KV` namespace id (#587, #764). `nil` until inbox capture's
+        /// first successful provisioning run.
+        public var inboxKVNamespaceID: String?
+        /// The Cloudflare account id that owns `inboxKVNamespaceID` — `InboxSubmissionSync`
+        /// needs this to address the namespace directly; every other client in this codebase
+        /// re-resolves account id live from the token instead of persisting it, but inbox
+        /// capture's sync path runs independently of any single deploy/provisioning call and
+        /// needs a stable, already-resolved value.
+        public var inboxAccountID: String?
 
         /// Memberwise creation; the all-`nil` default is the pre-provisioning state.
         public init(
             d1DatabaseID: String? = nil, kvNamespaceID: String? = nil, r2BucketName: String? = nil,
             queueName: String? = nil, websubQueueName: String? = nil, microsubQueueName: String? = nil,
-            podBlobsR2BucketName: String? = nil
+            podBlobsR2BucketName: String? = nil, inboxKVNamespaceID: String? = nil, inboxAccountID: String? = nil
         ) {
             self.d1DatabaseID = d1DatabaseID
             self.kvNamespaceID = kvNamespaceID
@@ -143,6 +152,8 @@ public enum WorkerComposition {
             self.websubQueueName = websubQueueName
             self.microsubQueueName = microsubQueueName
             self.podBlobsR2BucketName = podBlobsR2BucketName
+            self.inboxKVNamespaceID = inboxKVNamespaceID
+            self.inboxAccountID = inboxAccountID
         }
     }
 

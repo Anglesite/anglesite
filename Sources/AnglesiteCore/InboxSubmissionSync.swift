@@ -25,9 +25,9 @@ public enum InboxSubmissionSync {
     }
 
     /// Reads the site's `SiteSettings` and the Cloudflare API token from `secretStore`; no-ops
-    /// (returns 0, no network call) unless both `inboxCaptureAccountID` and
-    /// `inboxCaptureKVNamespaceID` are set and a token is available — i.e. inbox capture hasn't
-    /// been provisioned for this site yet. `configDirectory` is the package's `Config/`
+    /// (returns 0, no network call) unless both `provisionedWorkerResources.inboxAccountID` and
+    /// `.inboxKVNamespaceID` are set and a token is available — i.e. inbox capture hasn't been
+    /// provisioned for this site yet (#764). `configDirectory` is the package's `Config/`
     /// directory (`AnglesitePackage.configURL`), a sibling of `siteDirectory`
     /// (`AnglesitePackage.sourceURL`).
     public static func pullAndCommitIfConfigured(
@@ -37,8 +37,9 @@ public enum InboxSubmissionSync {
         transport: @escaping CloudflareTransport = HTTPCloudflareClient.defaultTransport
     ) async -> Int {
         guard let settings = try? SiteConfigStore.read(from: configDirectory),
-              let accountID = settings.inboxCaptureAccountID, !accountID.isEmpty,
-              let namespaceID = settings.inboxCaptureKVNamespaceID, !namespaceID.isEmpty,
+              let resources = settings.provisionedWorkerResources,
+              let accountID = resources.inboxAccountID, !accountID.isEmpty,
+              let namespaceID = resources.inboxKVNamespaceID, !namespaceID.isEmpty,
               let token = try? secretStore.readCloudflareToken(), !token.isEmpty
         else { return 0 }
 

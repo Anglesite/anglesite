@@ -57,8 +57,8 @@ public enum ReceivedInteractionSync {
     /// account" resolution `HTTPCloudflareClient.workerScriptNames`/`CloudflareCapabilityProber`
     /// use, since a personal Anglesite deployment has exactly one Cloudflare account per token, and
     /// there is no separate stored account id for webmention/D1 to key off (unlike #587's
-    /// `inboxCaptureAccountID`, since the D1 database itself is already identified by
-    /// `SiteSettings.provisionedWorkerResources.d1DatabaseID`).
+    /// `ProvisionedResources.inboxAccountID`, since the D1 database itself is already identified
+    /// by `SiteSettings.provisionedWorkerResources.d1DatabaseID`).
     private static func resolveAccountID(apiToken: String, baseURL: String, transport: CloudflareTransport) async -> String? {
         guard let url = URL(string: "\(baseURL)/accounts?per_page=1") else { return nil }
         var request = URLRequest(url: url)
