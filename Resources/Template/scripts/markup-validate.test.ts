@@ -53,8 +53,23 @@ test("validateDist: walks nested dist/ and aggregates problems across files", ()
   }
 });
 
-test("validateDist: returns no problems for an absent directory", () => {
-  assert.deepEqual(validateDist(join(tmpdir(), "markup-validate-test-does-not-exist")), []);
+test("validateDist: fails loudly on an absent directory instead of a vacuous pass", () => {
+  const dir = join(tmpdir(), "markup-validate-test-does-not-exist");
+  const problems = validateDist(dir);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /no \.html files found/);
+});
+
+test("validateDist: fails loudly on a directory with zero .html files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "markup-validate-test-"));
+  try {
+    writeFileSync(join(dir, "styles.css"), "body { color: red; }");
+    const problems = validateDist(dir);
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /no \.html files found/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("validateDist: skips a dangling symlink instead of crashing the whole scan", () => {

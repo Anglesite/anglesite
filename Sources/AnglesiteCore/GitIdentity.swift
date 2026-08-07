@@ -58,7 +58,7 @@ public enum GitIdentity {
         await LogCenter.shared.append(
             source: "git:identity", stream: .stderr,
             text: "No git identity resolved for this site — a sandboxed app can't read ~/.gitconfig. "
-                + "Committing as \(substitute.name) <\(substitute.email)>. To attribute commits to you, "
+                + "Using the app fallback identity for this commit. To attribute commits to you, "
                 + "set one in the site's Source/: `git config user.name \"You\"` and `git config user.email you@example.com`.")
     }
 }
