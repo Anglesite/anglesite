@@ -23,10 +23,10 @@ struct DNSRecordLabelerTests {
         #expect(DNSRecordLabeler.label(for: r) == "Spam prevention (SPF)")
     }
 
-    @Test("TXT records at _atproto are labeled Bluesky verification")
-    func bluesky() {
+    @Test("TXT records at _atproto are labeled Atmosphere verification")
+    func atmosphere() {
         let r = record(type: "TXT", name: "_atproto.example.com", content: "did=did:plc:abc")
-        #expect(DNSRecordLabeler.label(for: r) == "Bluesky verification")
+        #expect(DNSRecordLabeler.label(for: r) == "Atmosphere verification")
     }
 
     @Test("CNAME records to pages.dev or workers.dev are labeled Website")
@@ -50,6 +50,6 @@ struct DNSRecordLabelerTests {
     @Test("label matching is case-insensitive on type and name")
     func caseInsensitive() {
         #expect(DNSRecordLabeler.label(for: record(type: "mx", name: "EXAMPLE.COM")) == "Email routing")
-        #expect(DNSRecordLabeler.label(for: record(type: "txt", name: "_ATPROTO.example.com", content: "did=x")) == "Bluesky verification")
+        #expect(DNSRecordLabeler.label(for: record(type: "txt", name: "_ATPROTO.example.com", content: "did=x")) == "Atmosphere verification")
     }
 }
