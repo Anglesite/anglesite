@@ -8,8 +8,13 @@ import {
   type FeedEntry,
   type FeedItem,
   type FeedAuthor,
+  type FeedRsl,
 } from "./feeds.ts";
-import { siteProfile } from "./profile.ts";
+import { siteProfile, ownerName } from "./profile.ts";
+import { readConfig } from "../../scripts/config";
+import { assertsNothingExplicitly, type LicensableCollection } from "./licensing.ts";
+import { licensingPolicy, licenseFor } from "./licensing-data.ts";
+import { rslActive } from "./rsl.ts";
 
 const PER_COLLECTION_LIMIT = 50;
 const COMBINED_LIMIT = 50;
@@ -45,11 +50,17 @@ async function renderContentHtml(entry: FeedEntry): Promise<string> {
 /// page routes above this filter is unconditional — dev or prod, a draft never appears in a feed.
 async function mapCollection(collection: string, site: string): Promise<FeedItem[]> {
   const entries = await getCollection(collection as any, (entry: any) => !entry.data.draft);
+  const policy = licensingPolicy();
+  const licensable = collection as LicensableCollection;
+  const licenseInfo = {
+    license: licenseFor(licensable),
+    assertsNothingExplicitly: assertsNothingExplicitly(policy, licensable),
+  };
   return Promise.all(
     entries.map(async (e: any) => {
       const entry: FeedEntry = { id: e.id, collection, data: e.data, body: e.body };
       const contentHtml = await renderContentHtml(entry);
-      return toFeedItem(collection, entry, site, contentHtml);
+      return toFeedItem(collection, entry, site, contentHtml, licenseInfo);
     }),
   );
 }
@@ -82,4 +93,16 @@ export function feedAuthor(): FeedAuthor | undefined {
   if (!name) return undefined;
   const url = typeof profile.url === "string" && profile.url.length > 0 ? profile.url : undefined;
   return url ? { name, url } : { name };
+}
+
+/// The site-wide RSL context to pass as `renderRss`/`renderAtom`'s `rsl` option (#992), or
+/// undefined when RSL isn't active for this build (`rslActive` in `rsl.ts` — the same gate
+/// `scripts/edge-artifacts.ts`, `scripts/csp.ts`, and `BaseLayout.astro` all use). `holder` uses
+/// the same `COPYRIGHT_HOLDER`/h-card fallback as `Rights.astro`'s footer statement, unlike
+/// `edge-artifacts.ts`'s `main()` (which has no Vite context to read `ownerName()` from).
+export function feedRsl(site: string): FeedRsl | undefined {
+  const policy = licensingPolicy();
+  if (!rslActive(policy, site)) return undefined;
+  const holder = readConfig("COPYRIGHT_HOLDER") ?? ownerName();
+  return { usage: policy.usage, holder };
 }

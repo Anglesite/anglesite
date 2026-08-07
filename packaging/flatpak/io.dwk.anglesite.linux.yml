@@ -1,0 +1,116 @@
+# Flatpak manifest for the AnglesiteLinux shell (cross-platform port phase 2, #567).
+#
+# STATUS: scaffold, not yet built or run — see packaging/flatpak/README.md and
+# docs/superpowers/specs/2026-08-06-flatpak-packaging-investigation.md §9 for the manual
+# verification steps a GTK-provisioned Linux box still needs to run before this is trusted.
+#
+# Modeled on adwaita-swift's own reference manifest for its template app
+# (https://codeberg.org/aparoksha/adwaita-template/raw/branch/main/io.github.AparokshaUI.AdwaitaTemplate.json)
+# — a real, working precedent for this exact stack (Swift + libadwaita via adwaita-swift on a
+# GNOME runtime). org.gnome.Platform bundles WebKitGTK (libwebkitgtk-6.0), so org.gnome.Sdk
+# should carry the webkitgtk-6.0 pkg-config dev files Sources/CWebKitGTK needs without an
+# additional WebKit build module — confirm this against the actual runtime version pinned below
+# when this manifest is first built for real.
+
+app-id: io.dwk.anglesite.linux
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.swift6
+command: anglesite-linux
+
+finish-args:
+  # Standard GTK4 GUI surface (matches adwaita-swift's own template manifest).
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  # The app's own WebKitGTK preview + HTTP client need to reach podman's host-loopback-published
+  # preview/MCP ports — a functional requirement of a live-preview browser, not a workaround for
+  # a packaging defect (docs/linux-assed-app-spec.md §6 forbids the latter). There's no
+  # loopback-only middle ground in Flatpak's network permission model: this grants the sandboxed
+  # process unrestricted outbound network access generally, not just 127.0.0.1 reachability — a
+  # real, broader-than-strictly-needed cost accepted for the same reason as --talk-name below
+  # (investigation doc §3(a)), not an oversight.
+  - --share=network
+  # Lets `flatpak-spawn --host podman ...` run podman unsandboxed on the host — see the
+  # investigation doc §3-4 for why this is the chosen design (over bundling a socket-talking
+  # podman-remote client, or a separate host-side helper service) and the accepted cost (this
+  # permission allows spawning any host command the manifest grants, not just podman; Flatpak has
+  # no built-in per-command allowlist yet — flatpak/flatpak#5538). No --filesystem=host grant:
+  # the "Open Site…" folder picker already goes through the document portal (§6 of the
+  # investigation doc), which is the narrower, platform-correct mechanism.
+  - --talk-name=org.freedesktop.Flatpak
+
+build-options:
+  append-path: /usr/lib/sdk/swift6/bin
+  prepend-ld-library-path: /usr/lib/sdk/swift6/lib
+  # flatpak-builder sandboxes the BUILD step itself with no network access by default (a Flathub
+  # hermeticity requirement) — but `swift build` below needs to resolve/fetch SwiftPM's git-pinned
+  # dependencies (adwaita-swift, plus whatever AnglesiteCore's graph pulls in) unless
+  # .build/checkouts is already populated from a prior unsandboxed build. Without this,
+  # `flatpak-builder --force-clean` (the command packaging/flatpak/README.md tells a verifier to
+  # run) fails on the first `swift build` invocation. --share=network here makes local
+  # verification builds actually work; it is NOT Flathub-submittable as-is — Flathub requires
+  # hermetic builds, so a real submission needs SwiftPM's dependencies vendored ahead of time the
+  # same way the overlay JS's npm dependencies do (see the build-commands comment below), which is
+  # exactly the kind of gap #1293 (live manifest verification + Flathub submission) tracks.
+  build-args:
+    - --share=network
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /man
+  - /share/doc
+  - /share/gtk-doc
+  - /share/man
+  - /share/pkgconfig
+  - '*.la'
+  - '*.a'
+
+modules:
+  - name: anglesite-linux
+    builddir: true
+    buildsystem: simple
+    sources:
+      - type: dir
+        # The manifest lives at packaging/flatpak/ inside the repo; flatpak-builder resolves
+        # relative source paths against the manifest's own directory, so this reaches the repo
+        # root where Package.swift lives.
+        path: ../..
+    build-commands:
+      # ANGLESITE_LINUX_SHELL=1 opts the AnglesiteLinux target into the package graph (Package.swift)
+      # — it's excluded by default because most build environments (including this repo's own
+      # Linux CI leg) lack the GTK/libadwaita/webkitgtk dev headers this module provides via the
+      # GNOME SDK.
+      - >-
+        ANGLESITE_LINUX_SHELL=1 swift build -c release --static-swift-stdlib
+        --product anglesite-linux
+      # SwiftPM's built binary name for an executable product can differ from the product name
+      # depending on toolchain version (it may match the underlying target name, "AnglesiteLinux",
+      # instead of the product name, "anglesite-linux") — this manifest hasn't been run against a
+      # real Swift 6 Flatpak SDK extension yet to confirm which. Installing whichever one exists
+      # keeps this build-command correct either way; if a future toolchain produces neither name
+      # this step fails loudly rather than silently installing a stale binary.
+      - >-
+        install -Dm755
+        "$(find .build/release -maxdepth 1 -type f \( -name anglesite-linux -o -name AnglesiteLinux \) | head -n1)"
+        /app/bin/anglesite-linux
+      # Assumes scripts/build-overlay.sh already ran against this checkout (it bundles
+      # JS/edit-overlay/ into Resources/edit-overlay/overlay.js — same output the macOS app
+      # bundle copies). A Flathub-submittable build can't reach npm during the sandboxed build
+      # step, so a real submission needs the overlay's node dependencies vendored ahead of time
+      # (e.g. via a flatpak-node-generator-produced sources list) — deferred along with the rest
+      # of actual Flathub submission (investigation doc §8).
+      - install -Dm644 Resources/edit-overlay/overlay.js /app/share/anglesite/edit-overlay/overlay.js
+      - >-
+        install -Dm644 packaging/flatpak/io.dwk.anglesite.linux.metainfo.xml
+        /app/share/metainfo/io.dwk.anglesite.linux.metainfo.xml
+      - >-
+        install -Dm644 packaging/flatpak/io.dwk.anglesite.linux.desktop
+        /app/share/applications/io.dwk.anglesite.linux.desktop
+      - >-
+        install -Dm644 packaging/flatpak/icons/io.dwk.anglesite.linux.svg
+        /app/share/icons/hicolor/scalable/apps/io.dwk.anglesite.linux.svg

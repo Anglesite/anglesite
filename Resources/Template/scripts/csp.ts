@@ -9,6 +9,8 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfigFromString } from "./config";
+import { readLicensingPolicy } from "./edge-artifacts.ts";
+import { rslFileUrl, rslPublished } from "../src/lib/rsl.ts";
 import {
   readRobotsConfig,
   sanitizeForHeaderLine,
@@ -85,12 +87,17 @@ export function buildCSP(configContent: string): string {
  * function unconditionally regenerates the whole file on every build's `prebuild` step, so
  * anything appended outside of it would be silently wiped on the very next build. Re-deriving the
  * rule here from the file's presence means it survives every rebuild without pwa needing to touch
- * `_headers` at all.
+ * `_headers` at all. `rslUrl` is the absolute URL of the generated `rsl.xml` (#992), or undefined
+ * when RSL isn't active (`rslActive` in `src/lib/rsl.ts`) — `main()` never passes one without also
+ * writing the file. It's part of the `/*` block, not its own path rule: RFC 8288 `Link:` headers
+ * are per-response metadata about the resource actually served, not a route the way `/sw.js` or a
+ * noindex path is, so every response should carry the same site-wide license pointer.
  */
 export function buildHeaders(
   configContent: string,
   serviceWorkerPresent = false,
   noindexEntries: RobotsConfigEntry[] = [],
+  rslUrl?: string,
 ): string {
   const csp = buildCSP(configContent);
   // Only the exact (case-insensitive) string "true" enables preload — submission to
@@ -103,6 +110,7 @@ export function buildHeaders(
   // still isolating attacker-opened windows.
   // CORP: same-site (not same-origin) keeps cross-origin (cross-site) isolation but
   // lets same-site subdomains load shared assets (e.g. a logo on blog.example.com).
+  const rslLink = rslUrl ? `\n  Link: <${rslUrl}>; rel="license"; type="application/rsl+xml"` : "";
   let out = `/*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -111,7 +119,7 @@ export function buildHeaders(
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Resource-Policy: same-site
   Strict-Transport-Security: ${hsts}
-  Content-Security-Policy: ${csp}
+  Content-Security-Policy: ${csp}${rslLink}
   Cache-Control: public, max-age=0, must-revalidate
 
 /_astro/*
@@ -141,14 +149,33 @@ ${sanitizeForHeaderLine(entry.path)}
   return out;
 }
 
+/** Whether/where to point the `/*` block's `Link:` header, reusing `edge-artifacts.ts`'s
+ * `readLicensingPolicy` rather than re-parsing `src/data/licensing.json` here — both scripts run
+ * at `prebuild` (csp.ts first) and must agree on RSL's state, so `main()` never emits a `Link:`
+ * header pointing at an `rsl.xml` that `edge-artifacts.ts` didn't also write. Gated on
+ * `rslPublished`, not bare `rslActive` — the latter only checks `publishRSL`/`SITE_URL` and says
+ * nothing about whether the policy actually has content to declare, which is what decides whether
+ * `edge-artifacts.ts` writes the file at all (PR #1290 review). This import doesn't run
+ * `edge-artifacts.ts`'s own `main()` — it's guarded to fire only when the file is executed
+ * directly (see that file's own bottom guard). */
+function readRslLinkUrl(cwd: string, siteUrl: string | undefined): string | undefined {
+  const { policy } = readLicensingPolicy(cwd);
+  return rslPublished(policy, siteUrl) ? (rslFileUrl(siteUrl) ?? undefined) : undefined;
+}
+
 function main(): void {
   const configPath = resolve(process.cwd(), ".site-config");
   const config = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
   const outPath = resolve(process.cwd(), "public", "_headers");
   const serviceWorkerPresent = existsSync(resolve(process.cwd(), "public", "sw.js"));
   const robotsConfig = readRobotsConfig(process.cwd());
+  const rslUrl = readRslLinkUrl(process.cwd(), readConfigFromString(config, "SITE_URL"));
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, buildHeaders(config, serviceWorkerPresent, robotsConfig.noindex), "utf-8");
+  writeFileSync(
+    outPath,
+    buildHeaders(config, serviceWorkerPresent, robotsConfig.noindex, rslUrl),
+    "utf-8",
+  );
   console.log(`Wrote ${outPath}`);
 }
 
