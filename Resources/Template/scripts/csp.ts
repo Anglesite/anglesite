@@ -122,6 +122,9 @@ export function buildHeaders(
 
 /.well-known/mta-sts.txt
   Content-Type: text/plain; charset=utf-8
+
+/.well-known/site.standard.publication
+  Content-Type: text/plain; charset=utf-8
 `;
   // Sanitized: `_headers` is newline-delimited, so a path containing one would open an extra
   // header block for a route the site owner never chose.
