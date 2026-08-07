@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Placeholder app icon — not final brand art. See packaging/flatpak/README.md. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#3584e4" />
+  <path d="M64 30 L96 92 L80 92 L73 78 L55 78 L48 92 L32 92 Z M64 50 L57 66 L71 66 Z"
+        fill="#ffffff" />
+</svg>
