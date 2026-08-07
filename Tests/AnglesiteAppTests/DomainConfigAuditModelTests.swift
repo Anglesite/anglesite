@@ -52,6 +52,7 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     func attachWorkersCustomDomain(hostname: String, workerScriptName: String, apiToken: String) async throws -> CustomDomainAttachResult {
         .attached
     }
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
 }
 
 @Suite(.serialized)

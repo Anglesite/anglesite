@@ -38,6 +38,15 @@ public protocol CloudflareWriting: Sendable {
     func attachWorkersCustomDomain(
         hostname: String, workerScriptName: String, apiToken: String
     ) async throws -> CustomDomainAttachResult
+    /// Toggles Markdown for Agents (`content_converter`) for the zone owning `hostname` — the
+    /// edge feature that serves an HTML→Markdown-converted response to requests carrying
+    /// `Accept: text/markdown` (#1247). Resolves the zone from `hostname` itself, mirroring
+    /// `attachWorkersCustomDomain`, since callers (post-deploy, after a custom domain is
+    /// confirmed attached) only have the hostname on hand. Returns `false` when the zone isn't
+    /// visible to this token yet — a transient condition callers should treat as best-effort
+    /// skip, not an error.
+    @discardableResult
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool
 }
 
 /// Payload for creating a DNS record via the Cloudflare API.

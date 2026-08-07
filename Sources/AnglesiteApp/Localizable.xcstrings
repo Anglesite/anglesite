@@ -1035,6 +1035,9 @@
         }
       }
     },
+    "Couldn't enable Markdown for Agents for %@ — often a Cloudflare plan limit (Pro plan or higher). See the debug log for details." : {
+
+    },
     "Couldn't finish setup" : {
 
     },
@@ -1057,6 +1060,9 @@
 
     },
     "Couldn't save the worker change: %@" : {
+
+    },
+    "Couldn't save this change: %@" : {
 
     },
     "Couldn't update this file — see the debug log for details." : {
@@ -2781,6 +2787,9 @@
 
     },
     "Send to Back" : {
+
+    },
+    "Serve a lightweight version of your pages to AI assistants" : {
 
     },
     "Server" : {
