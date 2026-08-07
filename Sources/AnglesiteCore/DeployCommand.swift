@@ -695,12 +695,20 @@ public actor DeployCommand {
     }
 
     /// Default `TokenSource` for production: thin forwarding wrapper around
-    /// ``CloudflareAPICredentials/resolve(secretStore:diagnosticSource:)`` (#1211) — env var first
-    /// (so a developer's shell still wins), then a stored OAuth credential (refreshing it first if
-    /// expired), then the legacy pasted token, kept so a token a user already pasted keeps
-    /// working.
+    /// ``CloudflareAPICredentials/resolve(secretStore:diagnosticSource:surfaceOAuthReadErrors:)``
+    /// (#1211) — env var first (so a developer's shell still wins), then a stored OAuth credential
+    /// (refreshing it first if expired), then the legacy pasted token, kept so a token a user
+    /// already pasted keeps working. Passes `surfaceOAuthReadErrors: true`, preserving this call
+    /// site's original (pre-#1211) behavior: a genuine Keychain error reading the OAuth slot
+    /// surfaces as an actionable "couldn't read token" deploy failure rather than silently reading
+    /// as "no token configured" and nudging the user toward an unnecessary re-sign-in — deploy is
+    /// the highest-stakes call site this resolver serves, so it alone keeps that stricter
+    /// diagnosis. The resolver's other callers (background sync jobs, Harden, Domain Config Audit,
+    /// …) default to swallowing that error and falling through to the legacy token instead, which
+    /// isn't a behavior change for them — none of them surfaced this class of error before #1211
+    /// either.
     public static let keychainTokenSource: TokenSource = {
-        try await CloudflareAPICredentials.resolve()
+        try await CloudflareAPICredentials.resolve(surfaceOAuthReadErrors: true)
     }
 
     /// Default `WorkerScriptNamesSource` for production: the account's Worker script names via

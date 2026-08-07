@@ -76,6 +76,27 @@ struct CloudflareAPICredentialsTests {
             #expect(resolved == nil)
         }
     }
+
+    @Test("surfaceOAuthReadErrors: true propagates a genuine OAuth-slot read error instead of falling through")
+    func surfaceOAuthReadErrorsPropagatesInsteadOfFallingThrough() async throws {
+        try await withCloudflareEnvToken(nil) {
+            let store = OAuthSlotThrowingSecretStore()
+            try store.writeCloudflareToken("legacy-tok")
+            await #expect(throws: (any Error).self) {
+                _ = try await CloudflareAPICredentials.resolve(secretStore: store, surfaceOAuthReadErrors: true)
+            }
+        }
+    }
+
+    @Test("surfaceOAuthReadErrors: false (the default) still falls through despite the same error")
+    func surfaceOAuthReadErrorsDefaultsToFallingThrough() async throws {
+        try await withCloudflareEnvToken(nil) {
+            let store = OAuthSlotThrowingSecretStore()
+            try store.writeCloudflareToken("legacy-tok")
+            let resolved = try await CloudflareAPICredentials.resolve(secretStore: store, surfaceOAuthReadErrors: false)
+            #expect(resolved == "legacy-tok")
+        }
+    }
 }
 
 /// A `SecretStore` that throws reading the OAuth access-token slot specifically (simulating a

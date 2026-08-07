@@ -19,18 +19,28 @@ public enum CloudflareAPICredentials {
     ///     resolved — mirroring the caller-specific diagnostics call sites used to log for
     ///     themselves before sharing this resolver. `nil` (the default) logs nothing, matching the
     ///     silent behavior every call site except `PlistEditorModel`'s analytics token had before.
+    ///   - surfaceOAuthReadErrors: When `true`, a genuine read error on the OAuth slot (as opposed
+    ///     to "no credential stored," which resolves `nil`, not a throw) propagates out of
+    ///     `resolve()` instead of being swallowed and falling through to the legacy token. This
+    ///     restores ``DeployCommand/keychainTokenSource``'s original, pre-#1211 behavior for the
+    ///     deploy path specifically: a real Keychain problem (e.g. an access-group/entitlement
+    ///     issue) surfaces as an actionable "couldn't read token" error rather than silently
+    ///     reading as "no token configured" and nudging the user toward an unnecessary re-sign-in.
+    ///     Every other call site defaults to `false` (swallow-and-fall-through) — none of them
+    ///     surfaced this class of error before #1211 either (they read the legacy slot with a bare
+    ///     `try?`), so keeping them silent here is not a behavior change for them, and a background
+    ///     sync job has no user-facing surface to report a Keychain read error to regardless.
     /// - Returns: A usable token, or `nil` if nothing is configured anywhere in the resolution
     ///   order.
     /// - Throws: Whatever `secretStore`'s *legacy-token* read throws (e.g. a Keychain error) —
     ///   surfaced to the caller rather than silently swallowed to `nil`, so a real store failure
     ///   reads as "couldn't read token" instead of prompting for a re-sign-in when a token is
-    ///   actually stored fine. A failure reading the *OAuth* slot is swallowed instead: it must
-    ///   fall through to the legacy token below, not skip that fallback the way a thrown error
-    ///   otherwise would (a transient/genuine Keychain error on the OAuth slot must not cost a
-    ///   user their perfectly good pasted token).
+    ///   actually stored fine. A failure reading the *OAuth* slot is swallowed instead unless
+    ///   `surfaceOAuthReadErrors` is `true` (see above).
     public static func resolve(
         secretStore: any SecretStore = PlatformSecretStore.make(),
-        diagnosticSource: String? = nil
+        diagnosticSource: String? = nil,
+        surfaceOAuthReadErrors: Bool = false
     ) async throws -> String? {
         if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
             if let diagnosticSource {
@@ -44,7 +54,10 @@ public enum CloudflareAPICredentials {
             try await CloudflareOAuthClient(scope: AnglesiteTokenTemplate.oauthScope)
                 .refresh(refreshToken: refreshToken, tokenEndpoint: tokenEndpoint)
         })
-        if let oauthToken = try? await oauthSource.resolve() {
+        let oauthToken = surfaceOAuthReadErrors
+            ? try await oauthSource.resolve()
+            : try? await oauthSource.resolve()
+        if let oauthToken {
             return oauthToken
         }
         let legacyToken = try secretStore.readCloudflareToken()
