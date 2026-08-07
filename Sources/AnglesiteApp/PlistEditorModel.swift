@@ -915,11 +915,15 @@ final class PlistEditorModel {
 
     /// Persists the ActivityPub handle override to `.site-config`'s `AP_USERNAME` key (#1239),
     /// validating at entry per the design doc (`DeployCoordinator.isValidActivityPubUsername` —
-    /// the same grammar `worker.ts` re-checks at request time). A value equal to the
-    /// hostname-derived default is deduped — the key is removed rather than written, so
-    /// `.site-config` doesn't grow a redundant line every time an owner types the default back
-    /// in. No-ops when the handle is locked; the UI disables the field in that state, so this
-    /// would only be reached via a bypass.
+    /// the same grammar `worker.ts` re-checks at request time). Lowercased before comparing or
+    /// writing — the grammar is case-insensitive, but WebFinger's local-part lookup is
+    /// exact-match case-sensitive (RFC 7565), so a mixed-case value would only resolve at that
+    /// exact casing (`worker.ts`'s `resolvePreferredUsername` does the same normalization); this
+    /// also keeps the displayed field in sync with what `resolveEffectiveActivityPubUsername`
+    /// resolves after a reload. A value equal to the hostname-derived default is deduped — the
+    /// key is removed rather than written, so `.site-config` doesn't grow a redundant line every
+    /// time an owner types the default back in. No-ops when the handle is locked; the UI disables
+    /// the field in that state, so this would only be reached via a bypass.
     func saveActivityPubUsername(_ newValue: String) {
         guard !activityPubUsernameLocked else { return }
         let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -928,16 +932,17 @@ final class PlistEditorModel {
             return
         }
         activityPubUsernameError = nil
+        let normalized = trimmed.lowercased()
         let defaultUsername = DeployCoordinator.defaultActivityPubUsername(siteDirectory: sourceDirectory)
         let configURL = sourceDirectory.appendingPathComponent(".site-config")
         let existing = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         let updated: String
-        if trimmed.isEmpty || trimmed == defaultUsername {
+        if normalized.isEmpty || normalized == defaultUsername {
             updated = SiteConfigFile.remove(["AP_USERNAME"], from: existing)
             activityPubUsername = defaultUsername ?? ""
         } else {
-            updated = SiteConfigFile.upsert([("AP_USERNAME", trimmed)], into: existing)
-            activityPubUsername = trimmed
+            updated = SiteConfigFile.upsert([("AP_USERNAME", normalized)], into: existing)
+            activityPubUsername = normalized
         }
         guard updated != existing else { return }
         try? updated.write(to: configURL, atomically: true, encoding: .utf8)

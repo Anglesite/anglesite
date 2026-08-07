@@ -1122,12 +1122,20 @@ export function defaultApUsername(host: string): string {
  * rather than produce a malformed `acct:` resource or actor document (design doc §"Validation") —
  * falling back to {@link defaultApUsername} when unset, blank, or invalid. Never affects the actor
  * IRI; see {@link ACTIVITYPUB_USERNAME}.
+ *
+ * Lowercased before returning: the grammar is explicitly case-insensitive (design doc
+ * §"Validation"), but the WebFinger resource map below is a plain object keyed by the exact
+ * `acct:` string, and `@dwk/webfinger`'s own resource normalization only lowercases the *host*
+ * half of a queried `acct:` resource, deliberately leaving the local part case-sensitive per RFC
+ * 7565 (`resource.ts`'s doc comment). Left un-normalized, a mixed-case override (`AP_USERNAME=Alice`)
+ * would only resolve at that exact casing — undiscoverable via the lowercase `acct:` lookup
+ * conventional Fediverse clients (and this file's own alias entries) use.
  */
 export function resolvePreferredUsername(env: WorkerEnv, host: string): string {
   const fallback = defaultApUsername(host);
   const override = env.AP_USERNAME?.trim();
   if (!override || !isValidApUsername(override)) return fallback;
-  return override;
+  return override.toLowerCase();
 }
 
 /**

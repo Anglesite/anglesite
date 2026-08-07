@@ -246,6 +246,15 @@ struct DeployCoordinatorTests {
         #expect(DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: dir) == "alice")
     }
 
+    @Test("resolveEffectiveActivityPubUsername lowercases a mixed-case override, matching worker.ts's case-insensitive grammar")
+    func resolveEffectiveActivityPubUsernameLowercasesOverride() throws {
+        let dir = try temporaryDirectory()
+        try "SITE_URL=https://example.com\nAP_USERNAME=Alice\n".write(
+            to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        #expect(DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: dir) == "alice")
+    }
+
     @Test("resolveEffectiveActivityPubUsername falls back to the hostname default when the override is invalid")
     func resolveEffectiveActivityPubUsernameFallsBackOnInvalidOverride() throws {
         let dir = try temporaryDirectory()

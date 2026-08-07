@@ -1229,6 +1229,16 @@ test("handle: AP_USERNAME overrides the default preferredUsername", async () => 
   expect(body.id).toBe("https://owner.example/users/site");
 });
 
+test("handle: a mixed-case AP_USERNAME override is lowercased, matching the case-insensitive grammar", async () => {
+  const response = await worker.fetch(
+    new Request("https://owner.example/users/site"),
+    { ...testEnv, AP_USERNAME: "Alice" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  const body = await response.json() as { preferredUsername: string };
+  expect(body.preferredUsername).toBe("alice");
+});
+
 test("handle: an invalid AP_USERNAME falls back to the hostname default, not a malformed document", async () => {
   const response = await worker.fetch(
     new Request("https://owner.example/users/site"),
@@ -1474,6 +1484,20 @@ test("webfinger: with AP_USERNAME set, the override is canonical and both the ho
     expect(response.status).toBe(200);
     expect((await response.json() as { subject: string }).subject).toBe("acct:alice@owner.example");
   }
+});
+
+test("webfinger: a mixed-case AP_USERNAME override still resolves at the conventional lowercase acct: query", async () => {
+  // Regression guard: the resource map is a plain object keyed by the resolved (lowercased)
+  // handle, so an un-normalized "Alice" override would only answer acct:Alice@... — undiscoverable
+  // via the lowercase acct:alice@... form most Fediverse clients query.
+  const response = await worker.fetch(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:alice@owner.example"),
+    { ...testEnv, AP_USERNAME: "Alice" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(200);
+  const jrd = await response.json() as { subject: string };
+  expect(jrd.subject).toBe("acct:alice@owner.example");
 });
 
 test("webfinger: an AP_USERNAME override equal to the derived default produces no extra alias handle", async () => {

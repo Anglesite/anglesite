@@ -301,10 +301,12 @@ public enum DeployCoordinator {
     /// The ActivityPub handle the composed Worker will actually serve for this site right now:
     /// ``resolveActivityPubUsername``'s override when set *and* syntactically valid, else
     /// ``defaultActivityPubUsername`` — mirrors `worker.ts`'s `resolvePreferredUsername` exactly
-    /// (including falling back on an invalid override), so the app's handle field default and
-    /// rename-detection compare apples to apples with what a peer would actually see after the
-    /// next deploy. `nil` only when neither a usable override nor a resolvable site URL exists
-    /// yet (a site that has never deployed).
+    /// (including falling back on an invalid override and lowercasing a valid one — the grammar
+    /// is case-insensitive, but WebFinger's local-part lookup is exact-match case-sensitive per
+    /// RFC 7565, so a mixed-case override would otherwise only resolve at that exact casing), so
+    /// the app's handle field default and rename-detection compare apples to apples with what a
+    /// peer would actually see after the next deploy. `nil` only when neither a usable override
+    /// nor a resolvable site URL exists yet (a site that has never deployed).
     public static func resolveEffectiveActivityPubUsername(siteDirectory: URL) -> String? {
         let fallback = defaultActivityPubUsername(siteDirectory: siteDirectory)
         guard let override = resolveActivityPubUsername(siteDirectory: siteDirectory),
@@ -312,7 +314,7 @@ public enum DeployCoordinator {
         else {
             return fallback
         }
-        return override
+        return override.lowercased()
     }
 
     /// Whether this site's ActivityPub actor has already federated — the design doc's "lock
