@@ -18,12 +18,26 @@
 # genuine race rather than environment noise, the same way #203 covers the relay
 # suites.
 #
-# Scoped to these suites (--filter 'TurnRelay|TextStreamRelay|ProcessSupervisor')
-# to keep the run fast and avoid sanitizing the model-gated FoundationModels
-# tests. Keep this scoped to the original relay suites specifically — a bare
-# 'Relay' also matches AnglesiteP2PTests/HMRRelayTests, whose
-# concurrentDeliver*-style tests use 20ms timing windows that balloon 5-15x
-# under the sanitizer. P2P suites are intentionally excluded from this lane.
+# DomainConfigStore joined this lane per #1255: `DomainConfigStore.update(_:)`
+# holds a per-file `NSLock` across its own load-mutate-save sequence so two
+# concurrent producers can't both read the same stale snapshot before either
+# writes. Unlike the relay/ProcessSupervisor suites above, this isn't a
+# same-address in-process memory race TSan actually instruments — each
+# producer works against its own local `var config` and does separate
+# `Data(contentsOf:)`/`write(to:)` syscalls, so it's a lost-update race on the
+# file on disk. TSan doesn't flag it as a data race here; running it under
+# this lane just perturbs scheduling, which can help (or occasionally not)
+# surface the interleaving `DomainConfigStoreUpdateTests`' concurrent-producers
+# test relies on — it remains probabilistic, not sanitizer-guaranteed, the
+# same as under a plain `swift test --parallel` run.
+#
+# Scoped to these suites (--filter
+# 'TurnRelay|TextStreamRelay|ProcessSupervisor|DomainConfigStore') to keep the
+# run fast and avoid sanitizing the model-gated FoundationModels tests. Keep
+# this scoped to the original relay suites specifically — a bare 'Relay' also
+# matches AnglesiteP2PTests/HMRRelayTests, whose concurrentDeliver*-style tests
+# use 20ms timing windows that balloon 5-15x under the sanitizer. P2P suites
+# are intentionally excluded from this lane.
 #
 # Prerequisites:
 #   - Xcode 27+ toolchain. Locally, point DEVELOPER_DIR at it (the default
@@ -38,5 +52,5 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "Running relay and process-supervision concurrency suites under ThreadSanitizer…"
-exec xcrun swift test --sanitize thread --filter 'TurnRelay|TextStreamRelay|ProcessSupervisor'
+echo "Running relay, process-supervision, and DomainConfigStore concurrency suites under ThreadSanitizer…"
+exec xcrun swift test --sanitize thread --filter 'TurnRelay|TextStreamRelay|ProcessSupervisor|DomainConfigStore'
