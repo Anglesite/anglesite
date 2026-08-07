@@ -55,7 +55,8 @@ struct CloudflareAPICredentialsTests {
     @Test("resolves nil when nothing is configured")
     func resolvesNilWhenNothingConfigured() async throws {
         try await withCloudflareEnvToken(nil) {
-            #expect(try await CloudflareAPICredentials.resolve(secretStore: InMemorySecretStore()) == nil)
+            let resolved = try await CloudflareAPICredentials.resolve(secretStore: InMemorySecretStore())
+            #expect(resolved == nil)
         }
     }
 
@@ -71,7 +72,8 @@ struct CloudflareAPICredentialsTests {
     @Test("a genuine read error on the OAuth slot with no legacy token resolves nil, not a throw")
     func oauthSlotReadErrorWithNoLegacyTokenResolvesNil() async throws {
         try await withCloudflareEnvToken(nil) {
-            #expect(try await CloudflareAPICredentials.resolve(secretStore: OAuthSlotThrowingSecretStore()) == nil)
+            let resolved = try await CloudflareAPICredentials.resolve(secretStore: OAuthSlotThrowingSecretStore())
+            #expect(resolved == nil)
         }
     }
 }
