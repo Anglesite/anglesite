@@ -4,15 +4,16 @@ import AnglesiteCore
 
 struct ThemeApplyWizard: View {
     @Bindable var model: ThemeApplyWizardModel
-    @Environment(\.dismiss) private var dismiss
+    /// Called when the owner dismisses a finished wizard (the applying step's "Done" button).
+    /// The caller nils its `.sheet(item:)` model, matching every other wizard/sheet in
+    /// `SiteWindow` (`IntegrationWizard`'s `onClose`, `EmailSetupSheetView`'s `onDone`) rather
+    /// than relying on `@Environment(\.dismiss)` to clear an item-bound sheet's identity.
+    let onDone: () -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 12)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Apply a Theme")
-                .font(.title2.bold())
-
             Group {
                 switch model.step {
                 case .pickSource: pickSourceStep
@@ -142,7 +143,7 @@ struct ThemeApplyWizard: View {
             case .success:
                 Label("Theme applied.", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-                Button("Done") { dismiss() }
+                Button("Done") { onDone() }
             case .failure(let error):
                 Label("Couldn't apply that theme: \(String(describing: error))", systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)

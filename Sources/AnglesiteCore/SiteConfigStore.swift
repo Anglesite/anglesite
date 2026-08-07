@@ -87,6 +87,13 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// parameter), which is inert until that wiring lands.
     public var moderators: [String]?
 
+    /// Owner opt-out from Markdown for Agents (#1247) — the Cloudflare zone setting that serves
+    /// an HTML→Markdown-converted response to requests carrying `Accept: text/markdown`, cutting
+    /// AI-agent token usage. `nil`/`false` (the default) means enabled: `DeployCommand` turns the
+    /// zone setting on for every site with a confirmed custom domain, matching the issue's
+    /// default-on ask. `true` means the owner explicitly opted out in Site Settings.
+    public var markdownForAgentsDisabled: Bool?
+
     /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
     /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
@@ -105,7 +112,8 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         webmentionReceivePaidPlanAcknowledged: Bool? = nil,
         communityOutboxURL: URL? = nil,
         communityActorURL: URL? = nil,
-        moderators: [String]? = nil
+        moderators: [String]? = nil,
+        markdownForAgentsDisabled: Bool? = nil
     ) {
         self.displayName = displayName
         self.inboxCaptureAccountID = inboxCaptureAccountID
@@ -122,6 +130,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.communityOutboxURL = communityOutboxURL
         self.communityActorURL = communityActorURL
         self.moderators = moderators
+        self.markdownForAgentsDisabled = markdownForAgentsDisabled
     }
 }
 

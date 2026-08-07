@@ -54,6 +54,10 @@ final class DeployModel {
     /// as a Workers Custom Domain (#1077), captured from the deploy's `onDomainAttach` observer.
     /// `nil` before any deploy has completed this session; only ever set on a `.succeeded` deploy.
     private(set) var domainAttachStatus: CustomDomainAttachCommand.Result?
+    /// Outcome of applying the Markdown for Agents zone setting (#1247), captured from the
+    /// deploy's `onMarkdownForAgents` observer. `nil` before any deploy has completed this
+    /// session, or when the deploy never confirmed a custom domain (no zone to apply it to).
+    private(set) var markdownForAgentsStatus: MarkdownForAgentsCommand.Result?
     /// Whether the deploy currently in flight (or most recently completed) is this site's first
     /// successful publish — captured from `.site-config`'s `CF_WORKER_DEPLOYED` *before* the
     /// deploy pipeline runs (#1180), so it reflects the site's history going into this attempt,
@@ -129,6 +133,7 @@ final class DeployModel {
 
     private let command: DeployCommand
     private let webmentionCommand: WebmentionSendCommand
+    private let standardSitePublishCommand: StandardSitePublishCommand
     private let posseCommand: POSSESyndicationCommand
     private let websubPing: WebSubPublishPing
     private let activityPubOutboxBackfill: ActivityPubOutboxBackfill
@@ -172,6 +177,7 @@ final class DeployModel {
     init(
         command: DeployCommand = DeployCommand(),
         webmentionCommand: WebmentionSendCommand = WebmentionSendCommand(),
+        standardSitePublishCommand: StandardSitePublishCommand = StandardSitePublishCommand(),
         posseCommand: POSSESyndicationCommand = POSSESyndicationCommand(),
         websubPing: WebSubPublishPing = WebSubPublishPing(),
         activityPubOutboxBackfill: ActivityPubOutboxBackfill = ActivityPubOutboxBackfill(),
@@ -189,6 +195,7 @@ final class DeployModel {
     ) {
         self.command = command
         self.webmentionCommand = webmentionCommand
+        self.standardSitePublishCommand = standardSitePublishCommand
         self.posseCommand = posseCommand
         self.websubPing = websubPing
         self.activityPubOutboxBackfill = activityPubOutboxBackfill
@@ -579,6 +586,7 @@ final class DeployModel {
                 tokenSource: command.tokenSource,
                 workerScriptNamesSource: command.workerScriptNamesSource,
                 customDomainAttachCommand: command.customDomainAttachCommand,
+                markdownForAgentsCommand: command.markdownForAgentsCommand,
                 executor: ContainerDeployExecutor(
                     control: cc.control,
                     siteID: cc.siteID,
@@ -689,6 +697,9 @@ final class DeployModel {
                     onDomainAttach: { [weak self] outcome in
                         Task { @MainActor in self?.domainAttachStatus = outcome }
                     },
+                    onMarkdownForAgents: { [weak self] outcome in
+                        Task { @MainActor in self?.markdownForAgentsStatus = outcome }
+                    },
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
                             self?.currentMilestone = progress.label
@@ -784,6 +795,12 @@ final class DeployModel {
                     guard let self else { return }
                     await self.webmentionCommand.send(
                         siteID: siteID, siteDirectory: siteDirectory, configDirectory: configDirectory, siteBase: url
+                    )
+                },
+                publishStandardSite: { [weak self] in
+                    guard let self else { return }
+                    await self.standardSitePublishCommand.publish(
+                        siteID: siteID, siteDirectory: siteDirectory, configDirectory: configDirectory
                     )
                 },
                 syndicate: { [weak self] in

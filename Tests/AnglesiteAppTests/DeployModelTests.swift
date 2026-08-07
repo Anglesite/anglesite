@@ -68,6 +68,7 @@ private final class FakeDomainAttachWriter: CloudflareWriting, @unchecked Sendab
     func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
 }
 
 private struct StubTokenVerifying: TokenVerifying {
@@ -280,6 +281,7 @@ struct DeployModelTests {
         let command = DeployCommand(
             tokenSource: { "test-token" },
             customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            markdownForAgentsCommand: MarkdownForAgentsCommand(client: writer),
             executor: executor
         )
         let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
@@ -312,6 +314,7 @@ struct DeployModelTests {
         let command = DeployCommand(
             tokenSource: { "test-token" },
             customDomainAttachCommand: CustomDomainAttachCommand(client: writer),
+            markdownForAgentsCommand: MarkdownForAgentsCommand(client: writer),
             executor: executor
         )
         let model = DeployModel(command: command, logCenter: LogCenter(), tokenAvailabilityOverride: { true })
