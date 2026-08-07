@@ -1320,6 +1320,160 @@ test("micropub-to-activitypub fan-out: an html-only mf2 rich-text content object
   expect(outboxPage.orderedItems?.some((item) => item.object?.content?.includes("Hello, html-only fediverse"))).toBe(true);
 });
 
+type FanOutAttachment = { type?: string; url?: string; name?: string };
+type FanOutOutboxItem = { object?: { content?: string; attachment?: FanOutAttachment[] } };
+
+test("micropub-to-activitypub fan-out (#1240): a JSON create with photos lands a Note carrying the expected attachment array", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: {
+        content: ["A photo for Pixelfed"],
+        // Mixed shapes: a bare URL string and the mf2 alt-text object form { value, alt } —
+        // both must map to an AS2 `Image` attachment.
+        photo: ["https://media.example/plain.jpg", { value: "https://media.example/alt.jpg", alt: "A view" }],
+      },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("A photo for Pixelfed"));
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/plain.jpg" },
+    { type: "Image", url: "https://media.example/alt.jpg", name: "A view" },
+  ]);
+});
+
+test("micropub-to-activitypub fan-out (#1240): a photo-less JSON create publishes a Note with no attachment field", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: { content: ["No photo here"] },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("No photo here"));
+  expect(published?.object?.attachment).toBeUndefined();
+});
+
+test("micropub-to-activitypub fan-out (#1240, #1325 review): a photo-only create with no caption still fans out", async () => {
+  // The primary case #1240 exists to fix: Pixelfed renders only posts with an attachment, and a
+  // bare photo with no caption text is a normal, common Micropub shape — it must not be dropped
+  // by a `content`-only guard (a bug caught in PR review before merge).
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: { photo: ["https://media.example/caption-less.jpg"] },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) =>
+    item.object?.attachment?.some((attachment) => attachment.url === "https://media.example/caption-less.jpg"),
+  );
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/caption-less.jpg" },
+  ]);
+});
+
+test("micropub-to-activitypub fan-out (#1240): a form-encoded create with photo fields lands the same attachment mapping", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const body = new URLSearchParams();
+  body.append("h", "entry");
+  body.append("content", "Form-encoded photo post");
+  body.append("photo", "https://media.example/form-a.jpg");
+  body.append("photo[]", "https://media.example/form-b.jpg");
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: body.toString(),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("Form-encoded photo post"));
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/form-a.jpg" },
+    { type: "Image", url: "https://media.example/form-b.jpg" },
+  ]);
+});
+
+test("micropub-to-activitypub fan-out (#1240, #1325 review): a form-encoded create using the properties[photo][] nesting convention still attaches", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const body = new URLSearchParams();
+  body.append("h", "entry");
+  // Same `properties[x]` nesting convention `content` already falls back to
+  // (`form.get("properties[content]")`) — a client using it for `photo` must not have its
+  // attachments silently dropped from the fan-out.
+  body.append("properties[content]", "Nested-properties photo post");
+  body.append("properties[photo][]", "https://media.example/nested.jpg");
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: body.toString(),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("Nested-properties photo post"));
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/nested.jpg" },
+  ]);
+});
+
 test("micropub-to-activitypub fan-out: never fires when ActivityPub isn't provisioned", async () => {
   const { AP_PUBLISH_TOKEN: _unusedToken, ...envWithoutToken } = testEnv;
   const { token, keyPair } = await mintAccessToken("create");
