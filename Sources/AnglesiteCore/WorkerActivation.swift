@@ -152,8 +152,16 @@ public enum WorkerActivation {
             guard relevantActive else { continue }
             let gate = conformance.gateStatus(for: phase)
             guard !gate.isUnblocked else { continue }
-            messages.append("conformance: \(gate.blocked.joined(separator: ", ")) not yet release-ready for this phase")
+            var parts: [String] = []
+            if !gate.blocked.isEmpty {
+                parts.append("\(gate.blocked.joined(separator: ", ")) not yet release-ready for this phase")
+            }
+            if !gate.unverified.isEmpty {
+                parts.append("\(gate.unverified.joined(separator: ", ")) has no conformance suite reported yet")
+            }
+            messages.append(parts.joined(separator: "; "))
         }
-        return messages.isEmpty ? nil : messages.joined(separator: "; ")
+        guard !messages.isEmpty else { return nil }
+        return "conformance: " + messages.joined(separator: "; ")
     }
 }
