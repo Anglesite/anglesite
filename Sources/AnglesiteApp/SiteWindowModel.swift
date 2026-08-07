@@ -161,6 +161,8 @@ final class SiteWindowModel {
     var communities = CommunitiesModel()
     var harden = HardenModel()
     var domainConfigAudit = DomainConfigAuditModel()
+    /// Cloudflare Agent Readiness score for the deployed site (#1248).
+    var agentReadiness = AgentReadinessModel()
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
     var connectDomain = ConnectDomainModel()
@@ -675,6 +677,7 @@ final class SiteWindowModel {
     var canRunAudit: Bool { site?.isValid == true && !siteOperationRunning && preview.canDeploy }
     var canRunHarden: Bool { site?.isValid == true && !harden.isRunning }
     var canRunDomainConfigAudit: Bool { site?.isValid == true && !domainConfigAudit.isRunning }
+    var canRunAgentReadiness: Bool { site?.isValid == true && !agentReadiness.isRunning }
     var canRunOnionRouting: Bool { site?.isValid == true && !onionRouting.isRunning }
     var canRecheckHealth: Bool { site != nil }
     var canOpenDomain: Bool { site != nil && !domain.isRunning }
@@ -2048,6 +2051,7 @@ final class SiteWindowModel {
         buyDomain.configure(site: currentSite)
         harden.configure(site: currentSite)
         domainConfigAudit.configure(site: currentSite)
+        agentReadiness.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)
