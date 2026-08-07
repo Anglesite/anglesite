@@ -39,7 +39,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@astrojs/react": "^6.0.1",
-    "@cloudflare/vitest-pool-workers": "0.18.8",
+    "@cloudflare/vitest-pool-workers": "0.20.3",
     "@cloudflare/workers-types": "5.20260723.1",
     "@keystatic/astro": "^5.0.4",
     "@keystatic/core": "^0.5.34",
@@ -53,7 +53,7 @@
     "tsx": "^4.0.0",
     "typescript": "^5.9.3",
     "vitest": "4.1.10",
-    "wrangler": "4.114.0"
+    "wrangler": "4.120.0"
   },
   "overrides": {
     "@astroanimate/core": {
