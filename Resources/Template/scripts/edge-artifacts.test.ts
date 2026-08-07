@@ -24,6 +24,9 @@ import {
   normalizeMTAStsMX,
   planMTAStsPolicy,
   resolveMTAStsMode,
+  isValidAtprotoDid,
+  isAtprotoDidOwned,
+  planAtprotoDid,
   planStandardSitePublication,
 } from "./edge-artifacts";
 import { standardSitePublicationURI } from "./standard-site.ts";
@@ -746,4 +749,63 @@ test("buildRobotsTxt: extra lines are appended verbatim after a blank line", () 
 
 test("buildRobotsTxt: no disallow entries or extra lines leaves output unchanged from today", () => {
   assert.equal(buildRobotsTxt(), buildRobotsTxt(undefined, undefined, [], []));
+});
+
+const PLC_DID = "did:plc:z72i7hdynmk6r22z27h6tvur";
+const WEB_DID = "did:web:example.com";
+
+test("isValidAtprotoDid: accepts did:plc and did:web, rejects non-DIDs", () => {
+  assert.ok(isValidAtprotoDid(PLC_DID));
+  assert.ok(isValidAtprotoDid(WEB_DID));
+  assert.ok(isValidAtprotoDid(`  ${PLC_DID}  `), "trims surrounding whitespace");
+  assert.equal(isValidAtprotoDid(""), false);
+  assert.equal(isValidAtprotoDid("not-a-did"), false);
+  assert.equal(isValidAtprotoDid("did:plc:"), false);
+  assert.equal(isValidAtprotoDid(`${PLC_DID}\nContact: mailto:s@example.com`), false, "no room for extra lines");
+});
+
+test("isAtprotoDidOwned: true only for content that is itself a valid DID", () => {
+  assert.ok(isAtprotoDidOwned(PLC_DID));
+  assert.equal(isAtprotoDidOwned("hand-authored content"), false);
+  assert.equal(isAtprotoDidOwned(null), false);
+});
+
+test("planAtprotoDid: unset ATPROTO_DID with no existing file is a no-op", () => {
+  const plan = planAtprotoDid({ did: undefined, existingContent: null });
+  assert.deepEqual(plan.action, { kind: "none" });
+});
+
+test("planAtprotoDid: unset ATPROTO_DID deletes only a previously generated (DID-shaped) file", () => {
+  const deletesOwned = planAtprotoDid({ did: undefined, existingContent: PLC_DID });
+  assert.deepEqual(deletesOwned.action, { kind: "delete-stale" });
+
+  const leavesHandAuthoredAlone = planAtprotoDid({ did: "", existingContent: "hand-authored, not a DID" });
+  assert.deepEqual(leavesHandAuthoredAlone.action, { kind: "none" });
+});
+
+test("planAtprotoDid: a syntactically invalid ATPROTO_DID generates nothing", () => {
+  const plan = planAtprotoDid({ did: "not-a-did", existingContent: null });
+  assert.deepEqual(plan.action, { kind: "none" });
+  assert.match(plan.note ?? "", /not a syntactically valid DID/);
+});
+
+test("planAtprotoDid: writes the bare DID plus a trailing newline when absent or previously generated", () => {
+  const absent = planAtprotoDid({ did: PLC_DID, existingContent: null });
+  assert.deepEqual(absent.action, { kind: "write", content: `${PLC_DID}\n` });
+
+  const previouslyGenerated = planAtprotoDid({ did: WEB_DID, existingContent: PLC_DID });
+  assert.deepEqual(
+    previouslyGenerated.action,
+    { kind: "write", content: `${WEB_DID}\n` },
+    "reconnecting a different Bluesky account overwrites a prior DID-shaped file on redeploy",
+  );
+
+  const alreadyCurrent = planAtprotoDid({ did: PLC_DID, existingContent: `${PLC_DID}\n` });
+  assert.deepEqual(alreadyCurrent.action, { kind: "write", content: `${PLC_DID}\n` });
+});
+
+test("planAtprotoDid: refuses to overwrite hand-authored content that isn't a valid DID", () => {
+  const plan = planAtprotoDid({ did: PLC_DID, existingContent: "hand-authored, not a DID" });
+  assert.deepEqual(plan.action, { kind: "none" });
+  assert.match(plan.note ?? "", /refusing to overwrite it/);
 });
