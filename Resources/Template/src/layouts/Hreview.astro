@@ -27,7 +27,7 @@ const license = licenseFor("reviews");
 const jsonLd = entrySchema("reviews", entry.data, { url: canonical, site: Astro.site, license: license?.url });
 ---
 
-<BaseLayout title={reviewName} license={license} lang={d.lang || undefined}>
+<BaseLayout title={reviewName} license={license} lang={d.lang || undefined} documentPath={Astro.url.pathname}>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-review">
     <h1 class="p-name">{reviewName}</h1>

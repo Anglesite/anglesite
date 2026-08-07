@@ -1,18 +1,32 @@
 #!/usr/bin/env npx tsx
 /**
- * Build-time generator for repo-owned edge artifacts: public/robots.txt and
- * public/.well-known/security.txt and public/.well-known/mta-sts.txt. Runs at prebuild (after csp.ts). robots.txt
- * is stable and committed; security.txt carries a per-build Expires and is
- * gitignored (generated only when SECURITY_TXT_MODE resolves to "generated" —
- * see docs/superpowers/specs/2026-07-14-well-known-support-design.md "First
- * implementation: repair security.txt"; originally
- * docs/superpowers/specs/2026-06-27-security-story-hardening-design.md §C1).
+ * Build-time generator for repo-owned edge artifacts: public/robots.txt,
+ * public/.well-known/security.txt, public/.well-known/mta-sts.txt,
+ * public/.well-known/atproto-did, and public/.well-known/site.standard.publication. Runs at
+ * prebuild (after csp.ts). robots.txt is stable and committed; the .well-known files are
+ * per-build/config-derived and gitignored (security.txt generated only when SECURITY_TXT_MODE
+ * resolves to "generated" — see docs/superpowers/specs/2026-07-14-well-known-support-design.md
+ * "First implementation: repair security.txt"; originally
+ * docs/superpowers/specs/2026-06-27-security-story-hardening-design.md §C1. atproto-did
+ * generated whenever ATPROTO_DID is set — #1235, one-click Bluesky domain-as-handle
+ * verification via the atproto HTTPS method. site.standard.publication is Standard.site/
+ * Atmosphere publishing's build-time verification counterpart to
+ * `StandardSitePublishCommand`'s post-deploy record writes (#1231) — see
+ * docs/superpowers/specs/2026-08-04-atproto-standard-site-design.md §4).
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfig } from "./config";
-import { mayBlockAICrawlers, normalizePolicy, NO_USAGE, type AIUsage } from "../src/lib/licensing.ts";
+import { isStandardSitePublicationURI, standardSitePublicationURI } from "./standard-site.ts";
+import {
+  mayBlockAICrawlers,
+  normalizePolicy,
+  NO_USAGE,
+  type AIUsage,
+  type LicensingPolicy,
+} from "../src/lib/licensing.ts";
+import { buildRslDocument, rslActive, rslFileUrl } from "../src/lib/rsl.ts";
 import {
   readRobotsConfig,
   sanitizeForHeaderLine,
@@ -56,17 +70,18 @@ export function contentSignalDirective(usage: AIUsage): string | undefined {
 }
 
 /**
- * Loads the site's AI usage permissions from `src/data/licensing.json` (#991 — they used to be the
- * `BLOCK_AI`/`CONTENT_SIGNALS` `.site-config` keys). An absent or malformed document yields
- * `NO_USAGE`, matching phase 1's rule that a site with no policy asserts nothing.
+ * Loads the site's whole content licensing policy from `src/data/licensing.json`. An absent or
+ * malformed document yields the empty policy (assert nothing, no usage, no RSL), matching phase
+ * 1's rule that a site with no policy asserts nothing.
  *
  * `clamped` reports that the document asked for the blocklist but did not deny both AI purposes,
  * so `normalizeUsage` refused it. `main()` logs that, since `normalizeUsage` is a pure value
  * function with nowhere to put a note.
  */
-export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: boolean } {
+export function readLicensingPolicy(cwd: string): { policy: LicensingPolicy; clamped: boolean } {
   const path = resolve(cwd, "src/data/licensing.json");
-  if (!existsSync(path)) return { usage: { ...NO_USAGE }, clamped: false };
+  const empty = normalizePolicy(undefined);
+  if (!existsSync(path)) return { policy: empty, clamped: false };
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(path, "utf-8"));
@@ -78,12 +93,18 @@ export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: bool
     // two causes without needing to special-case every possible fs error code (#991 review finding
     // 4).
     const reason = error instanceof SyntaxError ? "is not valid JSON" : "could not be read";
-    console.log(`src/data/licensing.json ${reason} — no AI usage policy applied to robots.txt.`);
-    return { usage: { ...NO_USAGE }, clamped: false };
+    console.log(`src/data/licensing.json ${reason} — no content licensing policy applied.`);
+    return { policy: empty, clamped: false };
   }
-  const usage = normalizePolicy(raw).usage;
+  const policy = normalizePolicy(raw);
   const requested = (raw as { usage?: { blockAICrawlers?: unknown } })?.usage?.blockAICrawlers === true;
-  return { usage, clamped: requested && !usage.blockAICrawlers };
+  return { policy, clamped: requested && !policy.usage.blockAICrawlers };
+}
+
+/** Thin wrapper over {@link readLicensingPolicy} for the callers that only need the usage block. */
+export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: boolean } {
+  const { policy, clamped } = readLicensingPolicy(cwd);
+  return { usage: policy.usage, clamped };
 }
 
 /**
@@ -94,13 +115,16 @@ export function readLicensingUsage(cwd: string): { usage: AIUsage; clamped: bool
  * `disallowEntries` and `extra` come from `src/data/robots-config.json` (#1093): each entry emits
  * one `Disallow:` line inside the `User-agent: *` group, preceded by a `# <source>` back-reference
  * comment naming the page or collection entry the app wrote it for, while `extra` is appended
- * verbatim at the end for hand-authored rules that don't fit the single-path shape.
+ * verbatim at the end for hand-authored rules that don't fit the single-path shape. `rslUrl` is
+ * the absolute URL of the generated `rsl.xml` (#992), or undefined when RSL isn't active
+ * (`rslActive` in `src/lib/rsl.ts`) — `main()` never passes one without also writing the file.
  */
 export function buildRobotsTxt(
   usage: AIUsage = NO_USAGE,
   siteUrl?: string,
   disallowEntries: RobotsConfigEntry[] = [],
   extra: string[] = [],
+  rslUrl?: string,
 ): string {
   let body = `# robots.txt — generated by scripts/edge-artifacts.ts
 User-agent: *
@@ -141,6 +165,12 @@ Content-Signal: ${contentSignal}
     // Leading blank line, unlike Content-Signal above: Sitemap is a non-group field, so it must
     // end whichever record precedes it rather than read as a directive belonging to that group.
     body += `\nSitemap: ${origin}/sitemap.xml\n`;
+  }
+  if (rslUrl) {
+    // Same non-group placement as Sitemap above. RSL's own syntax example puts `License:` before
+    // `User-agent:`, but RFC 9309 non-group fields are order-independent, and grouping it with
+    // Sitemap here keeps every "discovery pointer" directive together.
+    body += `\nLicense: ${rslUrl}\n`;
   }
   if (extra.length > 0) {
     body += `\n${extra.join("\n")}\n`;
@@ -310,6 +340,70 @@ export function isMTAStsMarkerOwned(content: string | null): boolean {
 export type MTAStsAction = { kind: "write"; content: string } | { kind: "none" };
 export interface MTAStsPlan { action: MTAStsAction; note?: string }
 
+/**
+ * Syntactically valid DID per the [W3C DID Core syntax](https://www.w3.org/TR/did-core/#did-syntax)
+ * (`did:<method-name>:<method-specific-id>`) — permissive enough to accept both `did:plc:` (base32)
+ * and `did:web:` (percent-encoded host, colons for ports/paths) identifiers.
+ */
+const ATPROTO_DID_PATTERN = /^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/;
+
+/** True when `value` (after trimming) is syntactically a DID. */
+export function isValidAtprotoDid(value: string): boolean {
+  return ATPROTO_DID_PATTERN.test(value.trim());
+}
+
+/**
+ * `/.well-known/atproto-did` (#1235) has no room for an ownership marker the way security.txt or
+ * mta-sts.txt do: the atproto HTTPS handle-verification method
+ * (https://atproto.com/specs/handle#https-method) requires the response body to be *exactly* the
+ * account DID, so any extra line or comment would break verification. Ownership is therefore
+ * inferred from shape instead of a literal marker: any existing file whose trimmed content is
+ * itself a syntactically valid DID is treated as Anglesite's own prior output (the endpoint's only
+ * legitimate content is a DID, and this lets reconnecting a different Bluesky account update the
+ * file on redeploy without a manual delete). Content that doesn't look like a DID is preserved as
+ * hand-authored, mirroring `isSecurityTxtMarkerOwned`'s refuse-to-overwrite posture.
+ */
+export function isAtprotoDidOwned(content: string | null): boolean {
+  return content !== null && isValidAtprotoDid(content);
+}
+
+export type AtprotoDidAction =
+  | { kind: "write"; content: string }
+  | { kind: "delete-stale" }
+  | { kind: "none" };
+export interface AtprotoDidPlan { action: AtprotoDidAction; note?: string }
+
+/**
+ * Decides what to do with `/.well-known/atproto-did` for one build, given the site's persisted
+ * `ATPROTO_DID` (#1231, `.site-config`) and whatever's already on disk. Pure, mirroring
+ * `planSecurityTxt`/`planMTAStsPolicy`'s shape so `applyAtprotoDidPlan` only carries the decision
+ * out.
+ */
+export function planAtprotoDid(params: { did: string | undefined; existingContent: string | null }): AtprotoDidPlan {
+  const { existingContent } = params;
+  const did = (params.did ?? "").trim();
+
+  if (did.length === 0) {
+    if (isAtprotoDidOwned(existingContent)) {
+      return { action: { kind: "delete-stale" }, note: "ATPROTO_DID is unset — removed the previously generated public/.well-known/atproto-did." };
+    }
+    return { action: { kind: "none" } };
+  }
+
+  if (!isValidAtprotoDid(did)) {
+    return { action: { kind: "none" }, note: "ATPROTO_DID is not a syntactically valid DID — no public/.well-known/atproto-did generated." };
+  }
+
+  if (existingContent !== null && existingContent.trim() !== did && !isAtprotoDidOwned(existingContent)) {
+    return {
+      action: { kind: "none" },
+      note: "public/.well-known/atproto-did already exists and doesn't look like a generated DID file — refusing to overwrite it.",
+    };
+  }
+
+  return { action: { kind: "write", content: `${did}\n` } };
+}
+
 /** Applies the same non-destructive ownership rules as security.txt to the MTA-STS policy. */
 export function planMTAStsPolicy(params: {
   mode: MTAStsMode;
@@ -443,24 +537,197 @@ function applyMTAStsPlan(publicDir: string): void {
   }
 }
 
+function applyAtprotoDidPlan(publicDir: string): void {
+  const wellKnownDir = resolve(publicDir, ".well-known");
+  const filePath = resolve(wellKnownDir, "atproto-did");
+  const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : null;
+  const plan = planAtprotoDid({ did: readConfig("ATPROTO_DID"), existingContent });
+  if (plan.note) console.log(plan.note);
+  switch (plan.action.kind) {
+    case "write":
+      mkdirSync(wellKnownDir, { recursive: true });
+      writeFileSync(filePath, plan.action.content, "utf-8");
+      console.log("Wrote public/.well-known/atproto-did");
+      break;
+    case "delete-stale":
+      rmSync(filePath);
+      break;
+    case "none":
+      break;
+  }
+}
+
+/** What `applyStandardSitePublicationPlan` should do to `public/.well-known/site.standard.publication` this build. */
+export type StandardSitePublicationAction =
+  | { kind: "write"; content: string }
+  | { kind: "delete-stale" }
+  | { kind: "none" };
+
+export interface StandardSitePublicationPlan { action: StandardSitePublicationAction; note?: string }
+
+/**
+ * Decides what to do with `site.standard.publication` for one build, given `.site-config`'s
+ * `ATPROTO_DID`/`ATPROTO_SITE_ID` (written by `StandardSitePublishCommand` on first successful
+ * publish — #1231) and whatever's already on disk. Pure so the lifecycle rules are unit-testable
+ * without touching the filesystem, mirroring `planSecurityTxt`/`planMTAStsPolicy`.
+ *
+ * Gated on both keys being present: a site that has never connected a Bluesky/Atmosphere account
+ * (the vast majority, pre-#1231-publish) has neither, and builds byte-identical to today — no
+ * empty or placeholder well-known file. Once both exist, the derivation is pure and offline (see
+ * `standard-site.ts`), so this never blocks the build on a network call.
+ */
+export function planStandardSitePublication(params: {
+  did: string | undefined;
+  siteID: string | undefined;
+  existingContent: string | null;
+}): StandardSitePublicationPlan {
+  const { did, siteID, existingContent } = params;
+  const markerOwned = isStandardSitePublicationURI(existingContent);
+
+  if (!did || !siteID) {
+    if (markerOwned) {
+      return {
+        action: { kind: "delete-stale" },
+        note: "ATPROTO_DID/ATPROTO_SITE_ID are unset but public/.well-known/site.standard.publication exists — removed the previously generated file.",
+      };
+    }
+    return { action: { kind: "none" } };
+  }
+
+  if (existingContent !== null && !markerOwned) {
+    return {
+      action: { kind: "none" },
+      note: "public/.well-known/site.standard.publication already exists and wasn't generated by Anglesite — refusing to overwrite it. Delete the file to let Anglesite generate it.",
+    };
+  }
+
+  return { action: { kind: "write", content: `${standardSitePublicationURI(did, siteID)}\n` } };
+}
+
+function applyStandardSitePublicationPlan(publicDir: string): void {
+  const wellKnownDir = resolve(publicDir, ".well-known");
+  const filePath = resolve(wellKnownDir, "site.standard.publication");
+  const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : null;
+  const plan = planStandardSitePublication({
+    did: readConfig("ATPROTO_DID"),
+    siteID: readConfig("ATPROTO_SITE_ID"),
+    existingContent,
+  });
+  if (plan.note) console.log(plan.note);
+  switch (plan.action.kind) {
+    case "write":
+      mkdirSync(wellKnownDir, { recursive: true });
+      writeFileSync(filePath, plan.action.content, "utf-8");
+      console.log("Wrote public/.well-known/site.standard.publication");
+      break;
+    case "delete-stale":
+      rmSync(filePath);
+      break;
+    case "none":
+      break;
+  }
+}
+
+/** What `main()` should do with `public/rsl.xml` this build. Mirrors `SecurityTxtPlan`/
+ * `MTAStsPlan`'s shape so the decision (write / remove a stale file / leave alone) is pure and
+ * unit-testable without touching the filesystem, the same way `planSecurityTxt`/`planMTAStsPolicy`
+ * are. `applyRslPlan` carries it out. */
+export type RslFileAction = { kind: "write"; content: string } | { kind: "delete-stale" } | { kind: "none" };
+export interface RslFilePlan {
+  action: RslFileAction;
+  /** Explains a non-trivial outcome (a stale removal) in the build log. */
+  note?: string;
+}
+
+/**
+ * Decides what to do with `public/rsl.xml` for one build. Writing is straightforward — `rslActive`
+ * plus `buildRslDocument` returning content — but a *prior* build's `rsl.xml` must also be removed
+ * once it's no longer justified, or it sits in `public/` forever (nothing else ever deletes it) and
+ * keeps getting copied into every `dist/` even after `robots.txt`'s `License:` line and the
+ * `Link:`/`<link>` projections have all correctly gone silent (PR #1290 review — the
+ * file-orphaning half of the partial-activation risk `rslPublished` closes for the other three
+ * projections). That can happen two ways: RSL was turned off (or `SITE_URL` became unusable) since
+ * the file was written, or RSL is still active but the policy no longer has anything to declare.
+ */
+export function planRslFile(params: {
+  policy: LicensingPolicy;
+  siteUrl: string | undefined;
+  holder: string | undefined;
+  existingContent: string | null;
+}): RslFilePlan {
+  const { policy, siteUrl, holder, existingContent } = params;
+  if (rslActive(policy, siteUrl)) {
+    const rsl = buildRslDocument(policy, holder);
+    if (rsl) return { action: { kind: "write", content: rsl } };
+    if (existingContent !== null) {
+      return {
+        action: { kind: "delete-stale" },
+        note: "Removed stale public/rsl.xml — RSL is active but the policy has nothing to declare.",
+      };
+    }
+    return { action: { kind: "none" } };
+  }
+  if (existingContent !== null) {
+    return {
+      action: { kind: "delete-stale" },
+      note: "Removed stale public/rsl.xml — RSL is no longer active.",
+    };
+  }
+  return { action: { kind: "none" } };
+}
+
+/** Carries out `planRslFile`'s decision, and reports the resolved `rsl.xml` URL for
+ * `buildRobotsTxt`'s `License:` directive — set only when the file was actually (re)written this
+ * build, never for a stale removal or a no-op. */
+function applyRslPlan(rslPath: string, siteUrl: string | undefined, plan: RslFilePlan): string | undefined {
+  if (plan.note) console.log(plan.note);
+  switch (plan.action.kind) {
+    case "write":
+      writeFileSync(rslPath, plan.action.content, "utf-8");
+      console.log("Wrote public/rsl.xml");
+      return rslFileUrl(siteUrl) ?? undefined;
+    case "delete-stale":
+      rmSync(rslPath);
+      return undefined;
+    case "none":
+      return undefined;
+  }
+}
+
 function main(): void {
   const publicDir = resolve(process.cwd(), "public");
-  const { usage, clamped } = readLicensingUsage(process.cwd());
+  const { policy, clamped } = readLicensingPolicy(process.cwd());
   if (clamped) {
     console.log(
       "src/data/licensing.json sets usage.blockAICrawlers but does not deny both aiInput and aiTrain — ignoring it, because blocking the AI crawler list would refuse uses the policy still permits.",
     );
   }
+  const siteUrl = readConfig("SITE_URL");
+
+  // `readConfig("COPYRIGHT_HOLDER")` only — no `ownerName()` h-card fallback here, unlike
+  // BaseLayout.astro/feed-data.ts: profile.ts reads `src/data/profile.json` via
+  // `import.meta.glob`, a Vite construct unavailable to this plain `npx tsx` script.
+  const holder = readConfig("COPYRIGHT_HOLDER");
+  const rslPath = resolve(publicDir, "rsl.xml");
+  const rslExisting = existsSync(rslPath) ? readFileSync(rslPath, "utf-8") : null;
+  const rslUrl = applyRslPlan(
+    rslPath,
+    siteUrl,
+    planRslFile({ policy, siteUrl, holder, existingContent: rslExisting }),
+  );
+
   const robotsConfig = readRobotsConfig(process.cwd());
   writeFileSync(
     resolve(publicDir, "robots.txt"),
-    buildRobotsTxt(usage, readConfig("SITE_URL"), robotsConfig.disallow, robotsConfig.extra),
+    buildRobotsTxt(policy.usage, siteUrl, robotsConfig.disallow, robotsConfig.extra, rslUrl),
     "utf-8",
   );
   console.log("Wrote public/robots.txt");
 
   applySecurityTxtPlan(publicDir);
   applyMTAStsPlan(publicDir);
+  applyAtprotoDidPlan(publicDir);
+  applyStandardSitePublicationPlan(publicDir);
 }
 
 // Run only when invoked directly (e.g. `npx tsx scripts/edge-artifacts.ts`), never on import.

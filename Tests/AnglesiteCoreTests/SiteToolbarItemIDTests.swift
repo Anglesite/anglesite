@@ -15,6 +15,7 @@ struct SiteToolbarItemIDTests {
             "openInBrowser",
             "harden",
             "domainConfigAudit",
+            "agentReadiness",
             "onionRouting",
             "domain",
             "integration",

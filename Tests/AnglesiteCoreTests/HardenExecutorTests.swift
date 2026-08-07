@@ -291,4 +291,8 @@ final class MockCloudflareWriter: CloudflareWriting, @unchecked Sendable {
         try record("attachWorkersCustomDomain:\(hostname)")
         return .attached
     }
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool {
+        try record("setMarkdownForAgents:\(hostname)")
+        return true
+    }
 }

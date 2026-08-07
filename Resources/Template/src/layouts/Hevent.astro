@@ -26,7 +26,13 @@ const endISO = endDate?.toISOString();
 const endHuman = endDate?.toLocaleString("en-US");
 ---
 
-<BaseLayout title={d.name ?? "Event"} description={d.location} license={license} lang={d.lang || undefined}>
+<BaseLayout
+  title={d.name ?? "Event"}
+  description={d.location}
+  license={license}
+  lang={d.lang || undefined}
+  documentPath={Astro.url.pathname}
+>
   {jsonLd && <Schema slot="head" item={jsonLd} />}
   <article class="h-event">
     <h1 class="p-name">{d.name}</h1>

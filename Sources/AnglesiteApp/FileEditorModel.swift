@@ -22,10 +22,13 @@ final class FileEditorModel {
     /// constants, one `NotificationCenter` observer) is small enough not to warrant fighting the
     /// macro for it.
     let markdownController = MarkdownEditorController()
-    /// Drives `.findNavigator` for the plain-text editor surface (`.text`/`.plist`, #517); unused
-    /// for `.markdown`/`.component` files. Lives on the model (not view `@State`) so the find
-    /// navigator's open/closed state survives `MainPaneEditorView` being torn down and rebuilt
-    /// when `model.file.id` changes (`.task(id: model.file.id)`).
+    /// Drives `.findNavigator` for the plain-text editor surface (`.text`/`.plist`, #517) and,
+    /// for `.component` files, `ComponentEditorView.sourcePane`'s Source-mode `TextEditor` — that
+    /// view is handed this same `FileEditorModel` instance as its `fileEditor`, so there's a
+    /// single find-navigator flag per open file rather than one per view. Unused for `.markdown`
+    /// files. Lives on the model (not view `@State`) so the find navigator's open/closed state
+    /// survives `MainPaneEditorView`/`ComponentEditorView` being torn down and rebuilt when
+    /// `model.file.id` changes (`.task(id: model.file.id)`).
     var isFindPresented = false
     private var fileSession = EditableFileSession()
     var savedText: String { fileSession.savedContents }

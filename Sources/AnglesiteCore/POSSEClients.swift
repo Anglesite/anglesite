@@ -206,6 +206,276 @@ public enum BlueskyPOSSEClient {
     }
 }
 
+/// Writes arbitrary records to a Bluesky-compatible PDS over `com.atproto.repo.putRecord` —
+/// create-or-update, unlike `BlueskyPOSSEClient`'s `createRecord`. Used by
+/// `StandardSitePublishCommand` for `site.standard.publication`/`site.standard.document`: with a
+/// caller-supplied deterministic `rkey` (see ``POSSEStableKey``), re-publishing after any crash or
+/// content edit converges on the same record instead of erroring or duplicating, so there's no
+/// 409-conflict special case to handle the way `BlueskyPOSSEClient.post` does.
+public enum AtprotoPutRecordClient {
+    private struct SessionRequest: Encodable { let identifier: String; let password: String }
+    private struct SessionResponse: Decodable { let accessJwt: String; let did: String }
+    private struct PutRecordRequest<Record: Encodable>: Encodable {
+        let repo: String
+        let collection: String
+        let rkey: String
+        let record: Record
+    }
+    private struct PutRecordResponse: Decodable { let uri: String }
+
+    /// The repo DID the record was written under, and the record's resulting at-URI.
+    public struct Result: Equatable, Sendable {
+        public let did: String
+        public let uri: String
+    }
+
+    /// A `com.atproto.repo.strongRef` — an at-URI paired with its content hash. Used both as
+    /// ``getRecord(collection:repo:rkey:pdsURL:session:transport:)``'s return shape and as the
+    /// `site.standard.document` `bskyPostRef` field's value (v1.1, #1234): a strong reference
+    /// tying a document to the Bluesky post it was cross-posted as.
+    public struct StrongRef: Codable, Equatable, Sendable {
+        public let uri: String
+        public let cid: String
+
+        /// Memberwise initializer.
+        public init(uri: String, cid: String) {
+            self.uri = uri
+            self.cid = cid
+        }
+    }
+
+    /// An uploaded blob's server-assigned reference, embeddable in a record field typed `blob`
+    /// (`site.standard.publication`'s `icon`, `site.standard.document`'s `coverImage`). Mirrors
+    /// the shape `com.atproto.repo.uploadBlob` returns verbatim, so it round-trips through
+    /// ``uploadBlob(data:mimeType:pdsURL:session:transport:)`` and back into a record's JSON
+    /// without any translation.
+    public struct BlobRef: Codable, Equatable, Sendable {
+        let type = "blob"
+        public let ref: Link
+        public let mimeType: String
+        public let size: Int
+
+        public struct Link: Codable, Equatable, Sendable {
+            public let link: String
+            enum CodingKeys: String, CodingKey { case link = "$link" }
+
+            /// Memberwise initializer.
+            public init(link: String) { self.link = link }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case type = "$type"
+            case ref, mimeType, size
+        }
+
+        /// Memberwise initializer, for tests constructing an expected value; production instances
+        /// come from ``uploadBlob(data:mimeType:pdsURL:session:transport:)``'s decoded response.
+        public init(ref: Link, mimeType: String, size: Int) {
+            self.ref = ref
+            self.mimeType = mimeType
+            self.size = size
+        }
+    }
+
+    /// An authenticated PDS session, reusable across multiple ``putRecord(collection:rkey:record:pdsURL:session:transport:)``
+    /// calls — callers writing a batch of records (e.g. ``StandardSitePublishCommand``) should
+    /// call ``createSession(credentials:transport:)`` once per run rather than once per record,
+    /// since every call is a fresh app-password login against the PDS.
+    public struct Session: Equatable, Sendable {
+        public let did: String
+        let accessJwt: String
+    }
+
+    /// Logs into `credentials.pdsURL` via `com.atproto.server.createSession`. Reuse the returned
+    /// ``Session`` across every ``putRecord(collection:rkey:record:pdsURL:session:transport:)``
+    /// call in a batch instead of calling ``put(collection:rkey:record:credentials:transport:)``
+    /// per record — that convenience method logs in fresh every time.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func createSession(
+        credentials: POSSECredentials.Bluesky,
+        transport: POSSEHTTPTransport
+    ) async throws -> Session {
+        let session: SessionResponse = try await jsonRequest(
+            path: "/xrpc/com.atproto.server.createSession",
+            baseURL: credentials.pdsURL,
+            body: SessionRequest(identifier: credentials.identifier, password: credentials.appPassword),
+            bearer: nil,
+            transport: transport
+        )
+        return Session(did: session.did, accessJwt: session.accessJwt)
+    }
+
+    /// Writes `record` to `collection` at `rkey` in `session`'s repo, using an already-authenticated
+    /// ``Session`` (see ``createSession(credentials:transport:)``) — no login per call.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func putRecord<Record: Encodable>(
+        collection: String,
+        rkey: String,
+        record: Record,
+        pdsURL: URL,
+        session: Session,
+        transport: POSSEHTTPTransport
+    ) async throws -> Result {
+        let body = PutRecordRequest(repo: session.did, collection: collection, rkey: rkey, record: record)
+        let response: PutRecordResponse = try await jsonRequest(
+            path: "/xrpc/com.atproto.repo.putRecord",
+            baseURL: pdsURL,
+            body: body,
+            bearer: session.accessJwt,
+            transport: transport
+        )
+        return Result(did: session.did, uri: response.uri)
+    }
+
+    /// Fetches `collection`/`rkey` from `repo` via `com.atproto.repo.getRecord`, returning its
+    /// current at-URI + cid, or `nil` when the record doesn't exist (a 404 is the expected,
+    /// non-error outcome — e.g. ``StandardSitePublishCommand``'s `bskyPostRef` linkage (v1.1,
+    /// #1234) looks up a Bluesky post that may not have been cross-posted yet).
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, a non-2xx/404 status, or an undecodable
+    ///   body.
+    public static func getRecord(
+        collection: String,
+        repo: String,
+        rkey: String,
+        pdsURL: URL,
+        session: Session,
+        transport: POSSEHTTPTransport
+    ) async throws -> StrongRef? {
+        var components = URLComponents(url: pdsURL, resolvingAgainstBaseURL: true)
+        components?.path = "/xrpc/com.atproto.repo.getRecord"
+        components?.queryItems = [
+            URLQueryItem(name: "repo", value: repo),
+            URLQueryItem(name: "collection", value: collection),
+            URLQueryItem(name: "rkey", value: rkey)
+        ]
+        guard let endpoint = components?.url else { throw POSSEClientError.invalidEndpoint }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(session.accessJwt)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await transport(request)
+        if response.statusCode == 404 { return nil }
+        guard (200..<300).contains(response.statusCode) else {
+            throw POSSEClientError.rejected(platform: "Bluesky", status: response.statusCode)
+        }
+        struct GetRecordResponse: Decodable { let uri: String; let cid: String }
+        guard let decoded = try? JSONDecoder().decode(GetRecordResponse.self, from: data) else {
+            throw POSSEClientError.invalidResponse(platform: "Bluesky")
+        }
+        return StrongRef(uri: decoded.uri, cid: decoded.cid)
+    }
+
+    /// Deletes `collection`/`rkey` from `session`'s repo via `com.atproto.repo.deleteRecord` —
+    /// used by ``StandardSitePublishCommand``'s unpublish pass (v1.1, #1234) for documents whose
+    /// source post no longer exists. Idempotent server-side: deleting an already-absent record
+    /// still returns 2xx, so callers don't need to check existence first.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func deleteRecord(
+        collection: String,
+        rkey: String,
+        pdsURL: URL,
+        session: Session,
+        transport: POSSEHTTPTransport
+    ) async throws {
+        struct DeleteRecordRequest: Encodable { let repo: String; let collection: String; let rkey: String }
+        guard let endpoint = URL(string: "/xrpc/com.atproto.repo.deleteRecord", relativeTo: pdsURL)?.absoluteURL else {
+            throw POSSEClientError.invalidEndpoint
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONEncoder().encode(
+            DeleteRecordRequest(repo: session.did, collection: collection, rkey: rkey)
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(session.accessJwt)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await transport(request)
+        guard (200..<300).contains(response.statusCode) else {
+            throw POSSEClientError.rejected(platform: "Bluesky", status: response.statusCode)
+        }
+    }
+
+    /// Uploads raw bytes via `com.atproto.repo.uploadBlob`, returning the server-assigned
+    /// ``BlobRef`` to embed in a record's `blob`-typed field (`site.standard.publication.icon`,
+    /// `site.standard.document.coverImage` — v1.1, #1234). The PDS enforces its own size ceiling;
+    /// callers are expected to pre-check against the lexicon's stated limit (1 MB for both fields)
+    /// before calling this, since a rejected upload here is reported as a generic HTTP failure.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func uploadBlob(
+        data: Data,
+        mimeType: String,
+        pdsURL: URL,
+        session: Session,
+        transport: POSSEHTTPTransport
+    ) async throws -> BlobRef {
+        guard let endpoint = URL(string: "/xrpc/com.atproto.repo.uploadBlob", relativeTo: pdsURL)?.absoluteURL else {
+            throw POSSEClientError.invalidEndpoint
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.httpBody = data
+        request.setValue(mimeType, forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(session.accessJwt)", forHTTPHeaderField: "Authorization")
+        let (responseData, response) = try await transport(request)
+        guard (200..<300).contains(response.statusCode) else {
+            throw POSSEClientError.rejected(platform: "Bluesky", status: response.statusCode)
+        }
+        struct UploadBlobResponse: Decodable { let blob: BlobRef }
+        guard let decoded = try? JSONDecoder().decode(UploadBlobResponse.self, from: responseData) else {
+            throw POSSEClientError.invalidResponse(platform: "Bluesky")
+        }
+        return decoded.blob
+    }
+
+    /// Convenience for a single record write: ``createSession(credentials:transport:)`` followed by
+    /// ``putRecord(collection:rkey:record:pdsURL:session:transport:)``. Writing more than one record
+    /// in the same run (e.g. a publication plus its documents) should call those two directly and
+    /// reuse the session instead — this logs in fresh every time it's called.
+    ///
+    /// - Throws: ``POSSEClientError`` for a bad endpoint, non-2xx status, or undecodable body.
+    public static func put<Record: Encodable>(
+        collection: String,
+        rkey: String,
+        record: Record,
+        credentials: POSSECredentials.Bluesky,
+        transport: POSSEHTTPTransport
+    ) async throws -> Result {
+        let session = try await createSession(credentials: credentials, transport: transport)
+        return try await putRecord(
+            collection: collection, rkey: rkey, record: record,
+            pdsURL: credentials.pdsURL, session: session, transport: transport
+        )
+    }
+
+    private static func jsonRequest<Body: Encodable, Response: Decodable>(
+        path: String,
+        baseURL: URL,
+        body: Body,
+        bearer: String?,
+        transport: POSSEHTTPTransport
+    ) async throws -> Response {
+        guard let endpoint = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
+            throw POSSEClientError.invalidEndpoint
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONEncoder().encode(body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        let (data, response) = try await transport(request)
+        guard (200..<300).contains(response.statusCode) else {
+            throw POSSEClientError.rejected(platform: "Bluesky", status: response.statusCode)
+        }
+        guard let decoded = try? JSONDecoder().decode(Response.self, from: data) else {
+            throw POSSEClientError.invalidResponse(platform: "Bluesky")
+        }
+        return decoded
+    }
+}
+
 /// Derives the deterministic identifiers both clients use for duplicate protection
 /// (Mastodon's `Idempotency-Key`, Bluesky's `rkey`): the same site + canonical URL + platform
 /// must always map to the same key so a crash-retry is recognized as the same post.

@@ -166,7 +166,7 @@ extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
     /// `PUT /repos/{owner}/{repo}/private-vulnerability-reporting` — enable only, per
     /// ``RepoSecurityWriting``'s contract (the app never disables a reporting channel it didn't
     /// create). Requires admin access; a token without it surfaces as
-    /// ``GitHubRepoAPIError/unauthorized``.
+    /// ``GitHubRepoAPIError/unauthorized(status:)``.
     public func enablePrivateVulnerabilityReporting(owner: String, name: String, token: String) async throws {
         // A 204 with an empty body is the documented success response — nothing to decode.
         _ = try await send(repoRequest(

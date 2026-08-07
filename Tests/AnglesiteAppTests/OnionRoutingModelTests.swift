@@ -44,6 +44,7 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     func setECH(zoneID: String, enabled: Bool, apiToken: String) async throws {}
     func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {
         if let errorToThrow { throw errorToThrow }
         lastZoneID = zoneID
@@ -56,15 +57,13 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
 
 @Suite(.serialized)
 struct OnionRoutingModelTests {
-    init() {
-        // `apiToken()` checks this env var before falling back to the real Keychain — set it so
-        // these tests are deterministic regardless of what's provisioned on the host.
-        setenv("CLOUDFLARE_API_TOKEN", "test-token", 1)
-    }
-
     @MainActor
     @Test("load() ignores blank domain input")
     func loadIgnoresBlankDomain() async throws {
+        // `apiToken()` checks this env var before falling back to the real Keychain — claim it set
+        // so these tests are deterministic regardless of what's provisioned on the host.
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let reader = StubReader()
         let model = OnionRoutingModel(reader: reader, writer: StubWriter())
         model.domainInput = "   "
@@ -76,6 +75,8 @@ struct OnionRoutingModelTests {
     @MainActor
     @Test("load() trims/lowercases the domain and reports the current zone state")
     func loadSucceeds() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let state = CloudflareZoneState(
             dnssecActive: false, sslMode: "flexible", alwaysUseHTTPS: false, hsts: nil,
             caaRecords: [], mxRecords: [], spfRecords: [], dmarcRecords: [], onionRouting: true)
@@ -93,6 +94,8 @@ struct OnionRoutingModelTests {
     @MainActor
     @Test("load() surfaces a clear error when the zone isn't found")
     func loadZoneNotFound() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let reader = StubReader(zoneID: nil)
         let model = OnionRoutingModel(reader: reader, writer: StubWriter())
 
@@ -110,6 +113,8 @@ struct OnionRoutingModelTests {
     @MainActor
     @Test("toggle() flips the loaded setting and writes through the zone that was resolved")
     func toggleFlipsAndWrites() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let state = CloudflareZoneState(
             dnssecActive: false, sslMode: "flexible", alwaysUseHTTPS: false, hsts: nil,
             caaRecords: [], mxRecords: [], spfRecords: [], dmarcRecords: [], onionRouting: false)
@@ -132,6 +137,8 @@ struct OnionRoutingModelTests {
     @MainActor
     @Test("toggle() is a no-op before a zone has been loaded")
     func toggleNoopWhenIdle() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let writer = StubWriter()
         let model = OnionRoutingModel(reader: StubReader(), writer: writer)
 
@@ -145,6 +152,7 @@ struct OnionRoutingModelTests {
     @MainActor
     @Test("openSheet() resets phase and clears any previously entered domain")
     func openSheetResets() {
+        // No CloudflareAPITokenTestEnvironment claim needed: openSheet() never calls apiToken().
         let model = OnionRoutingModel(reader: StubReader(), writer: StubWriter())
         model.domainInput = "leftover.com"
 
@@ -158,6 +166,7 @@ struct OnionRoutingModelTests {
     @MainActor
     @Test("dismissSheet() clears the presented flag")
     func dismissSheetClearsPresented() {
+        // No CloudflareAPITokenTestEnvironment claim needed: neither method calls apiToken().
         let model = OnionRoutingModel(reader: StubReader(), writer: StubWriter())
         model.openSheet()
 

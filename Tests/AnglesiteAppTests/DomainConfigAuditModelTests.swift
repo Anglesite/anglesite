@@ -52,13 +52,17 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     func attachWorkersCustomDomain(hostname: String, workerScriptName: String, apiToken: String) async throws -> CustomDomainAttachResult {
         .attached
     }
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
 }
 
 @Suite(.serialized)
 struct DomainConfigAuditModelTests {
-    init() {
-        setenv("CLOUDFLARE_API_TOKEN", "test-token", 1)
-    }
+    /// A per-case scratch service (see `KeychainStore`'s own doc comment) so these tests never
+    /// touch the developer's real login keychain — every test that claims `CLOUDFLARE_API_TOKEN`
+    /// via `CloudflareAPITokenTestEnvironment` should never fall through to the keychain at all,
+    /// but a scratch service keeps the model's `try? keychain.readCloudflareToken()` call from
+    /// racing a concurrent keychain read/prompt in another worktree if it ever does.
+    private let keychain = KeychainStore(service: "io.dwk.anglesite.tests.domainConfigAudit." + UUID().uuidString)
 
     private func tempSite(declaring config: DomainConfig? = nil) throws -> (CurrentSite, () -> Void) {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -73,9 +77,11 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("runAudit() surfaces a clear error when no domain is declared")
     func runAuditNoDomainDeclared() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let (site, cleanup) = try tempSite()
         defer { cleanup() }
-        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -91,10 +97,12 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("runAudit() surfaces a clear error when the zone isn't found")
     func runAuditZoneNotFound() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let declared = DomainConfig(domain: .init(hostname: "example.com"))
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
-        let model = DomainConfigAuditModel(reader: StubReader(zoneID: nil), writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: nil), writer: StubWriter(), keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -110,13 +118,15 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("runAudit() computes findings against the declared config and resolved zone")
     func runAuditComputesFindings() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let record = DomainConfig.DNSRecord(
             type: "TXT", name: "_atproto", content: "did=did:plc:abc", purpose: "verification:bluesky")
         let declared = DomainConfig(domain: .init(hostname: "example.com"), dns: .init(managedRecords: [record]))
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
         let reader = StubReader(zoneID: "z1", state: StubReader.cleanState, records: [])
-        let model = DomainConfigAuditModel(reader: reader, writer: StubWriter())
+        let model = DomainConfigAuditModel(reader: reader, writer: StubWriter(), keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -136,13 +146,15 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("reconcile() delegates to DomainConfigReconciler and reports the applied plan")
     func reconcileAppliesPlan() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        defer { cfToken.release() }
         let record = DomainConfig.DNSRecord(
             type: "TXT", name: "_atproto", content: "did=did:plc:abc", purpose: "verification:bluesky")
         let declared = DomainConfig(domain: .init(hostname: "example.com"), dns: .init(managedRecords: [record]))
         let (site, cleanup) = try tempSite(declaring: declared)
         defer { cleanup() }
         let writer = StubWriter()
-        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: writer)
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: writer, keychain: keychain)
         model.configure(site: site)
 
         model.runAudit()
@@ -162,7 +174,8 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("openSheet() resets phase")
     func openSheetResets() {
-        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        // No CloudflareAPITokenTestEnvironment claim needed: openSheet() never calls apiToken().
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: keychain)
         model.openSheet()
         #expect(model.sheetPresented == true)
         #expect(model.phase == .idle)
@@ -171,7 +184,8 @@ struct DomainConfigAuditModelTests {
     @MainActor
     @Test("dismissSheet() clears the presented flag")
     func dismissSheetClearsPresented() {
-        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter())
+        // No CloudflareAPITokenTestEnvironment claim needed: neither method calls apiToken().
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: keychain)
         model.openSheet()
         model.dismissSheet()
         #expect(model.sheetPresented == false)
