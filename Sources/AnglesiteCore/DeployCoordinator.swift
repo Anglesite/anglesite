@@ -286,11 +286,12 @@ public enum DeployCoordinator {
         return value.wholeMatch(of: regex) != nil
     }
 
-    /// The default ActivityPub handle: the site's best-known serving hostname (``resolveSiteURL``)
-    /// with a leading `www.` stripped — mirrors `worker.ts`'s `defaultApUsername` exactly, so the
-    /// app's pre-filled handle field and rename-detection agree with what the composed Worker
-    /// will actually serve. `nil` before any deploy has ever run and no custom domain is
-    /// configured, same as ``resolveSiteURL``.
+    /// The default ActivityPub handle: the site's best-known serving hostname
+    /// (``DeployCoordinator/resolveSiteURL(siteDirectory:)``) with a leading `www.` stripped —
+    /// mirrors `worker.ts`'s `defaultApUsername` exactly, so the app's pre-filled handle field
+    /// and rename-detection agree with what the composed Worker will actually serve. `nil`
+    /// before any deploy has ever run and no custom domain is configured, same as
+    /// ``DeployCoordinator/resolveSiteURL(siteDirectory:)``.
     public static func defaultActivityPubUsername(siteDirectory: URL) -> String? {
         guard let siteURL = resolveSiteURL(siteDirectory: siteDirectory), let host = URL(string: siteURL)?.host else {
             return nil
@@ -299,8 +300,9 @@ public enum DeployCoordinator {
     }
 
     /// The ActivityPub handle the composed Worker will actually serve for this site right now:
-    /// ``resolveActivityPubUsername``'s override when set *and* syntactically valid, else
-    /// ``defaultActivityPubUsername`` — mirrors `worker.ts`'s `resolvePreferredUsername` exactly
+    /// ``DeployCoordinator/resolveActivityPubUsername(siteDirectory:)``'s override when set *and*
+    /// syntactically valid, else ``DeployCoordinator/defaultActivityPubUsername(siteDirectory:)``
+    /// — mirrors `worker.ts`'s `resolvePreferredUsername` exactly
     /// (including falling back on an invalid override and lowercasing a valid one — the grammar
     /// is case-insensitive, but WebFinger's local-part lookup is exact-match case-sensitive per
     /// RFC 7565, so a mixed-case override would otherwise only resolve at that exact casing), so
@@ -320,8 +322,9 @@ public enum DeployCoordinator {
     /// Whether this site's ActivityPub actor has already federated — the design doc's "lock
     /// signal" (#1239): a non-empty followers collection or a non-empty outbox ledger. Advisory
     /// only, like every other check derived from `Source/`'s hand-editable state (see CLAUDE.md
-    /// "Git is the source of truth") — ``activityPubHandleRenameNeedsConfirmation`` is the
-    /// consumer, not an enforcement gate.
+    /// "Git is the source of truth") —
+    /// ``DeployCoordinator/activityPubHandleRenameNeedsConfirmation(lastDeployedUsername:resolvedUsername:isLocked:acknowledgedUsername:)``
+    /// is the consumer, not an enforcement gate.
     ///
     /// `siteURL` is optional so the local, always-available outbox-ledger check still runs (and
     /// can still report `true`) even when the caller has no resolvable site URL yet — a caller
@@ -343,13 +346,14 @@ public enum DeployCoordinator {
 
     /// Whether this deploy's resolved ActivityPub handle differs from the last-deployed baseline
     /// AND the actor has already federated (#1239, design doc §"Owner-chosen username" — the
-    /// lock signal from ``isActivityPubHandleLocked``). A pre-federation handle change, or a
-    /// first-ever deploy (`lastDeployedUsername` still `nil`), never triggers this — only a
-    /// change that would actually strand existing followers does. `acknowledgedUsername` is the
-    /// specific handle the owner already confirmed switching to (`DeployModel`'s "switch to
-    /// `@new@…`" retry) — once set to exactly `resolvedUsername`, that one handle stops
-    /// re-prompting, but a *different* subsequent change still does. Pure so it unit-tests
-    /// without the network/disk calls ``isActivityPubHandleLocked`` needs; the caller
+    /// lock signal from ``DeployCoordinator/isActivityPubHandleLocked(siteURL:configDirectory:)``).
+    /// A pre-federation handle change, or a first-ever deploy (`lastDeployedUsername` still
+    /// `nil`), never triggers this — only a change that would actually strand existing followers
+    /// does. `acknowledgedUsername` is the specific handle the owner already confirmed switching
+    /// to (`DeployModel`'s "switch to `@new@…`" retry) — once set to exactly `resolvedUsername`,
+    /// that one handle stops re-prompting, but a *different* subsequent change still does. Pure
+    /// so it unit-tests without the network/disk calls
+    /// ``DeployCoordinator/isActivityPubHandleLocked(siteURL:configDirectory:)`` needs; the caller
     /// (`DeployModel`) decides how to surface a `true` result — presenting the
     /// consequence-phrased confirmation sheet before proceeding, per the house rule on advisory
     /// questions.
@@ -372,9 +376,11 @@ public enum DeployCoordinator {
         settings: SiteSettings,
         effectiveActiveIDs: Set<String>,
         resources: WorkerComposition.ProvisionedResources,
-        /// This deploy's resolved ActivityPub handle (``resolveEffectiveActivityPubUsername``,
-        /// #1239) — advances `settings.lastDeployedAPUsername`, the baseline
-        /// ``activityPubHandleRenameNeedsConfirmation`` compares the *next* deploy against.
+        /// This deploy's resolved ActivityPub handle
+        /// (``DeployCoordinator/resolveEffectiveActivityPubUsername(siteDirectory:)``, #1239) —
+        /// advances `settings.lastDeployedAPUsername`, the baseline
+        /// ``DeployCoordinator/activityPubHandleRenameNeedsConfirmation(lastDeployedUsername:resolvedUsername:isLocked:acknowledgedUsername:)``
+        /// compares the *next* deploy against.
         /// `nil` when ActivityPub isn't active this deploy; leaves the baseline unchanged so a
         /// deactivated-then-reactivated actor is still compared against its real last-served
         /// handle rather than losing the baseline.
