@@ -17,7 +17,13 @@
 - **`AIUsage.aiInput`/`.aiTrain`/`.search` are `"yes" | "no" | "unset"`** (`UsagePermission` in `Sources/AnglesiteCore/LicensingStore.swift`), never "allow"/"deny". `LicensingStore.load()` returns an empty/default `LicensingPolicy()` (not a throw) when `Source/src/data/licensing.json` doesn't exist yet — a missing file is not an error case to special-case.
 - **No crawler-policy write-back.** `AIUsage` has no per-crawler allow-list, only blanket `search`/`aiInput`/`aiTrain` + a `blockAICrawlers` bool. `Cloudflare-AI-Search` was never in the `aiCrawlers` blocklist (`Resources/Template/scripts/edge-artifacts.ts`), so passing the preflight check requires no policy write at all.
 - **No App Intent for v1** — matches Harden, which has none either (confirmed: no file in `Sources/AnglesiteIntents/` references "harden").
-- **Preview-API risk:** the AI Search instance-creation request/response schema (Task 2) is Cloudflare's public-preview API as of 2026-07-30 (verified against `https://developers.cloudflare.com/api/resources/ai_search/subresources/namespaces/subresources/instances/methods/create/`). Re-verify field names against that page before merging Task 2 — preview APIs move.
+- **Two disagreeing live API docs for instance creation, not a dead-endpoint correction (re-checked live 2026-08-06):** Cloudflare currently publishes two live pages that describe this operation differently, and neither is stale:
+  - The auto-generated API reference (`https://developers.cloudflare.com/api/resources/ai_search/subresources/namespaces/subresources/instances/methods/create/`, the URL this plan originally cited) returns HTTP 200 and documents a **namespaced** path — `POST /accounts/{account_id}/ai-search/namespaces/{name}/instances` — with a `source_params.web_crawler.parse_type` field, i.e. exactly what Task 2 originally implemented.
+  - The get-started guide (`https://developers.cloudflare.com/ai-search/get-started/api/`, verbatim curl examples) documents a **flat** path instead — `POST /accounts/{account_id}/ai-search/instances` with body `{"id": "my-instance", "type": "web-crawler", "source": "example.com"}` — and no `namespaces`/`parse_type` at all.
+  Both require a token with `AI Search:Edit` + `AI Search:Run`. Task 2 below is written against the **flat** shape (the get-started guide's — simpler, and the one with runnable curl examples rather than an auto-generated field list), but this is a choice between two live, disagreeing docs, not a case where the old one is gone — an implementer must confirm which shape the live API actually accepts with a real `curl`/token before trusting either page, not just re-read the docs again.
+- **Corrected WAF skip-rule crawler identification (re-verified live 2026-08-06):** Task 3's `http.user_agent contains "Cloudflare-AI-Search"` expression is not how Cloudflare's own dashboard guidance identifies this crawler. The crawler is a *verified bot* with **Bot Detection ID `122933950`** (Cloudflare Radar) — the dashboard's documented skip-rule guidance (`https://developers.cloudflare.com/ai-search/configuration/data-source/website/`) matches on that detection ID, action **Skip**, ordered first. Task 3 is corrected to match on the detection ID instead of a user-agent string; the `action_parameters.products` shape itself (`["botFight"]`) is *not* independently re-verified here — confirm the exact product-name string(s) against a live dashboard-created skip rule (or the Rules API's `GET` of one) before merging Task 1/3, same as the plan already asked for the request/response shape.
+- **Missing token permission (found 2026-08-06):** `Sources/AnglesiteCore/AnglesiteTokenTemplate.swift`'s `permissionGroups` has no `ai_search` entry — the unified "Anglesite" token this app provisions today can't actually call any of the endpoints Task 2/3 add. Folded in as Task 7 below (independent of Tasks 1–6, no reordering needed).
+- **Disposition of the issue's 2026-08-06 "Additional integration pointers" comment** (posted after this plan, before its first correction pass): the `DeployExecutor.swift` `.bundleUpload`-style hook point is **not adopted** — this feature stays a standalone toolbar/menu-triggered wizard (Task 6), not a deploy-time step; nothing in spec §12's flow calls for reindex-on-every-deploy. The `CloudflareOAuthClient`/`CloudflareOAuthTokenSource` scope-check gap (a second token-acquisition path that, like `AISearchModel.apiToken()` here and `HardenModel.apiToken()`/`BuyDomainModel`'s equivalents, doesn't probe for an AI Search scope) is real but pre-existing and shared by every sibling wizard — fixing it per-wizard here is scope creep against one feature instead of a proper one-time fix to the shared OAuth seam; left as a follow-up. The Pagefind-reconciliation point is folded into Task 5's `.awaitingCostConfirmation` copy below.
 - Run `swift test --package-path .` after each task. Run `scripts/build-app.sh -project Anglesite.xcodeproj -scheme Anglesite -configuration Debug build` after Task 6 (the only task touching `Sources/AnglesiteApp/SiteWindow.swift`/`WebsiteCommands.swift`, which are Xcode-target-only files excluded from the SwiftPM `AnglesiteAppCore` target).
 - Commit after each task, using `feat(#691): <summary>` (≤72 chars) per `CONTRIBUTING.md`.
 
@@ -149,26 +155,27 @@ import Foundation
 @testable import AnglesiteCore
 
 struct HTTPCloudflareClientAISearchTests {
-    @Test("createAISearchInstance resolves the account then POSTs to the namespace instances endpoint")
+    @Test("createAISearchInstance resolves the account then POSTs id/type/source to the instances endpoint")
     func createsInstance() async throws {
         let spy = TransportSpy()
         let accountsJSON = #"{"success":true,"errors":[],"result":[{"id":"acct1"}]}"#
-        let createJSON = #"{"success":true,"errors":[],"result":{"id":"inst1","name":"example-com"}}"#
+        let createJSON = #"{"success":true,"errors":[],"result":{"id":"example-com"}}"#
         let client = HTTPCloudflareClient(transport: spyTransport([
             "/accounts?per_page=1": (200, accountsJSON),
-            "/ai-search/namespaces/example-com/instances": (200, createJSON),
+            "/ai-search/instances": (200, createJSON),
         ], spy: spy))
 
         let instance = try await client.createAISearchInstance(
             domain: "example.com", instanceID: "example-com", apiToken: "test-token")
 
-        #expect(instance.id == "inst1")
+        #expect(instance.id == "example-com")
         #expect(instance.name == "example-com")
         let postReq = try #require(spy.requests.first { $0.httpMethod == "POST" })
-        #expect(postReq.url?.path.contains("/accounts/acct1/ai-search/namespaces/example-com/instances") == true)
+        #expect(postReq.url?.path.hasSuffix("/accounts/acct1/ai-search/instances") == true)
         let body = try #require(postReq.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
         #expect(body["id"] as? String == "example-com")
         #expect(body["type"] as? String == "web-crawler")
+        #expect(body["source"] as? String == "example.com")
     }
 
     @Test("createAISearchInstance surfaces .unauthorized on a 403")
@@ -176,7 +183,7 @@ struct HTTPCloudflareClientAISearchTests {
         let accountsJSON = #"{"success":true,"errors":[],"result":[{"id":"acct1"}]}"#
         let client = HTTPCloudflareClient(transport: fakeTransport([
             "/accounts?per_page=1": (200, accountsJSON),
-            "/ai-search/namespaces": (403, #"{"success":false,"errors":[{"message":"missing scope"}]}"#),
+            "/ai-search/instances": (403, #"{"success":false,"errors":[{"message":"missing scope"}]}"#),
         ]))
         await #expect(throws: CloudflareError.unauthorized) {
             try await client.createAISearchInstance(domain: "example.com", instanceID: "example-com", apiToken: "t")
@@ -256,26 +263,23 @@ extension HTTPCloudflareClient: AISearchProvisioning {
             throw CloudflareError.api(message: "no Cloudflare account visible to this token")
         }
 
+        // Flat shape, no `namespaces` segment — follows developers.cloudflare.com/ai-search/
+        // get-started/api/'s verbatim curl examples. Cloudflare's auto-generated API reference
+        // disagrees (documents a namespaced /namespaces/{name}/instances path instead) — see
+        // Global Constraints. CONFIRM WHICH SHAPE THE LIVE API ACTUALLY ACCEPTS before trusting
+        // this code sample; don't just re-read either doc page again.
         struct CreateBody: Encodable, Sendable {
             let id: String
             let type: String
-            let source_params: SourceParams
-            struct SourceParams: Encodable, Sendable {
-                let web_crawler: WebCrawler
-                struct WebCrawler: Encodable, Sendable {
-                    let parse_type: String
-                }
-            }
+            let source: String
         }
         struct CFAISearchInstance: Decodable, Sendable {
             let id: String
             let name: String?
         }
-        let body = CreateBody(
-            id: instanceID, type: "web-crawler",
-            source_params: .init(web_crawler: .init(parse_type: "sitemap")))
+        let body = CreateBody(id: instanceID, type: "web-crawler", source: domain)
         let env = try await postEnvelope(
-            "/accounts/\(accountID)/ai-search/namespaces/\(instanceID)/instances",
+            "/accounts/\(accountID)/ai-search/instances",
             body: body, apiToken: apiToken, as: CFAISearchInstance.self)
         guard let result = env.result else {
             throw CloudflareError.api(message: env.errors?.first?.message ?? "AI Search instance creation returned no result")
@@ -473,7 +477,18 @@ public struct AISearchExecutor: Sendable {
                 zoneID: zoneID,
                 rule: WAFRulePayload(
                     description: "Anglesite: allow Cloudflare AI Search crawler",
-                    expression: #"(http.user_agent contains "Cloudflare-AI-Search")"#,
+                    // Matches by verified-bot detection ID, not user-agent string — corrected
+                    // 2026-08-06 against Cloudflare's own dashboard skip-rule guidance
+                    // (developers.cloudflare.com/ai-search/configuration/data-source/website/),
+                    // which identifies this crawler as Bot Detection ID 122933950. `any(...)`
+                    // rather than a fixed `[0]` index: `detection_ids` can hold more than one
+                    // entry, and a positional index would silently stop matching on any request
+                    // where this crawler's ID isn't first — a false negative the happy path
+                    // wouldn't catch in testing. Verify this exact field/operator syntax
+                    // (including the any()-vs-index question) against a live dashboard-created
+                    // rule (or a GET of one) before merging — inferred from docs prose, not a
+                    // confirmed live response.
+                    expression: "(any(cf.bot_management.detection_ids[*] eq 122933950))",
                     action: "skip",
                     actionParameters: .init(products: ["botFight"])),
                 apiToken: apiToken)
@@ -915,6 +930,8 @@ struct AISearchSheetView: View {
                 Text("AI Search billing scales with reader traffic, unlike other Cloudflare features in this app.")
                 Text("Free during open beta: 100 instances, 20,000 queries/month, 500 crawled pages/day. Reader queries run on Cloudflare's AI models — beyond free limits, usage is billed by Cloudflare.")
                     .font(.callout).foregroundStyle(.secondary)
+                Text("Your site's existing search (Pagefind) keeps working for free either way — AI Search's conversational answers are an opt-in upgrade above it, not a replacement.")
+                    .font(.callout).foregroundStyle(.secondary)
             }
             .padding()
         case .succeeded(let result):
@@ -1073,4 +1090,42 @@ Manual smoke (since this is UI-only and `swift test` can't reach it): launch the
 ```bash
 git add Sources/AnglesiteCore/SiteToolbarItemID.swift Tests/AnglesiteCoreTests/SiteToolbarItemIDTests.swift Sources/AnglesiteApp/SiteWindowModel.swift Sources/AnglesiteApp/SiteWindow.swift Sources/AnglesiteApp/WebsiteCommands.swift
 git commit -m "feat(#691): wire AI Search into the site window"
+```
+
+---
+
+## Task 7: `AnglesiteTokenTemplate` — `ai_search` permission group
+
+**Files:**
+- Modify: `Sources/AnglesiteCore/AnglesiteTokenTemplate.swift`, `Tests/AnglesiteCoreTests/AnglesiteTokenTemplateTests.swift`
+
+**Interfaces:** adds one entry to the existing `permissionGroups` array — no signature change. Independent of Tasks 1–6 (found during the 2026-08-06 correction pass, folded in here rather than reordering the plan): the unified "Anglesite" token this app provisions today has no `ai_search` entry, so a token created before this feature ships can't call the endpoints Task 2/3 add even once the code is live.
+
+- [ ] **Step 1: Update the failing assertion**
+
+In `AnglesiteTokenTemplateTests.swift`'s `coversNewServices()`, add `"ai_search"` to the `needed` array.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --package-path . --filter AnglesiteTokenTemplateTests`
+Expected: FAIL — `missing permission group: ai_search`.
+
+- [ ] **Step 3: Add the entry** (`AnglesiteTokenTemplate.swift`, in the "Integration wizards" group, alongside `registrar`)
+
+```swift
+        ("ai_search", "edit"),
+```
+
+**Verify the dashboard permission-group key before merging** — `"ai_search"` is this plan's best guess (Cloudflare's other product keys follow this `snake_case` convention, e.g. `page_shield`, `zone_waf`, `response_compression`), not confirmed against a live dashboard token-creation page. If wrong, the pre-fill silently drops that one permission and the prompt's own doc comment already covers the degrade ("if Cloudflare changes the schema the link still lands on the token page"). Check by opening `AnglesiteTokenTemplate.createTokenURL` in a browser and confirming AI Search shows as pre-selected.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `swift test --package-path . --filter AnglesiteTokenTemplateTests`
+Expected: PASS (`oauthScopeMatchesPermissionGroups` passes unchanged — it derives from `permissionGroups` directly, no separate list to update).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/AnglesiteCore/AnglesiteTokenTemplate.swift Tests/AnglesiteCoreTests/AnglesiteTokenTemplateTests.swift
+git commit -m "feat(#691): add ai_search to the Anglesite token permission template"
 ```

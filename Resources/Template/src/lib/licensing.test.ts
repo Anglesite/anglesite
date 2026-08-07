@@ -17,34 +17,34 @@ const CC_BY: LicensingPolicy["default"] = {
 };
 
 test("resolveLicense: an asserting collection inherits the site default", () => {
-  const policy: LicensingPolicy = { default: CC_BY, collections: {}, usage: NO_USAGE };
+  const policy: LicensingPolicy = { default: CC_BY, collections: {}, usage: NO_USAGE, publishRSL: false };
   assert.deepEqual(resolveLicense(policy, "notes"), CC_BY);
   assert.deepEqual(resolveLicense(policy, "blog"), CC_BY);
 });
 
 test("resolveLicense: non-asserting collections return null despite a site default", () => {
-  const policy: LicensingPolicy = { default: CC_BY, collections: {}, usage: NO_USAGE };
+  const policy: LicensingPolicy = { default: CC_BY, collections: {}, usage: NO_USAGE, publishRSL: false };
   for (const collection of NON_ASSERTING_COLLECTIONS) {
     assert.equal(resolveLicense(policy, collection), null, `${collection} must not assert`);
   }
 });
 
 test("resolveLicense: an explicit override beats the non-asserting default", () => {
-  const policy: LicensingPolicy = { default: null, collections: { likes: CC_BY }, usage: NO_USAGE };
+  const policy: LicensingPolicy = { default: null, collections: { likes: CC_BY }, usage: NO_USAGE, publishRSL: false };
   assert.deepEqual(resolveLicense(policy, "likes"), CC_BY);
 });
 
 test("resolveLicense: an explicit null override beats the site default", () => {
-  const policy: LicensingPolicy = { default: CC_BY, collections: { notes: null }, usage: NO_USAGE };
+  const policy: LicensingPolicy = { default: CC_BY, collections: { notes: null }, usage: NO_USAGE, publishRSL: false };
   assert.equal(resolveLicense(policy, "notes"), null);
 });
 
 test("resolveLicense: no site default and no override yields null", () => {
-  assert.equal(resolveLicense({ default: null, collections: {}, usage: NO_USAGE }, "articles"), null);
+  assert.equal(resolveLicense({ default: null, collections: {}, usage: NO_USAGE, publishRSL: false }, "articles"), null);
 });
 
 test("normalizePolicy: undefined input yields an empty policy", () => {
-  assert.deepEqual(normalizePolicy(undefined), { default: null, collections: {}, usage: NO_USAGE });
+  assert.deepEqual(normalizePolicy(undefined), { default: null, collections: {}, usage: NO_USAGE, publishRSL: false });
 });
 
 test("normalizePolicy: reads a well-formed document", () => {
@@ -56,7 +56,15 @@ test("normalizePolicy: reads a well-formed document", () => {
     default: { url: "https://example.com/l", name: "Example" },
     collections: { photos: { url: "https://example.com/p", name: "Photos" } },
     usage: NO_USAGE,
+    publishRSL: false,
   });
+});
+
+test("normalizePolicy: publishRSL defaults to false and requires exactly true", () => {
+  assert.equal(normalizePolicy({ default: null }).publishRSL, false);
+  assert.equal(normalizePolicy({ default: null, publishRSL: "true" }).publishRSL, false);
+  assert.equal(normalizePolicy({ default: null, publishRSL: false }).publishRSL, false);
+  assert.equal(normalizePolicy({ default: null, publishRSL: true }).publishRSL, true);
 });
 
 test("normalizePolicy: preserves an explicit null collection override", () => {
@@ -179,8 +187,8 @@ test("resolveLicense: a bad-URL collection override resolves to null, not a leak
 });
 
 test("normalizePolicy: a non-object document yields an empty policy", () => {
-  assert.deepEqual(normalizePolicy("nope"), { default: null, collections: {}, usage: NO_USAGE });
-  assert.deepEqual(normalizePolicy(null), { default: null, collections: {}, usage: NO_USAGE });
+  assert.deepEqual(normalizePolicy("nope"), { default: null, collections: {}, usage: NO_USAGE, publishRSL: false });
+  assert.deepEqual(normalizePolicy(null), { default: null, collections: {}, usage: NO_USAGE, publishRSL: false });
 });
 
 test("headLicense: undefined prop falls through to the site default", () => {

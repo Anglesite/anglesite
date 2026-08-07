@@ -15,12 +15,14 @@ struct NewContentActions {
     let newComponent: @MainActor () -> Void
 }
 
-/// Delete/Duplicate/Publish/Unpublish acting on the Navigator's current selection (#516, #798).
-/// Each action is `nil` when there is no selection, or the selection doesn't support that verb
-/// (`SiteNavigatorModel.canDelete`/`canDuplicate`/`canPublish`/`canUnpublish`) — that's what lets
-/// the Edit-menu items enable/disable correctly without the menu needing to know Navigator internals.
+/// Duplicate/Publish/Unpublish acting on the Navigator's current selection (#516, #798). Each
+/// action is `nil` when there is no selection, or the selection doesn't support that verb
+/// (`SiteNavigatorModel.canDuplicate`/`canPublish`/`canUnpublish`) — that's what lets the
+/// Edit-menu items enable/disable correctly without the menu needing to know Navigator internals.
+/// Delete has no field here (#989) — it's driven entirely by `SiteNavigatorView`'s
+/// `.onDeleteCommand`, which is also what AppKit's standard Edit ▸ Delete menu item invokes; a
+/// second Commands-level Delete button here would just re-create the duplicate-item bug.
 struct NavigatorSelectionActions {
-    let delete: (@MainActor () -> Void)?
     let duplicate: (@MainActor () -> Void)?
     let publish: (@MainActor () -> Void)?
     let unpublish: (@MainActor () -> Void)?
@@ -89,20 +91,17 @@ struct NewContentCommands: Commands {
     }
 }
 
-/// Edit ▸ Delete (⌘⌫) / Duplicate (⌘D) / Publish / Unpublish for the focused window's Navigator
-/// selection (#516, #798). Placed in the Edit menu next to Cut/Copy/Paste — the macOS convention
-/// for selection-scoped destructive/duplicate actions — rather than the File menu.
+/// Edit ▸ Duplicate (⌘D) / Publish / Unpublish for the focused window's Navigator selection
+/// (#516, #798). Placed in the Edit menu next to Cut/Copy/Paste — the macOS convention for
+/// selection-scoped duplicate/destructive actions — rather than the File menu. Delete is
+/// deliberately not a Commands item here (#989): AppKit's standard Edit ▸ Delete already appears
+/// in this group and is wired to the same action via `SiteNavigatorView`'s `.onDeleteCommand`, so
+/// a second one just duplicated it with no distinguishing label.
 struct NavigatorEditCommands: Commands {
     @FocusedValue(\.navigatorSelectionActions) private var actions
 
     var body: some Commands {
         CommandGroup(after: .pasteboard) {
-            Button("Delete") {
-                actions?.delete?()
-            }
-            .keyboardShortcut(.delete, modifiers: [.command])
-            .disabled(actions?.delete == nil)
-
             Button("Duplicate") {
                 actions?.duplicate?()
             }
