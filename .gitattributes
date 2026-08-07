@@ -21,6 +21,17 @@ project.yml text eol=lf
 *.md text eol=lf
 *.sh text eol=lf
 
+# CWebKitGTK is a SwiftPM systemLibrary shim (a single header + modulemap
+# binding to the system webkitgtk-6.0/glib-unix pkg-config libraries) — not
+# buildable C/C++ source. Left un-vendored, GitHub's language detection counts
+# it as "C" present in the repo, which makes automatic code-scanning default
+# setup try to `autobuild` a nonexistent C build system and fail (fatal
+# `codeql database trace-command`/autobuild.sh error). codeql.yml's advanced
+# workflow (added alongside this shim in #1158 specifically to replace
+# default setup's build-mode guessing — see that file's Swift comment)
+# already omits cpp/c from its language matrix on purpose.
+Sources/CWebKitGTK/** linguist-vendored
+
 # Binary vendored/build assets — never diff, never normalize
 *.png binary
 *.icns binary

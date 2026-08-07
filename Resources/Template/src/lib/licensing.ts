@@ -100,6 +100,15 @@ export interface LicensingPolicy {
   collections: Partial<Record<LicensableCollection, LicenseRef | null>>;
   /** Site-wide AI usage permissions. See `AIUsage`. */
   usage: AIUsage;
+  /**
+   * Also emit RSL (#992 — phase 3 of the content licensing work). Off by default: no crawler
+   * confirmed to honor RSL as of the design spike, so this is a disclosure-style opt-in, not a
+   * protection. When true, `scripts/edge-artifacts.ts` writes `rsl.xml` and a robots.txt
+   * `License:` directive, `BaseLayout.astro` adds a `<link rel="license">`, `scripts/csp.ts` adds
+   * a `Link:` header, and the RSS/Atom feeds add an `xmlns:rsl` module — all as *projections* of
+   * this same policy, per `src/lib/rsl.ts`. Never a new signal of its own.
+   */
+  publishRSL: boolean;
 }
 
 /**
@@ -114,7 +123,10 @@ export const NON_ASSERTING_COLLECTIONS: readonly LicensableCollection[] = [
   "reviews",
 ];
 
-const LICENSABLE_COLLECTIONS: readonly LicensableCollection[] = [...ENTRY_COLLECTIONS, "blog"];
+/** Every licensable collection, in the settings facet's display order. Exported so `rsl.ts` and
+ * `feed-data.ts` can iterate the same set this module resolves over, rather than each maintaining
+ * their own copy of `[...ENTRY_COLLECTIONS, "blog"]`. */
+export const LICENSABLE_COLLECTIONS: readonly LicensableCollection[] = [...ENTRY_COLLECTIONS, "blog"];
 
 function isLicensable(key: string): key is LicensableCollection {
   return (LICENSABLE_COLLECTIONS as readonly string[]).includes(key);
@@ -202,17 +214,29 @@ function toLicenseRef(raw: unknown): LicenseRef | null {
  * `normalizeUsage` and `edge-artifacts.ts`'s `readLicensingUsage` treat typo'd config values.
  */
 export function normalizePolicy(raw: unknown): LicensingPolicy {
-  const policy: LicensingPolicy = { default: null, collections: {}, usage: { ...NO_USAGE } };
+  const policy: LicensingPolicy = {
+    default: null,
+    collections: {},
+    usage: { ...NO_USAGE },
+    publishRSL: false,
+  };
   if (!raw || typeof raw !== "object") return policy;
 
-  const { default: rawDefault, collections: rawCollections, usage: rawUsage } = raw as {
+  const {
+    default: rawDefault,
+    collections: rawCollections,
+    usage: rawUsage,
+    publishRSL: rawPublishRSL,
+  } = raw as {
     default?: unknown;
     collections?: unknown;
     usage?: unknown;
+    publishRSL?: unknown;
   };
 
   policy.default = toLicenseRef(rawDefault);
   policy.usage = normalizeUsage(rawUsage);
+  policy.publishRSL = rawPublishRSL === true;
 
   if (rawCollections && typeof rawCollections === "object") {
     for (const [key, value] of Object.entries(rawCollections as Record<string, unknown>)) {
@@ -241,6 +265,23 @@ export function resolveLicense(
   }
   if (NON_ASSERTING_COLLECTIONS.includes(collection)) return null;
   return policy.default;
+}
+
+/**
+ * Whether `collection` has a *deliberate* non-assertion — an explicit `null` override, or the
+ * non-asserting default with no override at all — as opposed to simply inheriting an unset site
+ * default. The distinction matters for RSL (#992): a deliberate non-assertion must actively
+ * withhold whatever the site-wide policy would otherwise grant (see `rsl.ts`), while a plain
+ * inherit is already covered by the site-wide projection and needs no block of its own.
+ */
+export function assertsNothingExplicitly(
+  policy: LicensingPolicy,
+  collection: LicensableCollection,
+): boolean {
+  if (Object.hasOwn(policy.collections, collection)) {
+    return policy.collections[collection] === null;
+  }
+  return NON_ASSERTING_COLLECTIONS.includes(collection);
 }
 
 /**

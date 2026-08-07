@@ -84,21 +84,36 @@ actor ShellModel {
     }
 
     /// The edit-overlay JS to inject into the preview. On macOS this rides the app bundle
-    /// (`AnglesiteOverlayBundle`); the Linux executable has no bundle yet (Flatpak packaging is
-    /// a separate #567 item), so resolution is: `ANGLESITE_OVERLAY_JS` env override first (dev
-    /// loop), then the repo-relative `scripts/build-overlay.sh` output beside the binary's cwd.
-    /// Missing overlay is non-fatal — the preview loads without edit affordances, matching
-    /// `WebViewBridge`'s behavior when the bundle wasn't produced.
+    /// (`AnglesiteOverlayBundle`); on Linux resolution tries, in order: `ANGLESITE_OVERLAY_JS`
+    /// env override (dev loop); `/app/share/anglesite/edit-overlay/overlay.js`, the path the
+    /// Flatpak manifest installs it to (`packaging/flatpak/io.dwk.anglesite.linux.yml` — see
+    /// docs/superpowers/specs/2026-08-06-flatpak-packaging-investigation.md §7), tried only when
+    /// `FLATPAK_ID` indicates a Flatpak sandbox — same detection
+    /// `PodmanContainerControl.flatpakHostSpawn` uses, so a stray `/app` directory on a
+    /// non-Flatpak Linux box can't silently shadow the dev-relative fallback below it; then the
+    /// repo-relative `scripts/build-overlay.sh` output beside the binary's cwd, for an unpackaged
+    /// dev build run from the repo root. Missing overlay is non-fatal — the preview loads without
+    /// edit affordances, matching `WebViewBridge`'s behavior when the bundle wasn't produced. The
+    /// ordering/gating itself lives in `overlayCandidates(environment:)`, a pure function kept
+    /// separate from this one's file I/O so `Tests/AnglesiteLinuxTests` can exercise it directly.
     static func overlaySource(environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
-        let candidates = [
-            environment["ANGLESITE_OVERLAY_JS"],
-            "Resources/edit-overlay/overlay.js",
-        ]
-        for case let path? in candidates {
+        for path in overlayCandidates(environment: environment) {
             if let source = try? String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8) {
                 return source
             }
         }
         return nil
+    }
+
+    /// The ordered, filtered candidate paths `overlaySource` tries — see its doc comment for what
+    /// each one is and why it's ordered that way. Split out as its own pure function (no file
+    /// I/O) specifically so the ordering/gating logic is unit-testable without needing real files
+    /// on disk at absolute paths like `/app/share/...`.
+    static func overlayCandidates(environment: [String: String]) -> [String] {
+        [
+            environment["ANGLESITE_OVERLAY_JS"],
+            environment["FLATPAK_ID"] != nil ? "/app/share/anglesite/edit-overlay/overlay.js" : nil,
+            "Resources/edit-overlay/overlay.js",
+        ].compactMap { $0 }
     }
 }
