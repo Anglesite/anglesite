@@ -1,0 +1,26 @@
+{
+  "name": "@anglesite/wysiwyg-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable, dependency-free TypeScript overlay engine for the WYSIWYG page editor (spec: docs/superpowers/specs/2026-08-03-modern-wysiwyg-editor-design.md). Successor to JS/edit-overlay/ at page level.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src test e2e",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:e2e": "esbuild e2e/fixture-page.ts --bundle --format=iife --target=es2022 --outfile=e2e/.generated/fixture-bundle.js",
+    "test:e2e": "npm run build:e2e && playwright test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "esbuild": "^0.28.1",
+    "jsdom": "^30.0.1",
+    "oxlint": "^1.76.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
