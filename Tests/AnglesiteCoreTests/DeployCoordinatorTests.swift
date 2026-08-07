@@ -209,6 +209,164 @@ struct DeployCoordinatorTests {
         #expect(saved.displayName == "Keep Me")
     }
 
+    // MARK: - ActivityPub handle resolution (#1239)
+
+    @Test("defaultActivityPubUsername strips a leading www. from the resolved site URL's host")
+    func defaultActivityPubUsernameStripsWWW() throws {
+        let dir = try temporaryDirectory()
+        try "SITE_URL=https://www.example.com\n".write(
+            to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        #expect(DeployCoordinator.defaultActivityPubUsername(siteDirectory: dir) == "example.com")
+    }
+
+    @Test("defaultActivityPubUsername is nil before any deploy has ever persisted a host")
+    func defaultActivityPubUsernameNilBeforeFirstDeploy() throws {
+        let dir = try temporaryDirectory()
+
+        #expect(DeployCoordinator.defaultActivityPubUsername(siteDirectory: dir) == nil)
+    }
+
+    @Test("isValidActivityPubUsername accepts the RFC 7565 ∩ Mastodon grammar and rejects everything else")
+    func isValidActivityPubUsernameGrammar() {
+        for valid in ["example.com", "alice", "alice_bob", "a", "a.b-c_d9"] {
+            #expect(DeployCoordinator.isValidActivityPubUsername(valid), "expected \(valid) to be valid")
+        }
+        for invalid in ["", "-alice", "alice-", ".alice", "alice.", "ali ce", "alice!", "@lice"] {
+            #expect(!DeployCoordinator.isValidActivityPubUsername(invalid), "expected \(invalid) to be invalid")
+        }
+    }
+
+    @Test("resolveEffectiveActivityPubUsername prefers a valid override over the hostname default")
+    func resolveEffectiveActivityPubUsernamePrefersValidOverride() throws {
+        let dir = try temporaryDirectory()
+        try "SITE_URL=https://example.com\nAP_USERNAME=alice\n".write(
+            to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        #expect(DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: dir) == "alice")
+    }
+
+    @Test("resolveEffectiveActivityPubUsername lowercases a mixed-case override, matching worker.ts's case-insensitive grammar")
+    func resolveEffectiveActivityPubUsernameLowercasesOverride() throws {
+        let dir = try temporaryDirectory()
+        try "SITE_URL=https://example.com\nAP_USERNAME=Alice\n".write(
+            to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        #expect(DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: dir) == "alice")
+    }
+
+    @Test("resolveEffectiveActivityPubUsername falls back to the hostname default when the override is invalid")
+    func resolveEffectiveActivityPubUsernameFallsBackOnInvalidOverride() throws {
+        let dir = try temporaryDirectory()
+        try "SITE_URL=https://example.com\nAP_USERNAME=-not valid-\n".write(
+            to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        #expect(DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: dir) == "example.com")
+    }
+
+    @Test("resolveEffectiveActivityPubUsername falls back to the hostname default when no override is set")
+    func resolveEffectiveActivityPubUsernameFallsBackWhenUnset() throws {
+        let dir = try temporaryDirectory()
+        try "SITE_URL=https://example.com\n".write(
+            to: dir.appendingPathComponent(".site-config"), atomically: true, encoding: .utf8)
+
+        #expect(DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: dir) == "example.com")
+    }
+
+    @Test("activityPubHandleRenameNeedsConfirmation is false when the actor isn't locked, even if the handle changed")
+    func activityPubHandleRenameNeedsConfirmationFalseWhenUnlocked() {
+        #expect(!DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+            lastDeployedUsername: "site", resolvedUsername: "example.com", isLocked: false))
+    }
+
+    @Test("activityPubHandleRenameNeedsConfirmation is false on a first-ever deploy (no baseline yet)")
+    func activityPubHandleRenameNeedsConfirmationFalseWithNoBaseline() {
+        #expect(!DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+            lastDeployedUsername: nil, resolvedUsername: "example.com", isLocked: true))
+    }
+
+    @Test("activityPubHandleRenameNeedsConfirmation is false when the handle hasn't actually changed")
+    func activityPubHandleRenameNeedsConfirmationFalseWhenUnchanged() {
+        #expect(!DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+            lastDeployedUsername: "example.com", resolvedUsername: "example.com", isLocked: true))
+    }
+
+    @Test("activityPubHandleRenameNeedsConfirmation is true when a locked actor's resolved handle changed")
+    func activityPubHandleRenameNeedsConfirmationTrueWhenLockedAndChanged() {
+        #expect(DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+            lastDeployedUsername: "site", resolvedUsername: "example.com", isLocked: true))
+    }
+
+    @Test("activityPubHandleRenameNeedsConfirmation is false once the owner has acknowledged switching to this exact handle")
+    func activityPubHandleRenameNeedsConfirmationFalseWhenAcknowledged() {
+        #expect(!DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+            lastDeployedUsername: "site", resolvedUsername: "example.com", isLocked: true,
+            acknowledgedUsername: "example.com"))
+    }
+
+    @Test("activityPubHandleRenameNeedsConfirmation is true again for a different handle even after an earlier one was acknowledged")
+    func activityPubHandleRenameNeedsConfirmationTrueForADifferentHandleThanAcknowledged() {
+        #expect(DeployCoordinator.activityPubHandleRenameNeedsConfirmation(
+            lastDeployedUsername: "site", resolvedUsername: "bob.example.com", isLocked: true,
+            acknowledgedUsername: "example.com"))
+    }
+
+    @Test("isActivityPubHandleLocked is true from a non-empty outbox ledger even with no resolvable site URL")
+    func isActivityPubHandleLockedTrueFromLedgerWithNoSiteURL() async throws {
+        let dir = try temporaryDirectory()
+        var ledger = ActivityPubOutboxLedger()
+        ledger.record(.init(canonicalURL: "https://example.com/posts/1", activityID: "https://example.com/activity/1", syncedAt: .now))
+        try ledger.save(to: dir)
+
+        let locked = await DeployCoordinator.isActivityPubHandleLocked(siteURL: nil, configDirectory: dir)
+
+        #expect(locked)
+    }
+
+    @Test("isActivityPubHandleLocked is false when the outbox ledger is empty and there's no site URL to check followers")
+    func isActivityPubHandleLockedFalseWithNoLedgerAndNoSiteURL() async throws {
+        let dir = try temporaryDirectory()
+
+        let locked = await DeployCoordinator.isActivityPubHandleLocked(siteURL: nil, configDirectory: dir)
+
+        #expect(!locked)
+    }
+
+    @Test("persistProvisionedResources advances the ActivityPub handle baseline when a handle is supplied")
+    func persistProvisionedResourcesAdvancesAPUsernameBaseline() async throws {
+        let dir = try temporaryDirectory()
+        let configStore = SiteConfigStore(configDirectory: dir)
+        let resources = WorkerComposition.ProvisionedResources()
+
+        await DeployCoordinator.persistProvisionedResources(
+            configStore: configStore,
+            settings: SiteSettings(),
+            effectiveActiveIDs: [],
+            resources: resources,
+            apUsername: "example.com"
+        )
+
+        let saved = try await configStore.load()
+        #expect(saved.lastDeployedAPUsername == "example.com")
+    }
+
+    @Test("persistProvisionedResources leaves the ActivityPub handle baseline unchanged when no handle is supplied")
+    func persistProvisionedResourcesLeavesAPUsernameBaselineUnchangedWhenNil() async throws {
+        let dir = try temporaryDirectory()
+        let configStore = SiteConfigStore(configDirectory: dir)
+        let resources = WorkerComposition.ProvisionedResources()
+
+        await DeployCoordinator.persistProvisionedResources(
+            configStore: configStore,
+            settings: SiteSettings(lastDeployedAPUsername: "example.com"),
+            effectiveActiveIDs: [],
+            resources: resources
+        )
+
+        let saved = try await configStore.load()
+        #expect(saved.lastDeployedAPUsername == "example.com")
+    }
+
     // MARK: - resolveActiveWorkerIDs (#1172)
 
     @Test("with no anglesite.json, falls back to Config/'s activeWorkerIDs")

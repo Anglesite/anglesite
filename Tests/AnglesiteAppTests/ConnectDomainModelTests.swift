@@ -332,4 +332,36 @@ private actor ControllableRDAPLookupService: RDAPLookupService {
         #expect(saved.domain?.registrar != "Old Registrar, LLC")
         #expect(saved.domain?.expiresAt != "2020-01-01T00:00:00Z")
     }
+
+    /// `persistRegistrarInfo`'s guard (`config.domain?.hostname == hostname`) protects against a
+    /// concurrent producer (e.g. `DomainIntentRecorder`) declaring a different hostname on disk
+    /// between when a lookup starts and when it resolves — reachable even though the model's own
+    /// generation tracking (`reopeningBeforeFirstLookupResolvesKeepsNewerResult`) doesn't catch it,
+    /// since that write happens outside the model entirely. The on-disk hostname declared by the
+    /// concurrent producer must survive untouched, with no registrar attached to it.
+    @Test func persistRegistrarInfoSkipsWhenOnDiskHostnameNoLongerMatches() async throws {
+        let fake = ControllableRDAPLookupService()
+        let model = ConnectDomainModel(rdap: fake)
+        let (site, dir) = try makeSite()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        model.configure(site: site)
+        try DomainConfigStore(sourceDirectory: dir).save(
+            DomainConfig(domain: .init(hostname: "example.com", choice: "transfer", attach: true)))
+
+        model.openSheet()
+        while await fake.callCount() < 1 { await Task.yield() }
+
+        try DomainConfigStore(sourceDirectory: dir).save(
+            DomainConfig(domain: .init(hostname: "other.example.com", choice: "transfer", attach: true)))
+
+        await fake.resolve(
+            callIndex: 0,
+            with: RDAPDomainInfo(registrar: "Namecheap", expiresAt: "2028-01-01T00:00:00Z"))
+        repeat { await Task.yield() } while model.isLookingUpRegistrarInfo
+
+        let saved = try DomainConfigStore(sourceDirectory: dir).load()
+        #expect(saved.domain?.hostname == "other.example.com")
+        #expect(saved.domain?.registrar == nil)
+        #expect(saved.domain?.expiresAt == nil)
+    }
 }

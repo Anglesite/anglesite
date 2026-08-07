@@ -214,6 +214,9 @@
     ":" : {
 
     },
+    "@" : {
+
+    },
     "@media %@" : {
 
     },
@@ -280,9 +283,6 @@
     "Active — used on ^[%lld page](inflect: true)" : {
 
     },
-    "ActivityPub isn't turned on for this site" : {
-
-    },
     "Actual Size" : {
 
     },
@@ -292,7 +292,7 @@
     "Add Agent…" : {
 
     },
-    "Add Bluesky verification" : {
+    "Add Atmosphere verification" : {
 
     },
     "Add DNS Records" : {
@@ -373,7 +373,16 @@
     "Adds robots.txt rules refusing known AI-training crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines." : {
 
     },
+    "Adopt as Generated" : {
+
+    },
     "Advanced" : {
+
+    },
+    "Agent Readiness" : {
+
+    },
+    "Agent Readiness…" : {
 
     },
     "Agents" : {
@@ -425,6 +434,9 @@
 
     },
     "Anglesite Website" : {
+
+    },
+    "Anglesite already supports this — redeploy the site to pick it up." : {
 
     },
     "Anglesite lost access to “%@”, likely after a restart. Locate it again to restore access." : {
@@ -495,6 +507,9 @@
 
     },
     "Apply a Theme" : {
+
+    },
+    "Apply a Theme…" : {
 
     },
     "Apply this rewrite?" : {
@@ -726,6 +741,9 @@
     "Change Logo…" : {
 
     },
+    "Changing your Fediverse handle" : {
+
+    },
     "Channel" : {
 
     },
@@ -738,10 +756,16 @@
     "Check Domain Config" : {
 
     },
+    "Check Score" : {
+
+    },
     "Check for domain config drift" : {
 
     },
     "Check whether Siri workflows are ready for this site" : {
+
+    },
+    "Checking Agent Readiness…" : {
 
     },
     "Checking Domain Config…" : {
@@ -830,6 +854,9 @@
 
     },
     "Cloudflare" : {
+
+    },
+    "Cloudflare's Agent Readiness score checks whether AI agents and assistants can discover, read, and act on your deployed site — the 2026 equivalent of a Lighthouse score, but for AI agents instead of browsers." : {
 
     },
     "Cloudflare's Content Signals Policy states a usage preference per purpose in robots.txt. It's a signal that well-behaved crawlers honor, not an enforced block." : {
@@ -1032,6 +1059,9 @@
         }
       }
     },
+    "Couldn't enable Markdown for Agents for %@ — often a Cloudflare plan limit (Pro plan or higher). See the debug log for details." : {
+
+    },
     "Couldn't finish setup" : {
 
     },
@@ -1054,6 +1084,9 @@
 
     },
     "Couldn't save the worker change: %@" : {
+
+    },
+    "Couldn't save this change: %@" : {
 
     },
     "Couldn't update this file — see the debug log for details." : {
@@ -1392,6 +1425,9 @@
     "Failed to load zone settings" : {
 
     },
+    "Fediverse Handle" : {
+
+    },
     "Feeds" : {
 
     },
@@ -1521,7 +1557,13 @@
     "Group" : {
 
     },
+    "Hand-Authored security.txt Found" : {
+
+    },
     "Hand-authored" : {
+
+    },
+    "Handles can only contain letters, numbers, underscores, periods, and hyphens." : {
 
     },
     "Harden" : {
@@ -1683,6 +1725,9 @@
     "Is this email for you personally, or for a registered business?" : {
 
     },
+    "Is this site ready for AI agents?" : {
+
+    },
     "Join" : {
 
     },
@@ -1693,6 +1738,9 @@
 
     },
     "Justify" : {
+
+    },
+    "Keep @%@" : {
 
     },
     "Keep My Changes" : {
@@ -1738,6 +1786,12 @@
 
     },
     "Last checked %@" : {
+
+    },
+    "Learn more about Atmosphere" : {
+
+    },
+    "Learn more about The Fediverse" : {
 
     },
     "Learning %@’s conventions…" : {
@@ -2199,6 +2253,9 @@
     "Pause" : {
 
     },
+    "People already follow you at this handle — it can't change without losing them." : {
+
+    },
     "Permanent (301)" : {
 
     },
@@ -2245,6 +2302,9 @@
 
     },
     "Preformatted Text" : {
+
+    },
+    "Preserve as Hand-Authored" : {
 
     },
     "Preview" : {
@@ -2690,6 +2750,9 @@
     "Scan for Cleanup Opportunities" : {
 
     },
+    "Scanning the deployed site for AI agent readiness…" : {
+
+    },
     "Scanning…" : {
 
     },
@@ -2772,6 +2835,9 @@
 
     },
     "Send to Back" : {
+
+    },
+    "Serve a lightweight version of your pages to AI assistants" : {
 
     },
     "Server" : {
@@ -3051,6 +3117,9 @@
     "Switch between Preview, Editor, and Graph" : {
 
     },
+    "Switch to @%@" : {
+
+    },
     "Syndication recorded" : {
 
     },
@@ -3085,6 +3154,9 @@
 
     },
     "That's a different site — choose the original package folder instead." : {
+
+    },
+    "The Fediverse isn't turned on for this site" : {
 
     },
     "The Reader follows feeds and stores your timeline on this site's own Microsub endpoint — sign in as this site's owner to use it." : {
@@ -3150,6 +3222,12 @@
     "This file has been customized. An update is available with changes it doesn't include yet." : {
 
     },
+    "This is how people find and follow you across social networks. Once someone follows you it can't change without losing them." : {
+
+    },
+    "This is how people find and follow you across social networks. People already follow you as @%@ — switching to @%@ disconnects them; they'd need to find and follow you again under the new handle." : {
+
+    },
     "This is your home page — search engines won't be able to crawl any page reachable only through it." : {
 
     },
@@ -3172,6 +3250,9 @@
 
     },
     "This site hasn't been published yet" : {
+
+    },
+    "This site publishes a security.txt Anglesite didn't generate. Adopt it so Anglesite keeps it current going forward, or leave it as yours to maintain." : {
 
     },
     "This site will stop receiving posts from " : {
@@ -3219,9 +3300,6 @@
     "Turn On and Route Reports" : {
 
     },
-    "Turn on ActivityPub in Settings ▸ Workers, then publish again." : {
-
-    },
     "Turn on private vulnerability reporting for %@/%@?" : {
       "localizations" : {
         "en" : {
@@ -3231,6 +3309,9 @@
           }
         }
       }
+    },
+    "Turn on the Fediverse in Settings ▸ Workers, then publish again." : {
+
     },
     "Type" : {
 
@@ -3496,6 +3577,9 @@
     "example.com" : {
 
     },
+    "handle" : {
+
+    },
     "https://agent.example.com/acp" : {
 
     },
@@ -3530,6 +3614,9 @@
 
     },
     "running…" : {
+
+    },
+    "security.txt" : {
 
     },
     "selector" : {

@@ -75,20 +75,49 @@ import Foundation
         #expect(baseline.files["scripts/pre-deploy-check.ts"]?.baselineHash == VectorMath.stableHash("same content"))
     }
 
-    @Test func legacySiteWithNoBaselineSilentlyRefreshesOnFirstEncounter() throws {
+    @Test func legacySiteWithNoBaselineAndDifferingContentIsQueuedAsADivergenceNotSilentlyOverwritten() throws {
         let template = try makeTemplate("new template content")
         let (source, config) = makeSite()
         try writeFile("old site content", to: source.appendingPathComponent("scripts/pre-deploy-check.ts"))
-        // No baseline file at all — a pre-existing site from before this mechanism shipped.
+        // No baseline file at all — a pre-existing site from before #745 shipped. #745 changes
+        // this case: the app can no longer tell "stale but never touched" from "the owner
+        // customized this," so it must never silently overwrite it (design doc "Relationship to
+        // TemplateScriptsSync").
 
         let plan = TemplateScriptsSyncChecker.check(
             sourceDirectory: source, configDirectory: config, templateDirectory: template
         )
-        #expect(plan.toApply == [.refresh(relativePath: "scripts/pre-deploy-check.ts")])
-        #expect(plan.divergences.isEmpty)
+        #expect(plan.toApply.isEmpty)
+        #expect(plan.divergences == [
+            TemplateScriptsDivergence(
+                relativePath: "scripts/pre-deploy-check.ts",
+                templateHash: VectorMath.stableHash("new template content")
+            )
+        ])
 
+        // A provisional baseline is still recorded — `TemplateScriptsSyncApplier.resolve` needs
+        // an entry to update regardless of which way the owner (or the noninteractive Preserve
+        // default) decides.
         let baseline = TemplateScriptsBaseline.load(from: config)
         #expect(baseline.files["scripts/pre-deploy-check.ts"]?.baselineHash == VectorMath.stableHash("old site content"))
+    }
+
+    @Test func legacySiteWithNoBaselineButContentMatchingTheTemplateIsStillANoOp() throws {
+        let template = try makeTemplate("shared content")
+        let (source, config) = makeSite()
+        try writeFile("shared content", to: source.appendingPathComponent("scripts/pre-deploy-check.ts"))
+        // No baseline recorded, but the site's content happens to already match the template
+        // exactly — this never reaches the "no baseline" branch at all (it's caught by the
+        // templateHash == siteHash check first), so it stays a silent no-op/backfill, unchanged
+        // by #745.
+
+        let plan = TemplateScriptsSyncChecker.check(
+            sourceDirectory: source, configDirectory: config, templateDirectory: template
+        )
+        #expect(plan.toApply.isEmpty)
+        #expect(plan.divergences.isEmpty)
+        let baseline = TemplateScriptsBaseline.load(from: config)
+        #expect(baseline.files["scripts/pre-deploy-check.ts"]?.baselineHash == VectorMath.stableHash("shared content"))
     }
 
     @Test func unmodifiedSiteFileWithExistingBaselineIsQueuedForRefreshWithoutRewritingBaseline() throws {
