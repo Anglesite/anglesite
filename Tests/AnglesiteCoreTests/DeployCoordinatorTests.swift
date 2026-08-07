@@ -573,17 +573,19 @@ struct DeployCoordinatorTests {
         func record(_ name: String) { calls.append(name) }
     }
 
-    @Test("runs webmention-send, syndication, then subscriber notify in order, with a milestone immediately before each")
+    @Test("runs webmention-send, standard-site publish, syndication, then subscriber notify in order, with a milestone immediately before each")
     func postDeploySequencingRunsInOrder() async {
         let recorder = CallRecorder()
         await DeployCoordinator.runPostDeploySequencing(
             onMilestone: { progress in recorder.record("milestone:\(progress.phase)") },
             sendWebmentions: { recorder.record("send") },
+            publishStandardSite: { recorder.record("standardsite") },
             syndicate: { recorder.record("syndicate") },
             notifySubscribers: { recorder.record("notify") }
         )
         #expect(recorder.calls == [
             "milestone:webmentions", "send",
+            "milestone:standardSitePublishing", "standardsite",
             "milestone:syndicating", "syndicate",
             "milestone:websubPing", "notify",
             "milestone:activityPubBackfill",
@@ -596,10 +598,29 @@ struct DeployCoordinatorTests {
         await DeployCoordinator.runPostDeploySequencing(
             onMilestone: { _ in },
             sendWebmentions: { recorder.record("send") },
+            publishStandardSite: { recorder.record("standardsite") },
             syndicate: { recorder.record("syndicate") },
             notifySubscribers: { recorder.record("notify") }
         )
-        #expect(recorder.calls == ["send", "syndicate", "notify"])
+        #expect(recorder.calls == ["send", "standardsite", "syndicate", "notify"])
+    }
+
+    @Test("publishStandardSite defaults to a no-op so callers without a Standard.site pass change nothing")
+    func postDeploySequencingDefaultsStandardSiteToNoOp() async {
+        let recorder = CallRecorder()
+        await DeployCoordinator.runPostDeploySequencing(
+            onMilestone: { progress in recorder.record("milestone:\(progress.phase)") },
+            sendWebmentions: { recorder.record("send") },
+            syndicate: { recorder.record("syndicate") },
+            notifySubscribers: { recorder.record("notify") }
+        )
+        #expect(recorder.calls == [
+            "milestone:webmentions", "send",
+            "milestone:standardSitePublishing",
+            "milestone:syndicating", "syndicate",
+            "milestone:websubPing", "notify",
+            "milestone:activityPubBackfill",
+        ])
     }
 
     @Test("notifySubscribers defaults to a no-op so callers without a hub change nothing")
@@ -612,24 +633,27 @@ struct DeployCoordinatorTests {
         )
         #expect(recorder.calls == [
             "milestone:webmentions", "send",
+            "milestone:standardSitePublishing",
             "milestone:syndicating", "syndicate",
             "milestone:websubPing",
             "milestone:activityPubBackfill",
         ])
     }
 
-    @Test("backfillActivityPubOutbox runs last, after webmention-send, syndication, and subscriber notify, with a milestone immediately before it")
+    @Test("backfillActivityPubOutbox runs last, after webmention-send, standard-site publish, syndication, and subscriber notify, with a milestone immediately before it")
     func postDeploySequencingRunsBackfillLast() async {
         let recorder = CallRecorder()
         await DeployCoordinator.runPostDeploySequencing(
             onMilestone: { progress in recorder.record("milestone:\(progress.phase)") },
             sendWebmentions: { recorder.record("send") },
+            publishStandardSite: { recorder.record("standardsite") },
             syndicate: { recorder.record("syndicate") },
             notifySubscribers: { recorder.record("notify") },
             backfillActivityPubOutbox: { recorder.record("backfill") }
         )
         #expect(recorder.calls == [
             "milestone:webmentions", "send",
+            "milestone:standardSitePublishing", "standardsite",
             "milestone:syndicating", "syndicate",
             "milestone:websubPing", "notify",
             "milestone:activityPubBackfill", "backfill",

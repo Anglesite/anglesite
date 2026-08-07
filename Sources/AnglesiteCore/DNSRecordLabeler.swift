@@ -1,6 +1,6 @@
 /// Translates a raw DNS record into the plain-English purpose label shown in the Domain sheet's
 /// record list — mirrors the `domain` plugin skill's "translate the output into plain English"
-/// step. Order matters: more specific rules (DMARC/SPF/Bluesky) are checked before the generic
+/// step. Order matters: more specific rules (DMARC/SPF/Atmosphere) are checked before the generic
 /// TXT fallback.
 public enum DNSRecordLabeler {
     /// The plain-English purpose label for `record`. Matching is case-insensitive across type,
@@ -19,7 +19,7 @@ public enum DNSRecordLabeler {
         case "TXT" where content.hasPrefix("v=spf1"):
             return "Spam prevention (SPF)"
         case "TXT" where name.hasPrefix("_atproto.") || name == "_atproto":
-            return "Bluesky verification"
+            return "Atmosphere verification"
         case "CNAME" where content.contains(".pages.dev") || content.contains(".workers.dev"):
             return "Website"
         case "A", "AAAA":

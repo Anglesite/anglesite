@@ -1,12 +1,12 @@
 import SwiftUI
-import AppKit
 
 /// Edit-menu skeleton items (menu-bar spec §2.3): selection walkers and annotations after
 /// the pasteboard block, Find ▸ in the text-editing block. The Find items dispatch through
-/// `EditorFocusRegistry` (#797/#517) to whichever of the three editor surfaces (Markdown, plain
-/// text, Component Editor code pane) currently has focus, and Search Site… against the focused
-/// window's toolbar search field (#520); the rest are editor/subsystem-gated PlannedItems.
-/// NavigatorEditCommands owns the live Delete/Duplicate next to them.
+/// `EditorFocusRegistry` (#797/#517) to whichever editor surface currently has focus — Markdown,
+/// or plain text (which also covers the Component Editor's Source-mode `TextEditor`, #517
+/// follow-up) — and Search Site… against the focused window's toolbar search field (#520); the
+/// rest are editor/subsystem-gated PlannedItems. NavigatorEditCommands owns the live
+/// Delete/Duplicate next to them.
 struct EditMenuSkeletonCommands: Commands {
     private let registry = EditorFocusRegistry.shared
     @FocusedValue(\.siteSearchActions) private var searchActions
@@ -51,13 +51,13 @@ struct EditMenuSkeletonCommands: Commands {
     }
 
     /// `Find Next`/`Find Previous`/`Find & Replace…` need imperative navigation, which only
-    /// `.markdown` and `.codePane` support — `.plainText`'s `.findNavigator` exposes no such hook;
+    /// `.markdown` supports — `.plainText`'s `.findNavigator` (covering both the plain-text file
+    /// editor and the Component Editor's Source-mode `TextEditor`, #517) exposes no such hook;
     /// once shown, its own UI (arrow buttons, ⌘G inside its field) drives navigation outside this
-    /// menu's control (see the design spec's "Risks needing a manual spike" — Task 6 confirms or
-    /// revises this).
+    /// menu's control.
     private var supportsNextPrevious: Bool {
         switch registry.active {
-        case .markdown, .codePane: true
+        case .markdown: true
         case .plainText, nil: false
         }
     }
@@ -65,7 +65,6 @@ struct EditMenuSkeletonCommands: Commands {
     private func performFind() {
         switch registry.active {
         case .markdown(let box): box.value?.showFind()
-        case .codePane(let box): box.value.map { sendFinderAction(.showFindInterface, to: $0) }
         case .plainText(let isPresented): isPresented.wrappedValue = true
         case nil: break
         }
@@ -74,7 +73,6 @@ struct EditMenuSkeletonCommands: Commands {
     private func performFindNext() {
         switch registry.active {
         case .markdown(let box): box.value?.findNext()
-        case .codePane(let box): box.value.map { sendFinderAction(.nextMatch, to: $0) }
         case .plainText, nil: break
         }
     }
@@ -82,7 +80,6 @@ struct EditMenuSkeletonCommands: Commands {
     private func performFindPrevious() {
         switch registry.active {
         case .markdown(let box): box.value?.findPrevious()
-        case .codePane(let box): box.value.map { sendFinderAction(.previousMatch, to: $0) }
         case .plainText, nil: break
         }
     }
@@ -90,22 +87,7 @@ struct EditMenuSkeletonCommands: Commands {
     private func performFindReplace() {
         switch registry.active {
         case .markdown(let box): box.value?.showFind(withReplace: true)
-        case .codePane(let box): box.value.map { sendFinderAction(.showFindInterface, to: $0) }
         case .plainText, nil: break
         }
-    }
-
-    /// Synthesizes a tagged `NSMenuItem` and forwards to the standard AppKit
-    /// `performTextFinderAction(_:)` responder action — declared on `NSResponder` itself (not
-    /// `NSTextView`), overridden by STTextView — `STTextView+Find.swift` — to read the sender's
-    /// `.tag` as an `NSTextFinder.Action` and drive its already-built-in `NSTextFinder` + find bar).
-    /// STTextView is an `NSView`/`NSResponder` subclass, not an `NSTextView` subclass, so the
-    /// registry stores the connection at the `NSResponder` level rather than the narrower
-    /// `NSTextView` type; dynamic dispatch still resolves to STTextView's override, so this file
-    /// doesn't need to import STTextView.
-    private func sendFinderAction(_ action: NSTextFinder.Action, to responder: NSResponder) {
-        let item = NSMenuItem()
-        item.tag = action.rawValue
-        responder.performTextFinderAction(item)
     }
 }

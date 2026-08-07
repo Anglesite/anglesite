@@ -276,9 +276,10 @@ without stranding earlier ones.
    policy's `usage` block as derived projections, and the crawler-policy facet is absorbed into
    Website Settings ▸ Licensing. See
    [the phase 2 design](2026-07-27-ai-signal-unification-design.md).
-3. **RSL projection.** `rsl.xml` generator in `edge-artifacts.ts`, `License:` directive in
-   `robots.txt`, `<link rel="license" type="application/rsl+xml">`, `Link:` header via `csp.ts`,
-   `xmlns:rsl` module in the feed renderers. Conformance check in `pre-deploy-check.ts`.
+3. **RSL projection.** ✅ Shipped (#992) — `rsl.xml` generator in `edge-artifacts.ts`, `License:`
+   directive in `robots.txt`, `<link rel="license" type="application/rsl+xml">`, `Link:` header via
+   `csp.ts`, `xmlns:rsl` module in the feed renderers. Conformance check in `pre-deploy-check.ts`.
+   See `src/lib/rsl.ts`.
 
 Phase 3 is the one gated on the Q1 judgment. If RSL adoption stalls further, phases 1 and 2 still
 stand on their own.

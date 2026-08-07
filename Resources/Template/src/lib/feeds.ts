@@ -1,4 +1,6 @@
 import rss from "@astrojs/rss";
+import { feedRslContent, RSL_NAMESPACE } from "./rsl.ts";
+import type { AIUsage, LicenseRef } from "./licensing.ts";
 
 export interface FeedItem {
   /** Absent for collections whose items have no natural title (notes, replies, likes, photos,
@@ -12,6 +14,16 @@ export interface FeedItem {
   contentHtml: string;
   /** `entry.data.tags`, when the collection's schema has the field and the entry set it. */
   tags?: string[];
+  /** This entry's resolved license (#992), or null when nothing should be asserted for it —
+   * mirrors `resolveLicense`'s return value for the entry's collection. Only consumed when the
+   * feed is rendered with `rsl` active; always populated regardless, since resolving it is cheap
+   * and keeps this pure module free of a second "is RSL on" branch at the call site. */
+  license?: LicenseRef | null;
+  /** Whether this entry's collection is a deliberate non-assertion (#992) — see
+   * `assertsNothingExplicitly` in `licensing.ts`. Distinct from `license === null`: a collection
+   * that merely inherits an unset site default is not a deliberate non-assertion, and RSL's
+   * per-item withholding block must fire only for the latter (see `rsl.ts`'s `feedRslContent`). */
+  assertsNothingExplicitly?: boolean;
 }
 
 /** Feed-level (RSS channel / Atom feed / JSON Feed) attribution, sourced from `siteProfile()`. */
@@ -164,12 +176,22 @@ export function photoImageHtml(data: Record<string, any>, site: string): string 
  * a link to their target URL (`interactionContentFallback`) rather than shipping empty content.
  * Relative URLs inside the rendered body are absolutized, and a photo entry gets its image
  * prepended, regardless of whether it had a body (#1043).
+ *
+ * `licenseInfo` is this collection's RSL licensing outcome (#992) — `resolveLicense`'s result
+ * plus `assertsNothingExplicitly`, both computed by the caller (`feed-data.ts`, which has the
+ * Vite-only `licensing-data.ts` this pure module can't import). Defaults to "nothing resolved,
+ * not a deliberate non-assertion" so a caller that doesn't care about RSL (or a direct unit test)
+ * doesn't have to pass it.
  */
 export function toFeedItem(
   collection: string,
   entry: FeedEntry,
   site: string,
   contentHtml: string,
+  licenseInfo: { license: LicenseRef | null; assertsNothingExplicitly: boolean } = {
+    license: null,
+    assertsNothingExplicitly: false,
+  },
 ): FeedItem {
   const cfg = FEED_COLLECTIONS[collection];
   if (!cfg) throw new Error(`No feed config for collection "${collection}"`);
@@ -190,6 +212,8 @@ export function toFeedItem(
     link: new URL(`/${collection}/${entry.id}/`, site).href,
     date,
     summary: String(summary),
+    license: licenseInfo.license,
+    assertsNothingExplicitly: licenseInfo.assertsNothingExplicitly,
     contentHtml: withImage,
     tags,
   };
@@ -200,6 +224,15 @@ export function sortAndLimit(items: FeedItem[], limit?: number): FeedItem[] {
   return typeof limit === "number" ? sorted.slice(0, limit) : sorted;
 }
 
+/** Site-wide RSL context a feed renders with (#992) — absent entirely when RSL isn't active
+ * (`rslActive` in `rsl.ts`), so `renderRss`/`renderAtom` never partially emit it. `usage` is the
+ * same site-wide `AIUsage` every item's `<rsl:content>` reads permits/prohibits from; `holder` is
+ * the copyright holder text, same source as `Rights.astro`'s footer. */
+export interface FeedRsl {
+  usage: AIUsage;
+  holder?: string;
+}
+
 export function renderRss(o: {
   title: string;
   description: string;
@@ -208,6 +241,7 @@ export function renderRss(o: {
   hub?: WebSubHubAdvertisement;
   /** Channel-level attribution, rendered as `<dc:creator>` (RSS 2.0 has no native author element). */
   author?: FeedAuthor;
+  rsl?: FeedRsl;
 }): Promise<Response> {
   // RSS 2.0 has no native link relations; WebSub discovery in RSS uses Atom link elements
   // inside <channel> (the convention websub.rocks and every major reader check).
@@ -220,6 +254,7 @@ export function renderRss(o: {
   const xmlns: Record<string, string> = {};
   if (o.hub) xmlns.atom = "http://www.w3.org/2005/Atom";
   if (o.author) xmlns.dc = "http://purl.org/dc/elements/1.1/";
+  if (o.rsl) xmlns.rsl = RSL_NAMESPACE;
   return rss({
     title: o.title,
     description: o.description,
@@ -249,6 +284,12 @@ export function renderRss(o: {
       // `@astrojs/rss` maps a `categories` array to one <category> element per tag; `undefined`
       // (no tags) is dropped, matching the title/description optionality above.
       categories: i.tags,
+      // Per-item raw XML append point (#992) — null/undefined when this item has nothing to
+      // declare (see `feedRslContent`'s own doc comment for when that is).
+      customData:
+        o.rsl &&
+        (feedRslContent(i.link, i.license ?? null, i.assertsNothingExplicitly ?? false, o.rsl.usage, o.rsl.holder) ??
+          undefined),
     })),
   });
 }
@@ -271,6 +312,7 @@ export function renderAtom(o: {
   hubUrl?: string;
   /** Feed-level attribution, rendered as a top-level `<author>`. */
   author?: FeedAuthor;
+  rsl?: FeedRsl;
 }): Response {
   const updated = o.items[0]?.date ?? new Date(0);
   const entries = o.items
@@ -280,6 +322,9 @@ export function renderAtom(o: {
       // <summary> is optional in Atom (RFC 4287); an empty one is noise, not signal, so omit the
       // element entirely rather than emitting `<summary></summary>`.
       const summaryXml = i.summary ? `    <summary>${escapeXml(i.summary)}</summary>\n` : "";
+      const rslXml = o.rsl
+        ? feedRslContent(i.link, i.license ?? null, i.assertsNothingExplicitly ?? false, o.rsl.usage, o.rsl.holder)
+        : null;
       // Known limitation: <id> uses the permalink rather than a permanent tag: IRI (RFC 4287
       // §4.2.6). Renaming a slug therefore reads as a new entry in readers that saw the old URL.
       // This matches most simple RSS libraries; a stable tag: URI is a future improvement.
@@ -291,7 +336,7 @@ export function renderAtom(o: {
     <id>${escapeXml(i.link)}</id>
     <updated>${i.date.toISOString()}</updated>
 ${categories}${summaryXml}    <content type="html">${escapeXml(i.contentHtml)}</content>
-  </entry>`;
+${rslXml ? `${rslXml}\n` : ""}  </entry>`;
     })
     .join("\n");
   const authorXml = o.author
@@ -300,8 +345,9 @@ ${categories}${summaryXml}    <content type="html">${escapeXml(i.contentHtml)}</
 ${o.author.url ? `    <uri>${escapeXml(o.author.url)}</uri>\n` : ""}  </author>
 `
     : "";
+  const rslXmlns = o.rsl ? ` xmlns:rsl="${RSL_NAMESPACE}"` : "";
   const xml = `<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
+<feed xmlns="http://www.w3.org/2005/Atom"${rslXmlns}>
   <title>${escapeXml(o.title)}</title>
   <id>${escapeXml(o.site)}</id>
   <link href="${escapeXml(o.site)}"/>

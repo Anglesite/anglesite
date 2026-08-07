@@ -283,9 +283,6 @@
     "Active — used on ^[%lld page](inflect: true)" : {
 
     },
-    "ActivityPub isn't turned on for this site" : {
-
-    },
     "Actual Size" : {
 
     },
@@ -295,7 +292,7 @@
     "Add Agent…" : {
 
     },
-    "Add Bluesky verification" : {
+    "Add Atmosphere verification" : {
 
     },
     "Add DNS Records" : {
@@ -376,7 +373,16 @@
     "Adds robots.txt rules refusing known AI-training crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines." : {
 
     },
+    "Adopt as Generated" : {
+
+    },
     "Advanced" : {
+
+    },
+    "Agent Readiness" : {
+
+    },
+    "Agent Readiness…" : {
 
     },
     "Agents" : {
@@ -412,6 +418,9 @@
     "Allowed MX hosts" : {
 
     },
+    "Also publish RSL" : {
+
+    },
     "Analytics" : {
 
     },
@@ -425,6 +434,9 @@
 
     },
     "Anglesite Website" : {
+
+    },
+    "Anglesite already supports this — redeploy the site to pick it up." : {
 
     },
     "Anglesite lost access to “%@”, likely after a restart. Locate it again to restore access." : {
@@ -495,6 +507,9 @@
 
     },
     "Apply a Theme" : {
+
+    },
+    "Apply a Theme…" : {
 
     },
     "Apply this rewrite?" : {
@@ -741,10 +756,16 @@
     "Check Domain Config" : {
 
     },
+    "Check Score" : {
+
+    },
     "Check for domain config drift" : {
 
     },
     "Check whether Siri workflows are ready for this site" : {
+
+    },
+    "Checking Agent Readiness…" : {
 
     },
     "Checking Domain Config…" : {
@@ -833,6 +854,9 @@
 
     },
     "Cloudflare" : {
+
+    },
+    "Cloudflare's Agent Readiness score checks whether AI agents and assistants can discover, read, and act on your deployed site — the 2026 equivalent of a Lighthouse score, but for AI agents instead of browsers." : {
 
     },
     "Cloudflare's Content Signals Policy states a usage preference per purpose in robots.txt. It's a signal that well-behaved crawlers honor, not an enforced block." : {
@@ -1035,6 +1059,9 @@
         }
       }
     },
+    "Couldn't enable Markdown for Agents for %@ — often a Cloudflare plan limit (Pro plan or higher). See the debug log for details." : {
+
+    },
     "Couldn't finish setup" : {
 
     },
@@ -1057,6 +1084,9 @@
 
     },
     "Couldn't save the worker change: %@" : {
+
+    },
+    "Couldn't save this change: %@" : {
 
     },
     "Couldn't update this file — see the debug log for details." : {
@@ -1527,6 +1557,9 @@
     "Group" : {
 
     },
+    "Hand-Authored security.txt Found" : {
+
+    },
     "Hand-authored" : {
 
     },
@@ -1692,6 +1725,9 @@
     "Is this email for you personally, or for a registered business?" : {
 
     },
+    "Is this site ready for AI agents?" : {
+
+    },
     "Join" : {
 
     },
@@ -1750,6 +1786,12 @@
 
     },
     "Last checked %@" : {
+
+    },
+    "Learn more about Atmosphere" : {
+
+    },
+    "Learn more about The Fediverse" : {
 
     },
     "Learning %@’s conventions…" : {
@@ -1933,6 +1975,9 @@
 
     },
     "New selector, e.g. .card-footer" : {
+
+    },
+    "No AI company currently honors this standard; it records your terms — the license and AI usage settings above — in machine-readable form (rsl.xml, a robots.txt License: line, and a matching Link header)." : {
 
     },
     "No Anglesite sites found" : {
@@ -2257,6 +2302,9 @@
 
     },
     "Preformatted Text" : {
+
+    },
+    "Preserve as Hand-Authored" : {
 
     },
     "Preview" : {
@@ -2702,6 +2750,9 @@
     "Scan for Cleanup Opportunities" : {
 
     },
+    "Scanning the deployed site for AI agent readiness…" : {
+
+    },
     "Scanning…" : {
 
     },
@@ -2784,6 +2835,9 @@
 
     },
     "Send to Back" : {
+
+    },
+    "Serve a lightweight version of your pages to AI assistants" : {
 
     },
     "Server" : {
@@ -3102,6 +3156,9 @@
     "That's a different site — choose the original package folder instead." : {
 
     },
+    "The Fediverse isn't turned on for this site" : {
+
+    },
     "The Reader follows feeds and stores your timeline on this site's own Microsub endpoint — sign in as this site's owner to use it." : {
 
     },
@@ -3195,6 +3252,9 @@
     "This site hasn't been published yet" : {
 
     },
+    "This site publishes a security.txt Anglesite didn't generate. Adopt it so Anglesite keeps it current going forward, or leave it as yours to maintain." : {
+
+    },
     "This site will stop receiving posts from " : {
 
     },
@@ -3240,9 +3300,6 @@
     "Turn On and Route Reports" : {
 
     },
-    "Turn on ActivityPub in Settings ▸ Workers, then publish again." : {
-
-    },
     "Turn on private vulnerability reporting for %@/%@?" : {
       "localizations" : {
         "en" : {
@@ -3252,6 +3309,9 @@
           }
         }
       }
+    },
+    "Turn on the Fediverse in Settings ▸ Workers, then publish again." : {
+
     },
     "Type" : {
 
@@ -3554,6 +3614,9 @@
 
     },
     "running…" : {
+
+    },
+    "security.txt" : {
 
     },
     "selector" : {

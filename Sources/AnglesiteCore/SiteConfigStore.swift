@@ -104,6 +104,13 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// re-prompt, but a *different* subsequent change still does. `nil` outside that flow.
     public var activityPubHandleRenameAcknowledged: String?
 
+    /// Owner opt-out from Markdown for Agents (#1247) — the Cloudflare zone setting that serves
+    /// an HTML→Markdown-converted response to requests carrying `Accept: text/markdown`, cutting
+    /// AI-agent token usage. `nil`/`false` (the default) means enabled: `DeployCommand` turns the
+    /// zone setting on for every site with a confirmed custom domain, matching the issue's
+    /// default-on ask. `true` means the owner explicitly opted out in Site Settings.
+    public var markdownForAgentsDisabled: Bool?
+
     /// Memberwise creation. Every parameter defaults to `nil`, matching the type-level
     /// forward-compat rule that all fields stay optional — `SiteSettings()` is the canonical
     /// "no settings yet" value ``SiteConfigStore/load()`` falls back to.
@@ -124,7 +131,8 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         communityActorURL: URL? = nil,
         moderators: [String]? = nil,
         lastDeployedAPUsername: String? = nil,
-        activityPubHandleRenameAcknowledged: String? = nil
+        activityPubHandleRenameAcknowledged: String? = nil,
+        markdownForAgentsDisabled: Bool? = nil
     ) {
         self.displayName = displayName
         self.inboxCaptureAccountID = inboxCaptureAccountID
@@ -143,6 +151,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.moderators = moderators
         self.lastDeployedAPUsername = lastDeployedAPUsername
         self.activityPubHandleRenameAcknowledged = activityPubHandleRenameAcknowledged
+        self.markdownForAgentsDisabled = markdownForAgentsDisabled
     }
 }
 

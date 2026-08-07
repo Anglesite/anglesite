@@ -169,6 +169,18 @@ struct WorkerActivationTests {
         #expect(advisory!.contains("@dwk/webmention"))
     }
 
+    @Test("conformanceAdvisory keeps the \"conformance: \" topic-label prefix (review feedback on #1275)")
+    func advisoryKeepsConformancePrefix() {
+        // Regression: the unverified/blocked message rebuild dropped the "conformance: " prefix
+        // the pre-#957 code always included — DeployModel logs this string to the debug pane
+        // verbatim, so losing the prefix made it harder to spot among other log lines.
+        let status = try! WorkersConformanceReader.parse("""
+        { "packages": { "@dwk/webmention": { "standard": "Webmention", "suites": {}, "integration": { "status": "pending" } } } }
+        """.data(using: .utf8)!)
+        let advisory = WorkerActivation.conformanceAdvisory(activeIDs: ["webmention"], conformance: status)
+        #expect(advisory?.hasPrefix("conformance: ") == true)
+    }
+
     @Test("conformanceAdvisory is nil when nothing phase-gated is active")
     func advisoryNilWithoutRelevantWorkers() {
         let status = WorkersConformanceStatus(packages: [:])
@@ -180,6 +192,17 @@ struct WorkerActivationTests {
         // activating solid-oidc alone now gets a conformance advisory too. That made solid-oidc
         // unusable as this test's "nothing phase-gated is active" fixture, hence the swap.
         #expect(WorkerActivation.conformanceAdvisory(activeIDs: ["remotestorage"], conformance: status) == nil)
+    }
+
+    @Test("conformanceAdvisory reports unverified when a known-conformance package has no suite evidence")
+    func advisoryReportsUnverifiedWithoutSuiteEvidence() {
+        let status = try! WorkersConformanceReader.parse("""
+        { "packages": { "@dwk/webmention": { "standard": "Webmention", "suites": {}, "integration": { "status": "passing" } } } }
+        """.data(using: .utf8)!)
+        let advisory = WorkerActivation.conformanceAdvisory(activeIDs: ["webmention"], conformance: status)
+        #expect(advisory != nil)
+        #expect(advisory!.contains("@dwk/webmention"))
+        #expect(advisory!.contains("no conformance suite reported"))
     }
 
     @Test("componentNodeIDs resolves a catalog componentID to a real prefixed component node by filename stem")

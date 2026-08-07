@@ -61,6 +61,12 @@ final class PlistEditorModel {
     private(set) var licensingError: String?
     private(set) var isSavingLicensing = false
     private(set) var licensingLoadFailed = false
+    /// Whether Markdown for Agents (#1247) is enabled for this site's deploys — `Config/`-backed
+    /// (`SiteSettings.markdownForAgentsDisabled`), not part of `licensingPolicy`'s git-tracked
+    /// `licensing.json`: it's a Cloudflare zone setting applied at deploy time, not generated
+    /// content. Defaults to `true` (enabled), matching the feature's default-on ask.
+    private(set) var markdownForAgentsEnabled = true
+    private(set) var markdownForAgentsError: String?
     var mtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var savedMtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var mtaStsError: String?
@@ -262,6 +268,13 @@ final class PlistEditorModel {
                 licensingError = "Couldn't load existing licensing.json — it may be corrupted or hand-edited. Fix it externally or your next save will discard it. (\(error.localizedDescription))"
                 licensingLoadFailed = true
             }
+            if let configDirectory {
+                let settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+                markdownForAgentsEnabled = !(settings.markdownForAgentsDisabled ?? false)
+            } else {
+                markdownForAgentsEnabled = true
+            }
+            markdownForAgentsError = nil
             let lang = SiteLanguageAsset.parseSettings(from: config)
             langSettings = lang
             savedLangSettings = lang
@@ -983,6 +996,23 @@ final class PlistEditorModel {
             }
         }
         await onActiveWorkersChanged(settings)
+    }
+
+    /// Persists the Markdown for Agents opt-out immediately (#1247) — read-modify-write of
+    /// `Config/settings.plist`, same immediate-persist contract as `setWorkerActive`: this is
+    /// app-owned deploy-mechanics state, not part of the tab's dirty-tracked licensing save.
+    func setMarkdownForAgentsEnabled(_ enabled: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        var settings = (try? await store.load()) ?? SiteSettings()
+        settings.markdownForAgentsDisabled = enabled ? nil : true
+        do {
+            try await store.save(settings)
+            markdownForAgentsEnabled = enabled
+            markdownForAgentsError = nil
+        } catch {
+            markdownForAgentsError = String(localized: "Couldn't save this change: \(error.localizedDescription)")
+        }
     }
 
     /// Dashboard deep-links are enabled only after the first deploy that included a worker

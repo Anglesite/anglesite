@@ -67,6 +67,7 @@ struct ContentLicensingTab: View {
             SettingsBox(title: "Site License") { siteDefaultSection }
             SettingsBox(title: "By Content Type") { perCollectionSection }
             SettingsBox(title: "AI and Crawlers") { aiUsageSection }
+            SettingsBox(title: "RSL") { rslSection }
             if model.isSavingLicensing {
                 ProgressView().controlSize(.small)
             }
@@ -325,6 +326,25 @@ struct ContentLicensingTab: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(
+                    "Serve a lightweight version of your pages to AI assistants",
+                    isOn: Binding(
+                        get: { model.markdownForAgentsEnabled },
+                        set: { newValue in Task { await model.setMarkdownForAgentsEnabled(newValue) } }))
+                    .toggleStyle(.switch)
+                Text(model.licensingPolicy.usage.blockAICrawlers
+                     ? "Applies only to AI agents you haven't refused above — one you've blocked never requests your pages in the first place, so this never overrides that refusal."
+                     : "When an AI assistant asks for a page, Cloudflare serves it a markdown version instead of the full HTML — a fraction of the tokens your full page costs. Human visitors see no change. Takes effect on your next deploy to a custom domain.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if let markdownForAgentsError = model.markdownForAgentsError {
+                    Text(markdownForAgentsError)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
+            }
         }
     }
 
@@ -348,6 +368,24 @@ struct ContentLicensingTab: View {
             }
             .labelsHidden()
             .frame(width: 140)
+        }
+    }
+
+    // MARK: RSL
+
+    /// The disclosure-style RSL toggle (#992, phase 3 of the content licensing work). RSL is a
+    /// fourth *projection* of the same policy above — the site default, per-collection overrides,
+    /// and AI usage permissions already captured by the sections above — never a separate signal
+    /// of its own. Labeled honestly, following the BBEdit-style convention the AI usage copy
+    /// above already established: as of the design spike, no AI crawler is confirmed to honor
+    /// RSL, so this is a disclosure, not a protection.
+    private var rslSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle("Also publish RSL", isOn: $model.licensingPolicy.publishRSL)
+                .toggleStyle(.switch)
+            Text("No AI company currently honors this standard; it records your terms — the license and AI usage settings above — in machine-readable form (rsl.xml, a robots.txt License: line, and a matching Link header).")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 }
