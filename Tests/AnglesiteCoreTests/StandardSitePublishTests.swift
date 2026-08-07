@@ -493,6 +493,41 @@ struct StandardSitePublishCommandTests {
         #expect(lines.contains { $0.text.contains("exceeds the 1 MB limit") })
     }
 
+    @Test("a cover image with an unrecognized extension is skipped and logged, unlike a simply-unset one")
+    func unsupportedCoverImageExtensionIsLoggedButMissingIconIsSilent() async throws {
+        let site = try makeSite()
+        defer { try? FileManager.default.removeItem(at: site.root) }
+        // Deliberately no icon-512.png — the common "no icon configured" case must stay silent.
+        let publicDir = site.source.appendingPathComponent("public", isDirectory: true)
+        let uploadsDir = publicDir.appendingPathComponent("uploads", isDirectory: true)
+        try FileManager.default.createDirectory(at: uploadsDir, withIntermediateDirectories: true)
+        try Data([0x00]).write(to: uploadsDir.appendingPathComponent("hero.avif"))
+        let postURL = site.source.appendingPathComponent("src/content/notes/hello.md")
+        var post = try String(contentsOf: postURL, encoding: .utf8)
+        post = post.replacingOccurrences(of: "publishDate: 2026-01-01", with: "publishDate: 2026-01-01\nimage: /uploads/hero.avif")
+        try post.write(to: postURL, atomically: true, encoding: .utf8)
+
+        let stub = APIStub()
+        let logCenter = LogCenter()
+        let command = StandardSitePublishCommand(
+            credentials: { _, _ in credentials },
+            transport: { try await stub.respond($0) },
+            logCenter: logCenter,
+            now: { Date(timeIntervalSince1970: 1_782_777_600) }
+        )
+        await command.publish(siteID: "site-1", siteDirectory: site.source, configDirectory: site.config)
+
+        #expect(await stub.count(path: "/xrpc/com.atproto.repo.uploadBlob") == 0)
+        let documentBody = try #require(await stub.bodies(path: "/xrpc/com.atproto.repo.putRecord").last)
+        let documentRecord = try #require(documentBody["record"] as? [String: Any])
+        #expect(documentRecord["coverImage"] == nil)
+
+        let lines = await logCenter.snapshot()
+        #expect(lines.contains { $0.text.contains("unrecognized image extension \"avif\"") })
+        // The missing site icon is a plain "nothing configured" case — no matching log line for it.
+        #expect(!lines.contains { $0.text.contains("site icon") })
+    }
+
     @Test("a document whose source post no longer exists is unpublished (deleteRecord) and pruned from the ledger")
     func unpublishesRemovedPost() async throws {
         let site = try makeSite()

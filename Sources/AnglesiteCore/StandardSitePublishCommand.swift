@@ -318,8 +318,11 @@ public actor StandardSitePublishCommand {
     /// Reads and uploads one local image as a Standard.site blob field (v1.1, #1234) — shared by
     /// the publication `icon` and each document's `coverImage`. Never throws: a missing file, an
     /// unsupported extension, or an oversize image (see ``StandardSiteImageBlob`` — no
-    /// downscaling yet) all degrade to "no blob for this field" rather than failing the pass;
-    /// only the oversize case is worth telling the owner about, since it's the one actionable gap.
+    /// downscaling yet) all degrade to "no blob for this field" rather than failing the pass.
+    /// `.fileNotFound` stays silent — the common case is simply no icon/cover image configured,
+    /// nothing for the owner to act on — but the other two skip reasons mean the owner *did* set
+    /// something (an oversize file, or an extension this doesn't recognize) that's silently not
+    /// showing up on the Atmosphere side, so both are worth a log line.
     private func prepareImageBlob(
         fileURL: URL,
         label: String,
@@ -344,7 +347,13 @@ public actor StandardSitePublishCommand {
                 text: "standardsite: skipped \(label) — \(bytes) bytes exceeds the 1 MB limit (no downscaling yet)"
             )
             return nil
-        case .failure:
+        case .failure(.unsupportedExtension(let ext)):
+            await logCenter.append(
+                source: source, stream: .stdout,
+                text: "standardsite: skipped \(label) — unrecognized image extension \"\(ext)\""
+            )
+            return nil
+        case .failure(.fileNotFound):
             return nil
         }
     }
