@@ -31,7 +31,7 @@ final class HardenModel {
 
     private let reader: any CloudflareReading
     private let writer: any CloudflareWriting
-    private let keychain: KeychainStore
+    private let keychain: any SecretStore
     private var inFlight: Task<Void, Never>?
 
     private var currentSite: CurrentSite?
@@ -39,7 +39,7 @@ final class HardenModel {
     init(
         reader: any CloudflareReading = HTTPCloudflareClient(),
         writer: any CloudflareWriting = HTTPCloudflareClient(),
-        keychain: KeychainStore = KeychainStore()
+        keychain: any SecretStore = KeychainStore()
     ) {
         self.reader = reader
         self.writer = writer

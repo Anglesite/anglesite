@@ -173,6 +173,12 @@ struct ReceivedInteractionSyncTests {
 
     @Test("pullAndCommitIfConfigured resolves the account id, queries D1, and commits")
     func resolvesAccountAndCommits() async throws {
+        // Claim the env var cleared (#1289 review) so this positive path actually exercises
+        // `secretStore` rather than possibly getting a passing token from an ambient/leaked
+        // CLOUDFLARE_API_TOKEN (#1282) without ever going near `FakeSecretStore` — the Authorization
+        // header assertion below is what pins that this really came from the injected store.
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
         let fm = FileManager.default
         let configDir = fm.temporaryDirectory.appendingPathComponent("interactions-sync-config-\(UUID().uuidString)", isDirectory: true)
         defer { try? fm.removeItem(at: configDir) }
@@ -190,12 +196,14 @@ struct ReceivedInteractionSyncTests {
          "verified_at": 1753300000000, "interaction_type": "reply", "author_name": "Alice",
          "author_url": null, "author_photo": null, "content": "Great post!", "published_at": 1753299000000}
         """)
+        let seenAuthorization = SeenHeader()
 
         let count = await ReceivedInteractionSync.pullAndCommitIfConfigured(
             siteDirectory: siteDirectory,
             configDirectory: configDir,
             secretStore: FakeSecretStore(token: "token"),
             transport: { request in
+                await seenAuthorization.record(request.value(forHTTPHeaderField: "Authorization"))
                 if request.url!.path.hasSuffix("/accounts") { return (accountsBody, Self.response(200)) }
                 if request.url!.path.contains("/d1/database/db1/query") { return (d1Body, Self.response(200)) }
                 return (Data(), Self.response(404))
@@ -203,6 +211,7 @@ struct ReceivedInteractionSyncTests {
         #expect(count == 1)
         let written = siteDirectory.appendingPathComponent("data/interactions/wm-abc123.json")
         #expect(FileManager.default.fileExists(atPath: written.path))
+        #expect(await seenAuthorization.value == "Bearer token")
     }
 
     private static func makeThrowawayGitRepo() throws -> URL {
@@ -241,4 +250,9 @@ private struct FakeSecretStore: SecretStore {
     func read(account: String) throws -> String? { account == SecretAccounts.cloudflareToken ? token : nil }
     func write(_ value: String, account: String) throws {}
     func delete(account: String) throws {}
+}
+
+private actor SeenHeader {
+    private(set) var value: String?
+    func record(_ value: String?) { self.value = value }
 }

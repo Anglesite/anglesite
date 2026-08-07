@@ -42,7 +42,13 @@ public enum CloudflareAPICredentials {
         diagnosticSource: String? = nil,
         surfaceOAuthReadErrors: Bool = false
     ) async throws -> String? {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
+        // Trimmed before the emptiness check (#1289 review) so a whitespace/newline-only env var
+        // — as an accidentally-exported empty shell var can be — falls through to the stored
+        // credential instead of being used verbatim as a bogus token. `PlistEditorModel`'s
+        // pre-#1211 `cloudflareEnvironmentToken()` already did this; the other migrated call
+        // sites didn't, but nothing about them wanted whitespace treated as a real token either.
+        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !env.isEmpty {
             if let diagnosticSource {
                 await LogCenter.shared.append(
                     source: diagnosticSource, stream: .stderr,
