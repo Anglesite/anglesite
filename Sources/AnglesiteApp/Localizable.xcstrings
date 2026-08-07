@@ -56,6 +56,9 @@
         }
       }
     },
+    "%@ is verified as your Bluesky handle." : {
+
+    },
     "%@ isn't connected yet — add it to Cloudflare and point its nameservers there, then redeploy." : {
 
     },
@@ -290,9 +293,6 @@
 
     },
     "Add Agent…" : {
-
-    },
-    "Add Bluesky verification" : {
 
     },
     "Add DNS Records" : {
@@ -902,6 +902,9 @@
 
     },
     "Config…" : {
+
+    },
+    "Confirming %@ serves your Bluesky DID…" : {
 
     },
     "Connect" : {
@@ -2059,6 +2062,9 @@
 
     },
     "Open %@ in its own window" : {
+
+    },
+    "Open Bluesky Settings" : {
 
     },
     "Open Both…" : {
@@ -3311,6 +3317,9 @@
 
     },
     "Use site license" : {
+
+    },
+    "Use this domain as your Bluesky handle" : {
 
     },
     "Used to push backups and publish sites to GitHub over HTTPS (the sandboxed app can't run `git` or `gh`, so it pushes in-process with this token). Create a fine-grained token scoped to All repositories with Contents: Read and write and Administration: Read and write access (Administration is needed to create a new repo when publishing) at github.com/settings/tokens. Stored in the macOS Keychain under `io.dwk.anglesite` and never written to logs." : {
