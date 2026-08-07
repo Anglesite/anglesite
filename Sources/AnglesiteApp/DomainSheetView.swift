@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import AnglesiteCore
 
 struct DomainSheetView: View {
@@ -136,10 +137,12 @@ struct DomainSheetView: View {
         VStack(spacing: 0) {
             HStack {
                 Button {
-                    model.beginAddRecord(context: .bluesky)
+                    model.useAsBlueskyHandle()
                 } label: {
-                    Label("Add Bluesky verification", systemImage: "at")
+                    Label("Use this domain as your Bluesky handle", systemImage: "at")
                 }
+                .help("Verifies via /.well-known/atproto-did when the site is deployed here; otherwise adds a DNS record.")
+                .disabled(model.isRunning)
                 Button {
                     model.beginAddRecord(context: .google)
                 } label: {
@@ -167,6 +170,10 @@ struct DomainSheetView: View {
                 .buttonStyle(.borderedProminent)
             }
             .padding(12)
+            if model.blueskyHandlePhase != .idle {
+                Divider()
+                blueskyHandleBanner
+            }
             Divider()
             if case .loaded(let records, _) = model.phase, records.isEmpty {
                 VStack(spacing: 8) {
@@ -184,6 +191,51 @@ struct DomainSheetView: View {
                     .padding(12)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var blueskyHandleBanner: some View {
+        switch model.blueskyHandlePhase {
+        case .idle:
+            EmptyView()
+        case .verifying(let domain):
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Confirming \(domain) serves your Bluesky DID…").font(.callout)
+                Spacer()
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        case .verified(let domain):
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Text("\(domain) is verified as your Bluesky handle.").font(.callout)
+                Spacer()
+                Button("Open Bluesky Settings") {
+                    NSWorkspace.shared.open(DomainModel.blueskyHandleChangeURL)
+                }
+                Button {
+                    model.dismissBlueskyHandleResult()
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        case .failed(_, let reason):
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
+                Text(reason).font(.callout).foregroundStyle(.secondary)
+                Spacer()
+                Button("Try again") { model.retryBlueskyHandleVerification() }
+                Button {
+                    model.dismissBlueskyHandleResult()
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
         }
     }
 

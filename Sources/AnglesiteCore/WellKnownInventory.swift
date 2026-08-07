@@ -237,7 +237,7 @@ public enum WellKnownInventory {
                     continue
                 }
                 let content = try? String(contentsOf: entry, encoding: .utf8)
-                if let generator = GeneratedEndpoints.matching(content: content) {
+                if let generator = GeneratedEndpoints.matching(content: content, suffix: relPath) {
                     rows.append(generator.descriptor(suffix: relPath))
                 } else {
                     rows.append(WellKnownEndpointDescriptor(
@@ -404,16 +404,52 @@ public enum GeneratedEndpoints {
     /// Mirrors `MTA_STS_MARKER` in `Resources/Template/scripts/edge-artifacts.ts`.
     public static let mtaStsMarker = "x-anglesite: generated"
 
+    /// Mirrors `ATPROTO_DID_PATTERN` in `Resources/Template/scripts/edge-artifacts.ts`
+    /// (`isValidAtprotoDid`) — a syntactically valid DID per the
+    /// [W3C DID Core syntax](https://www.w3.org/TR/did-core/#did-syntax).
+    /// `WellKnownInventoryFixtureTests` guards against the two drifting apart.
+    private static let atprotoDidPattern = try! NSRegularExpression(pattern: "^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$")
+
+    /// True when `content` (after trimming) is itself a syntactically valid DID. `atproto-did`
+    /// (#1235) has no room for a literal ownership marker the way `security.txt`/`mta-sts.txt`
+    /// do: the atproto HTTPS handle-verification method
+    /// (https://atproto.com/specs/handle#https-method) requires the response body to be *exactly*
+    /// the account DID. Ownership is therefore inferred from shape instead — the endpoint's only
+    /// legitimate content is a DID, so any existing DID-shaped file is treated as Anglesite's own
+    /// prior output, letting a reconnected Bluesky account overwrite it on redeploy without a
+    /// manual delete.
+    static func isValidAtprotoDid(_ content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let range = NSRange(trimmed.startIndex..., in: trimmed)
+        return atprotoDidPattern.firstMatch(in: trimmed, range: range) != nil
+    }
+
     /// One Anglesite generator's identity, for building the row a matched file becomes.
     struct Descriptor {
         let owner: String
         let validatorID: String
+        let registration: WellKnownEndpointDescriptor.Registration
         let specificationURL: URL
+        let authorityBinding: Bool
+
+        init(
+            owner: String, validatorID: String,
+            registration: WellKnownEndpointDescriptor.Registration = .permanent, specificationURL: URL,
+            authorityBinding: Bool = false
+        ) {
+            self.owner = owner
+            self.validatorID = validatorID
+            self.registration = registration
+            self.specificationURL = specificationURL
+            self.authorityBinding = authorityBinding
+        }
 
         func descriptor(suffix: String) -> WellKnownEndpointDescriptor {
             WellKnownEndpointDescriptor(
                 id: owner, suffix: suffix, match: .exact, delivery: .generated, owner: owner,
-                registration: .permanent, specificationURL: specificationURL, validatorID: validatorID)
+                registration: registration, specificationURL: specificationURL, validatorID: validatorID,
+                authorityBinding: authorityBinding)
         }
     }
 
@@ -423,17 +459,29 @@ public enum GeneratedEndpoints {
     private static let mtaSts = Descriptor(
         owner: "generator:mta-sts", validatorID: "rfc8461",
         specificationURL: URL(string: "https://www.rfc-editor.org/rfc/rfc8461")!)
+    /// Not an IANA-registered well-known URI — `atproto-did` is a vendor-defined (AT Protocol)
+    /// convention, unlike `security.txt`/`mta-sts.txt`'s RFC registrations. `authorityBinding` is
+    /// `true`: serving this file is exactly what proves control of the domain to atproto (#1235).
+    private static let atprotoDid = Descriptor(
+        owner: "generator:atproto-did", validatorID: "atproto-did", registration: .custom("vendor-defined"),
+        specificationURL: URL(string: "https://atproto.com/specs/handle#https-method")!,
+        authorityBinding: true)
 
-    /// The generator whose marker appears on `content`'s first line (`security.txt`) or anywhere
-    /// in `content` (`mta-sts.txt`, matching `isMTAStsMarkerOwned`'s own scan), or `nil` when
-    /// `content` is `nil` or matches no known marker.
-    static func matching(content: String?) -> Descriptor? {
+    /// The generator whose marker appears on `content`'s first line (`security.txt`), anywhere in
+    /// `content` (`mta-sts.txt`, matching `isMTAStsMarkerOwned`'s own scan), or whose entire
+    /// (trimmed) content is a valid DID at the `atproto-did` suffix, or `nil` when `content` is
+    /// `nil` or matches no known generator. `suffix` scopes the DID-shape check to its own path —
+    /// a DID-shaped file elsewhere under `.well-known/` is not this generator's concern.
+    static func matching(content: String?, suffix: String) -> Descriptor? {
         guard let content else { return nil }
         if content.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first == securityTxtMarker[...] {
             return securityTxt
         }
         if content.split(separator: "\n").contains(where: { $0 == mtaStsMarker[...] }) {
             return mtaSts
+        }
+        if suffix == "atproto-did", isValidAtprotoDid(content) {
+            return atprotoDid
         }
         return nil
     }

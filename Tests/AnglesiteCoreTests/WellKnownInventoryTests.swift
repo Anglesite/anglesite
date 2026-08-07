@@ -72,6 +72,44 @@ struct WellKnownInventoryTests {
         #expect(rows[0].validatorID == "rfc8461")
     }
 
+    @Test("a DID-shaped file at atproto-did is classified generated")
+    func atprotoDidClassifiesAsGenerated() throws {
+        let wellKnown = try makeWellKnownDirectory()
+        defer { try? FileManager.default.removeItem(at: wellKnown.deletingLastPathComponent()) }
+        try "did:plc:z72i7hdynmk6r22z27h6tvur\n".write(
+            to: wellKnown.appendingPathComponent("atproto-did"), atomically: true, encoding: .utf8)
+
+        let (rows, _) = WellKnownInventory.scanUserStatic(wellKnownDirectory: wellKnown)
+        #expect(rows.count == 1)
+        #expect(rows[0].delivery == .generated)
+        #expect(rows[0].owner == "generator:atproto-did")
+        #expect(rows[0].validatorID == "atproto-did")
+        #expect(rows[0].authorityBinding)
+    }
+
+    @Test("non-DID content at atproto-did is preserved as hand-authored")
+    func nonDIDContentAtAtprotoDidStaysUserStatic() throws {
+        let wellKnown = try makeWellKnownDirectory()
+        defer { try? FileManager.default.removeItem(at: wellKnown.deletingLastPathComponent()) }
+        try "not a did".write(to: wellKnown.appendingPathComponent("atproto-did"), atomically: true, encoding: .utf8)
+
+        let (rows, _) = WellKnownInventory.scanUserStatic(wellKnownDirectory: wellKnown)
+        #expect(rows.count == 1)
+        #expect(rows[0].delivery == .userStatic)
+    }
+
+    @Test("DID-shaped content at a different suffix is not misclassified as the atproto-did generator")
+    func didShapedContentElsewhereStaysUserStatic() throws {
+        let wellKnown = try makeWellKnownDirectory()
+        defer { try? FileManager.default.removeItem(at: wellKnown.deletingLastPathComponent()) }
+        try "did:plc:z72i7hdynmk6r22z27h6tvur\n".write(
+            to: wellKnown.appendingPathComponent("some-other-file"), atomically: true, encoding: .utf8)
+
+        let (rows, _) = WellKnownInventory.scanUserStatic(wellKnownDirectory: wellKnown)
+        #expect(rows.count == 1)
+        #expect(rows[0].delivery == .userStatic)
+    }
+
     @Test("a hand-authored file that merely mentions the marker text mid-body is not misclassified")
     func markerMustBeOnRecognizedLine() throws {
         let wellKnown = try makeWellKnownDirectory()
@@ -377,6 +415,27 @@ struct WellKnownInventoryTests {
         let source = try String(contentsOf: scriptURL, encoding: .utf8)
         #expect(source.contains(GeneratedEndpoints.securityTxtMarker))
         #expect(source.contains(GeneratedEndpoints.mtaStsMarker))
+    }
+
+    /// `GeneratedEndpoints.isValidAtprotoDid` has no literal marker string to compare against a
+    /// literal in the template source — atproto-did's DID-shape check is a regex on both sides
+    /// (`ATPROTO_DID_PATTERN` in `edge-artifacts.ts`). This instead asserts the two patterns agree
+    /// on a representative set of accept/reject cases, the practical equivalent of the marker
+    /// drift guard above for a shape-based rather than literal-based classifier.
+    @Test(
+        "isValidAtprotoDid agrees with edge-artifacts.ts's ATPROTO_DID_PATTERN on representative cases",
+        arguments: [
+            ("did:plc:z72i7hdynmk6r22z27h6tvur", true),
+            ("did:web:example.com", true),
+            ("  did:plc:z72i7hdynmk6r22z27h6tvur  ", true),
+            ("", false),
+            ("not-a-did", false),
+            ("did:plc:", false),
+            ("did:plc:z72i7hdynmk6r22z27h6tvur\nContact: mailto:s@example.com", false),
+        ]
+    )
+    func atprotoDidPatternAgreesWithTemplate(value: String, expected: Bool) throws {
+        #expect(GeneratedEndpoints.isValidAtprotoDid(value) == expected)
     }
 
     /// The build seam is a *string* contract across two languages: rename an env var on either side
