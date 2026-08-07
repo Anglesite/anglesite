@@ -550,6 +550,24 @@ extension SiteWindowModelTests {
         #expect(model.designInterviewModel === first)
     }
 
+    @Test("canOpenThemeApplyWizard reflects whether a site is open")
+    func canOpenThemeApplyWizardTracksSite() {
+        let model = makeModel()
+        #expect(model.canOpenThemeApplyWizard == false)
+
+        model.site = siteWithNonexistentPackage()
+        #expect(model.canOpenThemeApplyWizard == true)
+    }
+
+    @Test("openThemeApplyWizard no-ops when there is no open site")
+    func openThemeApplyWizardNoSiteIsNoOp() {
+        let model = makeModel()
+
+        model.openThemeApplyWizard()
+
+        #expect(model.themeApplyWizardModel == nil)
+    }
+
     @Test("applyPendingDesignInterviewRequest presents the sheet when a request is pending for this site")
     func applyPendingDesignInterviewRequestConsumesPendingRequest() {
         let model = makeModel()

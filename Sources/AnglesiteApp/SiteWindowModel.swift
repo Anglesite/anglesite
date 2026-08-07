@@ -119,6 +119,11 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the Experiment Results sheet is presented (`.sheet(item:)`), same fresh-
     /// construction-from-`site` pattern as `copyEditModel`/`emailSetupModel` (#769).
     var experimentStatsModel: ExperimentStatsModel?
+    /// Non-nil ⟺ the Apply a Theme wizard is presented (`.sheet(item:)`), same coupling as
+    /// `integrationWizardModel` (#1181). Fresh-construction-from-`site` like `designInterviewModel`,
+    /// loading the same bundled `ThemeCatalog` `AssistantSessionAssembler` resolves for
+    /// `SetupThemeTool`.
+    var themeApplyWizardModel: ThemeApplyWizardModel?
     /// The window's `UndoManager`, published down from `SiteWindow`'s
     /// `@Environment(\.undoManager)` so applied edits register for Edit ▸ Undo (#527). Weak +
     /// `@ObservationIgnored`: the window owns it and it isn't render state. Forwarded on set
@@ -453,6 +458,23 @@ final class SiteWindowModel {
     func openIntegrationWizard() {
         guard integrationWizardModel == nil, let site else { return }
         integrationWizardModel = IntegrationWizardModel(service: integrationOps, siteID: site.id)
+    }
+
+    var canOpenThemeApplyWizard: Bool { site != nil }
+
+    /// Presents the Apply a Theme wizard (Website ▸ Apply a Theme…, #1181), same fresh-
+    /// construction-from-`site` pattern as `presentDesignInterview`. The bundled `ThemeCatalog`
+    /// load is best-effort — same tolerance `AssistantSessionAssembler` uses for `SetupThemeTool` —
+    /// so a missing/unreadable template leaves the wizard un-openable rather than crashing.
+    func openThemeApplyWizard() {
+        guard themeApplyWizardModel == nil, let site else { return }
+        guard let templateURL = TemplateRuntime.resolve().url,
+              let catalog = try? ThemeCatalog.load(templateURL: templateURL) else { return }
+        themeApplyWizardModel = ThemeApplyWizardModel(
+            catalog: catalog,
+            businessType: SiteBusinessType.read(sourceDirectory: site.sourceDirectory) ?? "",
+            package: AnglesitePackage(url: site.packageURL)
+        )
     }
 
     func openStyleGuide() {

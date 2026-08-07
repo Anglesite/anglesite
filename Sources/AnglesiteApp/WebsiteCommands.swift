@@ -88,6 +88,9 @@ struct WebsiteCommands: Commands {
             Button("Animations…") { model?.presentAnimations() }
                 .disabled(model?.canOpenAnimations != true)
 
+            Button("Apply a Theme…") { model?.openThemeApplyWizard() }
+                .disabled(model?.canOpenThemeApplyWizard != true)
+
             Menu("Assistant") {
                 Button("Review Copy…") { model?.presentCopyEdit() }
                     .disabled(model?.canOpenCopyEdit != true)
