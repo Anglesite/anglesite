@@ -79,6 +79,18 @@ public actor StandardSitePublishCommand {
               siteURLString != "https://example.com",
               let siteURL = URL(string: siteURLString) else { return }
 
+        // Unlike the two gates above (not yet configured — nothing for the owner to act on),
+        // this one is a deliberate choice made in Site Settings (#1233), so skipping it is
+        // logged rather than silent: "logs are sacred, no silent drops."
+        let settings = (try? SiteConfigStore.read(from: configDirectory)) ?? SiteSettings()
+        guard settings.publishToAtmosphere ?? true else {
+            await logCenter.append(
+                source: source, stream: .stdout,
+                text: "standardsite: skipped — \"Publish posts to the Atmosphere\" is off in Site Settings"
+            )
+            return
+        }
+
         let plan = StandardSiteDocumentPlan.build(projectRoot: siteDirectory, referenceDate: now())
 
         var ledger = StandardSitePublishLog.load(from: configDirectory) ?? StandardSitePublishLog()
@@ -114,7 +126,15 @@ public actor StandardSitePublishCommand {
         ledger.publicationURI = publicationResult.uri
         try? ledger.save(to: configDirectory)
 
+        // Debug-pane visibility into the pass as a whole (#1233), not just each record — "logs
+        // are sacred, no silent drops" extends to the shape of a successful run, not only its
+        // failures.
+        var publishedCount = 0
+        var updatedCount = 0
+        var failedCount = 0
+
         for entry in plan.entries {
+            let wasAlreadyPublished = ledger.entries.contains { $0.path == entry.path }
             let documentRkey = "anglesite-\(POSSEStableKey.make("\(siteID)\n\(entry.path)"))"
             let document = StandardSiteDocumentRecord(
                 site: publicationResult.uri,
@@ -133,6 +153,7 @@ public actor StandardSitePublishCommand {
                     pdsURL: bluesky.pdsURL, session: session, transport: transport
                 )
             } catch {
+                failedCount += 1
                 await logError("couldn't publish \(entry.path): \(error.localizedDescription)", source: source)
                 continue
             }
@@ -146,17 +167,39 @@ public actor StandardSitePublishCommand {
             do {
                 try ledger.save(to: configDirectory)
             } catch {
+                failedCount += 1
                 await logError(
                     "published \(entry.path) as \(documentResult.uri), but its ledger update failed: \(error.localizedDescription)",
                     source: source
                 )
                 continue
             }
-            await logCenter.append(
-                source: source, stream: .stdout,
-                text: "standardsite: published \(entry.path) as \(documentResult.uri)"
-            )
+            if wasAlreadyPublished {
+                updatedCount += 1
+                await logCenter.append(
+                    source: source, stream: .stdout,
+                    text: "standardsite: updated \(entry.path) as \(documentResult.uri)"
+                )
+            } else {
+                publishedCount += 1
+                await logCenter.append(
+                    source: source, stream: .stdout,
+                    text: "standardsite: published \(entry.path) as \(documentResult.uri)"
+                )
+            }
         }
+
+        // No per-document "skipped" bucket here on purpose: deterministic rkeys mean every
+        // eligible document is always re-put ("updates are free," per the design doc), so each
+        // plan entry lands in exactly one of the three counts above. A document being excluded
+        // from `plan.entries` in the first place (draft, future-dated) isn't a skip *this pass*
+        // made — `StandardSiteDocumentPlan` never considered it eligible to begin with. The one
+        // real skip concept — the whole pass not running at all — gets its own distinct log line
+        // above ("skipped — ...") rather than a count folded into this summary.
+        await logCenter.append(
+            source: source, stream: .stdout,
+            text: "standardsite: done — published \(publishedCount), updated \(updatedCount), failed \(failedCount)"
+        )
     }
 
     /// Persists the session DID into `.site-config`'s `ATPROTO_DID` on first successful publish

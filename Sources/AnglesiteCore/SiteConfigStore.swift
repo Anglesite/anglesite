@@ -32,6 +32,14 @@ public struct SiteSettings: Sendable, Codable, Equatable {
     /// Bluesky PDS origin. `nil` uses the public `https://bsky.social` service.
     public var blueskyPDSURL: String?
 
+    /// Explicit opt-in/opt-out for `StandardSitePublishCommand`'s post-deploy Atmosphere pass
+    /// (#1233). `nil` means "no explicit choice yet" — the app defaults this **on** once a
+    /// Bluesky account is connected (the design's "the app advises; connecting the account is
+    /// the owner's intent" call), so callers should read this as `publishToAtmosphere ?? true`
+    /// rather than treating `nil` as off. An explicit `false` always wins, even with a Bluesky
+    /// credential configured.
+    public var publishToAtmosphere: Bool?
+
     /// Git commit SHA of `Source/`'s `HEAD` at the time of the last successful deployed-source
     /// bundle upload to R2 (#799, spec §C.4 — the code side of a future Worker-triggered bake).
     /// `nil` until the first successful upload. Compared against the current `HEAD` (via
@@ -97,6 +105,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         mastodonBaseURL: String? = nil,
         blueskyIdentifier: String? = nil,
         blueskyPDSURL: String? = nil,
+        publishToAtmosphere: Bool? = nil,
         deployedSourceBundleCommit: String? = nil,
         activeWorkerIDs: [String]? = nil,
         activeWorkerIDsMigratedToAnglesiteJSON: [String]? = nil,
@@ -113,6 +122,7 @@ public struct SiteSettings: Sendable, Codable, Equatable {
         self.mastodonBaseURL = mastodonBaseURL
         self.blueskyIdentifier = blueskyIdentifier
         self.blueskyPDSURL = blueskyPDSURL
+        self.publishToAtmosphere = publishToAtmosphere
         self.deployedSourceBundleCommit = deployedSourceBundleCommit
         self.activeWorkerIDs = activeWorkerIDs
         self.activeWorkerIDsMigratedToAnglesiteJSON = activeWorkerIDsMigratedToAnglesiteJSON

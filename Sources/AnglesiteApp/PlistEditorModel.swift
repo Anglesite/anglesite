@@ -129,6 +129,25 @@ final class PlistEditorModel {
     private let graphSnapshotProvider: @MainActor () -> SiteGraphExplorerSnapshot?
     private let onActiveWorkersChanged: (SiteSettings) async -> Void
 
+    // MARK: - Social tab (#1233)
+
+    /// Whether this site has a Bluesky POSSE credential configured — the same
+    /// `POSSECredentialResolver` check that gates `POSSESyndicationCommand` and
+    /// `StandardSitePublishCommand` themselves, so the Settings toggle's default-on state can
+    /// never read "connected" when the actual publish pass would no-op.
+    private(set) var blueskyConnected = false
+    private(set) var socialError: String?
+    /// The most recently loaded `SiteSettings`, the base for the Atmosphere toggle's
+    /// read-modify-write saves — mirrors `workerSettings`'s role for the Workers tab.
+    private var socialSettings = SiteSettings()
+    private let siteID: String?
+    private let posseCredentials: POSSECredentialResolver.Provider
+
+    /// "Publish posts to the Atmosphere" toggle state: an explicit choice always wins, and an
+    /// unset choice defaults **on** once a Bluesky account is connected (design doc §6 — "the
+    /// app advises; connecting the account is the owner's intent to be on that network").
+    var publishToAtmosphere: Bool { socialSettings.publishToAtmosphere ?? true }
+
     var isDirty: Bool { entries != savedEntries && loadError == nil && !isLoading }
     var isAnalyticsDirty: Bool { analyticsSettings != savedAnalyticsSettings && loadError == nil && !isLoading }
     var isLangDirty: Bool { langSettings != savedLangSettings && loadError == nil && !isLoading }
@@ -165,6 +184,7 @@ final class PlistEditorModel {
 
     init(file: FileRef, websiteTitle: String, sourceDirectory: URL,
          configDirectory: URL? = nil,
+         siteID: String? = nil,
          workerCatalogProvider: (@Sendable () async -> [WorkerDescriptor])? = nil,
          graphSnapshotProvider: @escaping @MainActor () -> SiteGraphExplorerSnapshot? = { nil },
          onActiveWorkersChanged: @escaping (SiteSettings) async -> Void = { _ in },
@@ -172,6 +192,7 @@ final class PlistEditorModel {
          customAnalyticsValidator: (any CustomAnalyticsHTMLValidating)? = nil,
          containerControlProvider: @escaping AstroHTMLValidator.ContainerControlProvider = { nil },
          keychain: KeychainStore = KeychainStore(),
+         posseCredentials: @escaping POSSECredentialResolver.Provider = POSSECredentialResolver.provider(),
          domainOperations: any DomainOperationsService = DomainOperations(),
          repoSecurity: any RepoSecurityReading & RepoSecurityWriting = HTTPGitHubClient(),
          gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
@@ -180,6 +201,8 @@ final class PlistEditorModel {
         self.initialWebsiteTitle = websiteTitle
         self.sourceDirectory = sourceDirectory
         self.configDirectory = configDirectory
+        self.siteID = siteID
+        self.posseCredentials = posseCredentials
         // Resolved here rather than as a default argument: a closure creating and awaiting an
         // actor can't be a default value in this @MainActor initializer under strict concurrency.
         self.workerCatalogProvider = workerCatalogProvider ?? {
@@ -924,6 +947,37 @@ final class PlistEditorModel {
             }
         }
         await onActiveWorkersChanged(settings)
+    }
+
+    /// Loads what the Social tab shows: persisted `SiteSettings` (for the Atmosphere toggle) and
+    /// whether a Bluesky POSSE credential currently resolves for this site. Called from the tab's
+    /// `.task`, so it re-runs on each tab open — e.g. after the owner sets up Bluesky POSSE
+    /// syndication elsewhere and comes back to turn Atmosphere publishing on.
+    func loadSocial() async {
+        guard let configDirectory, let siteID else {
+            socialSettings = SiteSettings()
+            blueskyConnected = false
+            return
+        }
+        socialSettings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+        blueskyConnected = posseCredentials(siteID, configDirectory).bluesky != nil
+    }
+
+    /// Persists the "Publish posts to the Atmosphere" toggle immediately (read-modify-write, same
+    /// shape as ``setWorkerActive(_:isOn:)``) so a concurrently written field (e.g. a deploy
+    /// updating `ATPROTO_DID`-adjacent state) isn't clobbered.
+    func setPublishToAtmosphere(_ isOn: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        var settings = (try? await store.load()) ?? socialSettings
+        settings.publishToAtmosphere = isOn
+        do {
+            try await store.save(settings)
+            socialSettings = settings
+            socialError = nil
+        } catch {
+            socialError = String(localized: "Couldn't save the Atmosphere setting: \(error.localizedDescription)")
+        }
     }
 
     /// Dashboard deep-links are enabled only after the first deploy that included a worker

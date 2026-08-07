@@ -1107,6 +1107,7 @@ final class SiteWindowModel {
                     websiteTitle: site?.name ?? file.name,
                     sourceDirectory: site?.sourceDirectory ?? file.url.deletingLastPathComponent(),
                     configDirectory: site?.configDirectory,
+                    siteID: site?.id,
                     graphSnapshotProvider: { graphExplorer.snapshot },
                     onActiveWorkersChanged: { settings in
                         await preview.activeWorkersChanged(settings)

@@ -13,6 +13,7 @@ struct PlistEditorView: View {
         case licensing = "Licensing"
         case emailSecurity = "Email Security"
         case securityReports = "Security Reports"
+        case social = "Social"
         case workers = "Workers"
         var id: Self { self }
 
@@ -24,6 +25,7 @@ struct PlistEditorView: View {
             case .licensing: return "checkmark.seal"
             case .emailSecurity: return "envelope.badge.shield.half.filled"
             case .securityReports: return "doc.text.magnifyingglass"
+            case .social: return "at"
             case .workers: return "bolt.fill"
             }
         }
@@ -203,6 +205,8 @@ struct PlistEditorView: View {
                         emailSecurityTab
                     case .securityReports:
                         securityReportsTab
+                    case .social:
+                        socialTab
                     case .workers:
                         workersTab
                     }
@@ -659,6 +663,64 @@ struct PlistEditorView: View {
                 Text("This changes a setting on the GitHub repository. Anglesite never turns it back off.")
             }
         }
+    }
+
+    private var socialTab: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsBox(title: "Bluesky") {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Account")
+                            .frame(minWidth: 160, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Image(systemName: model.blueskyConnected ? "checkmark.circle.fill" : "circle.dashed")
+                                .foregroundStyle(model.blueskyConnected ? .green : .secondary)
+                                .frame(width: 18)
+                            Text(model.blueskyConnected ? "Connected" : "Not Connected")
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(model.blueskyConnected ? "Bluesky account connected" : "Bluesky account not connected")
+                    }
+                }
+            }
+            SettingsBox(title: "Atmosphere") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Publish posts to the Atmosphere", isOn: publishToAtmosphereBinding)
+                        .toggleStyle(.switch)
+                        .disabled(!model.blueskyConnected)
+                    Text(
+                        "When your Bluesky account is connected, Anglesite also publishes each post as a Standard.site record in your own account. That gives your posts richer preview cards on Bluesky and makes them discoverable by independent Atmosphere search tools, without changing where your site is hosted."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    if !model.blueskyConnected {
+                        Text("Connect a Bluesky account for POSSE syndication to turn this on.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let socialError = model.socialError {
+                        Label(socialError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.callout)
+                    }
+                    Link(destination: URL(string: "https://standard.site/")!) {
+                        Label("Learn more about Atmosphere", systemImage: "arrow.up.forward.app")
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .task { await model.loadSocial() }
+    }
+
+    private var publishToAtmosphereBinding: Binding<Bool> {
+        Binding(
+            get: { model.publishToAtmosphere },
+            set: { newValue in
+                Task { await model.setPublishToAtmosphere(newValue) }
+            }
+        )
     }
 
     private var workersTab: some View {

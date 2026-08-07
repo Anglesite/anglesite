@@ -263,15 +263,49 @@ struct StandardSitePublishCommandTests {
         #expect(await stub.count(path: "/xrpc/com.atproto.server.createSession") == 0)
     }
 
+    @Test("skips and logs when disabled in Site Settings (#1233)")
+    func skipsWhenDisabledInSettings() async throws {
+        let site = try makeSite()
+        defer { try? FileManager.default.removeItem(at: site.root) }
+        try await SiteConfigStore(configDirectory: site.config).save(SiteSettings(publishToAtmosphere: false))
+        let stub = APIStub()
+        let logCenter = LogCenter()
+        let command = StandardSitePublishCommand(
+            credentials: { _, _ in credentials },
+            transport: { try await stub.respond($0) },
+            logCenter: logCenter
+        )
+        await command.publish(siteID: "site-1", siteDirectory: site.source, configDirectory: site.config)
+        #expect(await stub.count(path: "/xrpc/com.atproto.server.createSession") == 0)
+        let lines = await logCenter.snapshot()
+        #expect(lines.contains { $0.text.contains("skipped") && $0.text.contains("off in Site Settings") })
+    }
+
+    @Test("publishes when the setting is unset, matching the design's default-on-when-connected call")
+    func publishesWhenSettingUnset() async throws {
+        let site = try makeSite()
+        defer { try? FileManager.default.removeItem(at: site.root) }
+        // No settings.plist written at all — `publishToAtmosphere` is `nil`, which must still
+        // publish since a Bluesky credential is configured.
+        let stub = APIStub()
+        let command = StandardSitePublishCommand(
+            credentials: { _, _ in credentials },
+            transport: { try await stub.respond($0) }
+        )
+        await command.publish(siteID: "site-1", siteDirectory: site.source, configDirectory: site.config)
+        #expect(await stub.count(path: "/xrpc/com.atproto.server.createSession") == 1)
+    }
+
     @Test("publishes the publication once, one document per post, ledgers entries, and persists ATPROTO_DID")
     func endToEndPublish() async throws {
         let site = try makeSite()
         defer { try? FileManager.default.removeItem(at: site.root) }
         let stub = APIStub()
+        let logCenter = LogCenter()
         let command = StandardSitePublishCommand(
             credentials: { _, _ in credentials },
             transport: { try await stub.respond($0) },
-            logCenter: LogCenter(),
+            logCenter: logCenter,
             now: { Date(timeIntervalSince1970: 1_782_777_600) } // 2026-06-30T00:00:00Z — after the fixture's publishDate
         )
 
@@ -293,12 +327,22 @@ struct StandardSitePublishCommandTests {
         let config = try String(contentsOf: site.source.appendingPathComponent(".site-config"), encoding: .utf8)
         #expect(SiteConfigFile.value(forKey: "ATPROTO_DID", in: config) == "did:plc:owner")
 
+        // First pass: the one document is new, so the debug-pane summary (#1233) reports it
+        // published, not updated.
+        let firstPassLines = await logCenter.snapshot()
+        #expect(firstPassLines.contains { $0.text.contains("published /notes/hello/ as") })
+        #expect(firstPassLines.contains { $0.text.contains("done — published 1, updated 0, failed 0") })
+
         // Re-run: putRecord's create-or-update semantics make a repeat pass idempotent — same
         // rkeys, same resulting ledger, no error — even though every eligible post is re-put.
+        // The ledger already has this path, so the summary now reports it updated, not published.
         await command.publish(siteID: "site-1", siteDirectory: site.source, configDirectory: site.config)
         #expect(await stub.count(path: "/xrpc/com.atproto.repo.putRecord") == 4)
         let ledgerAfter = try #require(StandardSitePublishLog.load(from: site.config))
         #expect(ledgerAfter.entries.count == 1)
         #expect(ledgerAfter.entries.first?.uri == ledger.entries.first?.uri)
+        let secondPassLines = await logCenter.snapshot()
+        #expect(secondPassLines.contains { $0.text.contains("updated /notes/hello/ as") })
+        #expect(secondPassLines.contains { $0.text.contains("done — published 0, updated 1, failed 0") })
     }
 }
