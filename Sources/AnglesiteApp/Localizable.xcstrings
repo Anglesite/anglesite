@@ -280,9 +280,6 @@
     "Active — used on ^[%lld page](inflect: true)" : {
 
     },
-    "ActivityPub isn't turned on for this site" : {
-
-    },
     "Actual Size" : {
 
     },
@@ -1737,6 +1734,9 @@
     "Last checked %@" : {
 
     },
+    "Learn more about The Fediverse" : {
+
+    },
     "Learning %@’s conventions…" : {
 
     },
@@ -3081,6 +3081,9 @@
     "That's a different site — choose the original package folder instead." : {
 
     },
+    "The Fediverse isn't turned on for this site" : {
+
+    },
     "The Reader follows feeds and stores your timeline on this site's own Microsub endpoint — sign in as this site's owner to use it." : {
 
     },
@@ -3213,9 +3216,6 @@
     "Turn On and Route Reports" : {
 
     },
-    "Turn on ActivityPub in Settings ▸ Workers, then publish again." : {
-
-    },
     "Turn on private vulnerability reporting for %@/%@?" : {
       "localizations" : {
         "en" : {
@@ -3225,6 +3225,9 @@
           }
         }
       }
+    },
+    "Turn on the Fediverse in Settings ▸ Workers, then publish again." : {
+
     },
     "Type" : {
 

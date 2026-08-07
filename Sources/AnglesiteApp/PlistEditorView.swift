@@ -696,7 +696,19 @@ struct PlistEditorView: View {
                 // Group keys are manifest-owned free text (design doc §3) — display-cased,
                 // never localized or enumerated here.
                 SettingsBox(verbatimTitle: group.name.capitalized) {
-                    workersGroupTable(group.rows)
+                    VStack(alignment: .leading, spacing: 8) {
+                        workersGroupTable(group.rows)
+                        // "social" is the one group id this view already treats as known (it's
+                        // the stable catalog convention the ActivityPub/webmention/IndieAuth
+                        // workers publish under — see `WorkerDescriptor.group`'s doc comment and
+                        // the catalog fixtures throughout `Tests/`), not a specific worker name —
+                        // the average site owner has never heard "ActivityPub" (#1005), so the
+                        // link is framed around the plain-language term instead.
+                        if group.id == "social" {
+                            Link("Learn more about The Fediverse", destination: fediverseLearnMoreURL)
+                                .font(.callout)
+                        }
+                    }
                 }
             }
         }
@@ -739,6 +751,13 @@ struct PlistEditorView: View {
                     .frame(minWidth: 28, alignment: .leading)
             }
         }
+    }
+
+    /// Where the Workers tab's "Learn more about The Fediverse" link sends an owner who wants
+    /// plain-language background before turning on the ActivityPub/webmention/IndieAuth workers
+    /// (#1005) — a general-audience explainer, not a protocol spec.
+    private var fediverseLearnMoreURL: URL {
+        URL(string: "https://fedidb.com/welcome")!
     }
 
     private var displayDomain: String {
