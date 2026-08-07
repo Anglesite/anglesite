@@ -109,8 +109,13 @@ Notes:
 
 Claude Code's cloud session containers (claude.ai/code) are Linux and ship no Swift toolchain, so agents there need the same swiftly install as any Linux contributor. Two pieces make that work, and both need a one-time tweak to the repo's cloud **environment settings** on claude.ai/code:
 
-1. **Setup script** (preferred): set the environment's setup script to `bash scripts/install-swift-linux.sh`. It runs at environment provisioning and the installed toolchain is cached, so every session starts with Swift ready instead of re-downloading it.
-2. **Network access:** the install downloads from swift.org, which is not in the default package-registry allowlist. If the environment restricts network access, allowlist `swift.org`, `www.swift.org`, and `download.swift.org`.
+1. **Setup script** (preferred): the setup script runs before the session's repo clone is in place, so it can't invoke `scripts/install-swift-linux.sh` by a repo-relative path (`./scripts/install-swift-linux.sh` fails with "No such file or directory", exit 127) — fetch it from GitHub instead:
+   ```sh
+   #!/bin/bash
+   curl -fsSL https://raw.githubusercontent.com/Anglesite/Anglesite/main/scripts/install-swift-linux.sh | bash || true
+   ```
+   `raw.githubusercontent.com` is in Claude Code's default Trusted allowlist, so this works even with **Custom** network access as long as "Also include default list of common package managers" stays checked. The trailing `|| true` keeps an intermittent install failure from blocking session startup (see "Script requirements" in [Claude Code's cloud environment docs](https://code.claude.com/docs/en/cloud-environments#setup-scripts)) — the `SessionStart` hook below retries idempotently if the toolchain didn't end up installed. The setup script runs once per environment and its result is cached, so every later session starts with Swift ready instead of re-downloading it.
+2. **Network access:** the install also downloads the Swift toolchain itself from swift.org, which is not in the default package-registry allowlist. If the environment restricts network access, allowlist `swift.org`, `www.swift.org`, and `download.swift.org`.
 
 The checked-in `SessionStart` hook ([`.claude/hooks/session-start.sh`](.claude/hooks/session-start.sh)) remains as a per-session fallback: it runs the same install script when no cached toolchain is present (needing the same allowlist), and persists the toolchain's `PATH` and the libxml2-shim `LD_LIBRARY_PATH` into each session via `$CLAUDE_ENV_FILE` — something a setup script can't do.
 

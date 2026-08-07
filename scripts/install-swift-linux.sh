@@ -8,9 +8,11 @@
 # Two consumers:
 #
 #   * The Claude Code cloud environment **setup script** (claude.ai/code →
-#     environment settings): `bash scripts/install-swift-linux.sh`. The result
-#     is cached with the environment, so sessions start with Swift already
-#     installed. See README.md#developing-on-linux.
+#     environment settings), invoked via curl since the setup script runs
+#     before the session's repo clone exists — a repo-relative path there
+#     fails with exit 127. The result is cached with the environment, so
+#     sessions start with Swift already installed. See
+#     README.md#developing-on-linux.
 #   * `.claude/hooks/session-start.sh`, the per-session fallback for cloud
 #     sessions whose environment has no cached toolchain. The hook also owns
 #     persisting PATH/LD_LIBRARY_PATH for the session — this script only
