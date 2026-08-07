@@ -36,6 +36,9 @@ struct ComponentEditorView: View {
     /// Outline node the "Extract into Component…" sheet is targeting, captured at menu-tap time.
     /// Non-nil presents `ExtractComponentSheet` (design §6.3).
     @State private var extractTarget: ExtractTarget?
+    /// Tracks focus on `sourcePane`'s `TextEditor` so Edit ▸ Find can dispatch to it through
+    /// `EditorFocusRegistry` (#517) — mirrors `MainPaneEditorView.isPlainTextEditorFocused`.
+    @FocusState private var isSourcePaneFocused: Bool
 
     /// Identifiable wrapper for an outline node id, so `.sheet(item:)` can drive the extract
     /// sheet off which row was right-clicked.
@@ -88,9 +91,35 @@ struct ComponentEditorView: View {
                 parseErrorBanner(message: error)
                 Divider()
             }
+            // Edit ▸ Find (#517): the same `.findNavigator`/`EditorFocusRegistry` treatment
+            // `MainPaneEditorView` uses for its plain-text `.text`/`.plist` path, reusing
+            // `fileEditor.isFindPresented` — `fileEditor` here is the very same `FileEditorModel`
+            // instance `MainPaneEditorView` passes through for the open `.component` file, so
+            // there's no separate find-navigator state to keep in sync. `.id(fileEditor.file.id)`
+            // forces a fresh `TextEditor` identity (and thus fresh focus state) when the open file
+            // changes, so an old file's focus/find state can't leak onto a newly opened one (the
+            // bug #1065 fixed for the plain-text path).
             TextEditor(text: $fileEditor.text)
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
+                .findNavigator(isPresented: $fileEditor.isFindPresented)
+                .focused($isSourcePaneFocused)
+                .id(fileEditor.file.id)
+                .onChange(of: isSourcePaneFocused) { _, focused in
+                    if focused {
+                        EditorFocusRegistry.shared.activate(
+                            .plainText(isPresented: $fileEditor.isFindPresented), token: fileEditor.file.id)
+                    } else {
+                        EditorFocusRegistry.shared.resign(token: fileEditor.file.id)
+                    }
+                }
+                .onDisappear {
+                    // Guaranteed to fire on removal (mode switch away from Source, or the
+                    // `.id(fileEditor.file.id)` swap on file switch) — unlike the `onChange`
+                    // above, it doesn't depend on `@FocusState` teardown ordering (#517 review).
+                    // `resign` no-ops if `isSourcePaneFocused`'s own resign already ran.
+                    EditorFocusRegistry.shared.resign(token: fileEditor.file.id)
+                }
         }
     }
 

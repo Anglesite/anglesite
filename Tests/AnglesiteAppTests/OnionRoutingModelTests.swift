@@ -44,6 +44,7 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     func setECH(zoneID: String, enabled: Bool, apiToken: String) async throws {}
     func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {
         if let errorToThrow { throw errorToThrow }
         lastZoneID = zoneID

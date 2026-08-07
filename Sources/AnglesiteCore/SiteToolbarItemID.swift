@@ -17,6 +17,8 @@ public enum SiteToolbarItemID: String, CaseIterable, Sendable {
     case harden
     /// Domain config drift audit + reconcile (#1171): declared `anglesite.json` vs live Cloudflare.
     case domainConfigAudit
+    /// Cloudflare Agent Readiness score for the deployed site (#1248).
+    case agentReadiness
     case onionRouting
     case domain
     case integration

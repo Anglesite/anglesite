@@ -75,6 +75,14 @@ struct DeployDrawerView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                // Markdown for Agents (#1247) requires a Cloudflare Pro plan or higher — surfaced
+                // so a Free-plan owner who turned the toggle on learns it isn't actually taking
+                // effect, instead of only finding out by reading the debug log.
+                if case .succeeded = model.phase, case .failed(let hostname) = model.markdownForAgentsStatus {
+                    Text("Couldn't enable Markdown for Agents for \(hostname) — often a Cloudflare plan limit (Pro plan or higher). See the debug log for details.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 // First-publish nudge (#1180): shown exactly once, on the deploy that flips
                 // `.site-config`'s CF_WORKER_DEPLOYED from unset to set. `wasFirstDeploy`
                 // structurally cannot be true again for this site afterward, so this line cannot

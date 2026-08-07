@@ -61,6 +61,12 @@ final class PlistEditorModel {
     private(set) var licensingError: String?
     private(set) var isSavingLicensing = false
     private(set) var licensingLoadFailed = false
+    /// Whether Markdown for Agents (#1247) is enabled for this site's deploys — `Config/`-backed
+    /// (`SiteSettings.markdownForAgentsDisabled`), not part of `licensingPolicy`'s git-tracked
+    /// `licensing.json`: it's a Cloudflare zone setting applied at deploy time, not generated
+    /// content. Defaults to `true` (enabled), matching the feature's default-on ask.
+    private(set) var markdownForAgentsEnabled = true
+    private(set) var markdownForAgentsError: String?
     var mtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var savedMtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var mtaStsError: String?
@@ -124,10 +130,44 @@ final class PlistEditorModel {
     private(set) var workerLastDeployedIDs: [String] = []
     /// The most recently loaded `SiteSettings`, the base for toggle read-modify-write saves.
     private var workerSettings = SiteSettings()
+
+    /// The ActivityPub handle text field's current value (#1239) — pre-filled with
+    /// `DeployCoordinator.resolveEffectiveActivityPubUsername` (the `.site-config` `AP_USERNAME`
+    /// override, or the hostname-derived default) by `loadWorkers()`. Mutable (like
+    /// `websiteTitle`) so the Workers tab can bind a `TextField` to it directly for live typing;
+    /// `saveActivityPubUsername(_:)` is the explicit commit step, called on blur/submit.
+    var activityPubUsername = ""
+    /// The advisory lock (design doc §"Owner-chosen username"): once the actor has federated
+    /// (`DeployCoordinator.isActivityPubHandleLocked`), the field goes read-only in the UI.
+    /// `Source/` stays a plain, hand-editable git repo regardless (CLAUDE.md "Git is the source
+    /// of truth") — deploy-time rename detection (`saveActivityPubUsername`'s sibling concern on
+    /// the deploy path) is the real backstop, not this flag.
+    private(set) var activityPubUsernameLocked = false
+    private(set) var activityPubUsernameError: String?
+
     private let configDirectory: URL?
     private let workerCatalogProvider: @Sendable () async -> [WorkerDescriptor]
     private let graphSnapshotProvider: @MainActor () -> SiteGraphExplorerSnapshot?
     private let onActiveWorkersChanged: (SiteSettings) async -> Void
+
+    // MARK: - Social tab (#1233)
+
+    /// Whether this site has a Bluesky POSSE credential configured — the same
+    /// `POSSECredentialResolver` check that gates `POSSESyndicationCommand` and
+    /// `StandardSitePublishCommand` themselves, so the Settings toggle's default-on state can
+    /// never read "connected" when the actual publish pass would no-op.
+    private(set) var blueskyConnected = false
+    private(set) var socialError: String?
+    /// The most recently loaded `SiteSettings`, the base for the Atmosphere toggle's
+    /// read-modify-write saves — mirrors `workerSettings`'s role for the Workers tab.
+    private var socialSettings = SiteSettings()
+    private let siteID: String?
+    private let posseCredentials: POSSECredentialResolver.Provider
+
+    /// "Publish posts to the Atmosphere" toggle state: an explicit choice always wins, and an
+    /// unset choice defaults **on** once a Bluesky account is connected (design doc §6 — "the
+    /// app advises; connecting the account is the owner's intent to be on that network").
+    var publishToAtmosphere: Bool { socialSettings.publishToAtmosphere ?? true }
 
     var isDirty: Bool { entries != savedEntries && loadError == nil && !isLoading }
     var isAnalyticsDirty: Bool { analyticsSettings != savedAnalyticsSettings && loadError == nil && !isLoading }
@@ -165,6 +205,7 @@ final class PlistEditorModel {
 
     init(file: FileRef, websiteTitle: String, sourceDirectory: URL,
          configDirectory: URL? = nil,
+         siteID: String? = nil,
          workerCatalogProvider: (@Sendable () async -> [WorkerDescriptor])? = nil,
          graphSnapshotProvider: @escaping @MainActor () -> SiteGraphExplorerSnapshot? = { nil },
          onActiveWorkersChanged: @escaping (SiteSettings) async -> Void = { _ in },
@@ -172,6 +213,7 @@ final class PlistEditorModel {
          customAnalyticsValidator: (any CustomAnalyticsHTMLValidating)? = nil,
          containerControlProvider: @escaping AstroHTMLValidator.ContainerControlProvider = { nil },
          keychain: KeychainStore = KeychainStore(),
+         posseCredentials: @escaping POSSECredentialResolver.Provider = POSSECredentialResolver.provider(),
          domainOperations: any DomainOperationsService = DomainOperations(),
          repoSecurity: any RepoSecurityReading & RepoSecurityWriting = HTTPGitHubClient(),
          gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
@@ -180,6 +222,8 @@ final class PlistEditorModel {
         self.initialWebsiteTitle = websiteTitle
         self.sourceDirectory = sourceDirectory
         self.configDirectory = configDirectory
+        self.siteID = siteID
+        self.posseCredentials = posseCredentials
         // Resolved here rather than as a default argument: a closure creating and awaiting an
         // actor can't be a default value in this @MainActor initializer under strict concurrency.
         self.workerCatalogProvider = workerCatalogProvider ?? {
@@ -247,6 +291,13 @@ final class PlistEditorModel {
                 licensingError = "Couldn't load existing licensing.json — it may be corrupted or hand-edited. Fix it externally or your next save will discard it. (\(error.localizedDescription))"
                 licensingLoadFailed = true
             }
+            if let configDirectory {
+                let settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+                markdownForAgentsEnabled = !(settings.markdownForAgentsDisabled ?? false)
+            } else {
+                markdownForAgentsEnabled = true
+            }
+            markdownForAgentsError = nil
             let lang = SiteLanguageAsset.parseSettings(from: config)
             langSettings = lang
             savedLangSettings = lang
@@ -884,6 +935,50 @@ final class PlistEditorModel {
         workersError = catalog.isEmpty
             ? String(localized: "The worker catalog couldn't be loaded. Check your network connection and reopen this tab.")
             : nil
+        activityPubUsername = DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: sourceDirectory) ?? ""
+        activityPubUsernameError = nil
+        // `siteURL` is nilable here (an unresolvable/malformed site URL doesn't skip the check,
+        // it just narrows it to the local outbox ledger) — see `isActivityPubHandleLocked`'s own
+        // doc comment for why that matters.
+        let siteURL = DeployCoordinator.resolveSiteURL(siteDirectory: sourceDirectory).flatMap(URL.init(string:))
+        activityPubUsernameLocked = await DeployCoordinator.isActivityPubHandleLocked(
+            siteURL: siteURL, configDirectory: configDirectory
+        )
+    }
+
+    /// Persists the ActivityPub handle override to `.site-config`'s `AP_USERNAME` key (#1239),
+    /// validating at entry per the design doc (`DeployCoordinator.isValidActivityPubUsername` —
+    /// the same grammar `worker.ts` re-checks at request time). Lowercased before comparing or
+    /// writing — the grammar is case-insensitive, but WebFinger's local-part lookup is
+    /// exact-match case-sensitive (RFC 7565), so a mixed-case value would only resolve at that
+    /// exact casing (`worker.ts`'s `resolvePreferredUsername` does the same normalization); this
+    /// also keeps the displayed field in sync with what `resolveEffectiveActivityPubUsername`
+    /// resolves after a reload. A value equal to the hostname-derived default is deduped — the
+    /// key is removed rather than written, so `.site-config` doesn't grow a redundant line every
+    /// time an owner types the default back in. No-ops when the handle is locked; the UI disables
+    /// the field in that state, so this would only be reached via a bypass.
+    func saveActivityPubUsername(_ newValue: String) {
+        guard !activityPubUsernameLocked else { return }
+        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty || DeployCoordinator.isValidActivityPubUsername(trimmed) else {
+            activityPubUsernameError = String(localized: "Handles can only contain letters, numbers, underscores, periods, and hyphens.")
+            return
+        }
+        activityPubUsernameError = nil
+        let normalized = trimmed.lowercased()
+        let defaultUsername = DeployCoordinator.defaultActivityPubUsername(siteDirectory: sourceDirectory)
+        let configURL = sourceDirectory.appendingPathComponent(".site-config")
+        let existing = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        let updated: String
+        if normalized.isEmpty || normalized == defaultUsername {
+            updated = SiteConfigFile.remove(["AP_USERNAME"], from: existing)
+            activityPubUsername = defaultUsername ?? ""
+        } else {
+            updated = SiteConfigFile.upsert([("AP_USERNAME", normalized)], into: existing)
+            activityPubUsername = normalized
+        }
+        guard updated != existing else { return }
+        try? updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 
     /// Persists a settings-activated worker toggle immediately (design doc §8): read-modify-write
@@ -926,9 +1021,69 @@ final class PlistEditorModel {
         await onActiveWorkersChanged(settings)
     }
 
+    /// Loads what the Social tab shows: persisted `SiteSettings` (for the Atmosphere toggle) and
+    /// whether a Bluesky POSSE credential currently resolves for this site. Called from the tab's
+    /// `.task`, so it re-runs on each tab open — e.g. after the owner sets up Bluesky POSSE
+    /// syndication elsewhere and comes back to turn Atmosphere publishing on.
+    func loadSocial() async {
+        guard let configDirectory, let siteID else {
+            socialSettings = SiteSettings()
+            blueskyConnected = false
+            return
+        }
+        socialSettings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+        blueskyConnected = posseCredentials(siteID, configDirectory).bluesky != nil
+    }
+
+    /// Persists the "Publish posts to the Atmosphere" toggle immediately (read-modify-write, same
+    /// shape as ``setWorkerActive(_:isOn:)``) so a concurrently written field (e.g. a deploy
+    /// updating `ATPROTO_DID`-adjacent state) isn't clobbered.
+    func setPublishToAtmosphere(_ isOn: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        var settings = (try? await store.load()) ?? socialSettings
+        settings.publishToAtmosphere = isOn
+        do {
+            try await store.save(settings)
+            socialSettings = settings
+            socialError = nil
+        } catch {
+            socialError = String(localized: "Couldn't save the Atmosphere setting: \(error.localizedDescription)")
+        }
+    }
+
+    /// Persists the Markdown for Agents opt-out immediately (#1247) — read-modify-write of
+    /// `Config/settings.plist`, same immediate-persist contract as `setWorkerActive`: this is
+    /// app-owned deploy-mechanics state, not part of the tab's dirty-tracked licensing save.
+    func setMarkdownForAgentsEnabled(_ enabled: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        var settings = (try? await store.load()) ?? SiteSettings()
+        settings.markdownForAgentsDisabled = enabled ? nil : true
+        do {
+            try await store.save(settings)
+            markdownForAgentsEnabled = enabled
+            markdownForAgentsError = nil
+        } catch {
+            markdownForAgentsError = String(localized: "Couldn't save this change: \(error.localizedDescription)")
+        }
+    }
+
     /// Dashboard deep-links are enabled only after the first deploy that included a worker
     /// (design doc §8) — before that there is nothing on Cloudflare to look at.
     var workerDashboardEnabled: Bool { !workerLastDeployedIDs.isEmpty }
+
+    /// Whether ActivityPub is currently active — gates the handle field's visibility (#1239): it
+    /// lives with the activation flow, not a buried always-visible setting the owner must
+    /// discover before it means anything.
+    var activityPubActive: Bool {
+        workerGroups
+            .flatMap(\.rows)
+            .contains { row in
+                row.id == WorkerComposition.activitypubWorkerID
+                    && row.status == .settingsActivated(isOn: true)
+            }
+    }
 
     /// The deployed worker script is named after the site slug — the same derivation the deploy
     /// path uses (`SiteOperations`/`DeployModel`: `SiteSlug.derive(from: site.name)`).

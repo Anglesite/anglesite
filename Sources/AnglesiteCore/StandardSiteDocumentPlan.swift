@@ -35,11 +35,17 @@ public enum StandardSiteDocumentPlan {
         public let updatedAt: Date?
         /// Plain-text render of the body.
         public let textContent: String
+        /// Frontmatter `image` value, root-relative to the site (e.g. `/uploads/hero.jpg`) —
+        /// the same convention `OutboxBackfillPlan`'s photo collections use. `nil` when the post
+        /// has no `image` frontmatter field. Resolving this to a local file and preparing it for
+        /// upload is ``StandardSitePublishCommand``'s job (v1.1, #1234) — network/blob I/O has no
+        /// place in this network-free planner.
+        public let coverImageSourcePath: String?
 
         /// Memberwise initializer, public for tests.
         public init(
             sourceFile: String, path: String, title: String, description: String?, tags: [String],
-            publishedAt: Date, updatedAt: Date?, textContent: String
+            publishedAt: Date, updatedAt: Date?, textContent: String, coverImageSourcePath: String? = nil
         ) {
             self.sourceFile = sourceFile
             self.path = path
@@ -49,6 +55,7 @@ public enum StandardSiteDocumentPlan {
             self.publishedAt = publishedAt
             self.updatedAt = updatedAt
             self.textContent = textContent
+            self.coverImageSourcePath = coverImageSourcePath
         }
     }
 
@@ -89,10 +96,12 @@ public enum StandardSiteDocumentPlan {
             let tags: [String]
             if case let .array(values)? = frontmatter["tags"] { tags = values } else { tags = [] }
             let textContent = SiteContentChunker.plainText(markdown: Frontmatter.body(source))
+            let coverImageSourcePath = SocialPublishPlan.string(frontmatter["image"])
 
             return Entry(
                 sourceFile: relPath, path: path, title: title, description: description, tags: tags,
-                publishedAt: publishedAt, updatedAt: updatedAt, textContent: textContent
+                publishedAt: publishedAt, updatedAt: updatedAt, textContent: textContent,
+                coverImageSourcePath: coverImageSourcePath
             )
         }
         return Plan(entries: entries.sorted { $0.sourceFile < $1.sourceFile })

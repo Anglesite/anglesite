@@ -119,6 +119,11 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the Experiment Results sheet is presented (`.sheet(item:)`), same fresh-
     /// construction-from-`site` pattern as `copyEditModel`/`emailSetupModel` (#769).
     var experimentStatsModel: ExperimentStatsModel?
+    /// Non-nil ⟺ the Apply a Theme wizard is presented (`.sheet(item:)`), same coupling as
+    /// `integrationWizardModel` (#1181). Fresh-construction-from-`site` like `designInterviewModel`,
+    /// loading the same bundled `ThemeCatalog` `AssistantSessionAssembler` resolves for
+    /// `SetupThemeTool`.
+    var themeApplyWizardModel: ThemeApplyWizardModel?
     /// The window's `UndoManager`, published down from `SiteWindow`'s
     /// `@Environment(\.undoManager)` so applied edits register for Edit ▸ Undo (#527). Weak +
     /// `@ObservationIgnored`: the window owns it and it isn't render state. Forwarded on set
@@ -161,6 +166,8 @@ final class SiteWindowModel {
     var communities = CommunitiesModel()
     var harden = HardenModel()
     var domainConfigAudit = DomainConfigAuditModel()
+    /// Cloudflare Agent Readiness score for the deployed site (#1248).
+    var agentReadiness = AgentReadinessModel()
     var onionRouting = OnionRoutingModel()
     var domain = DomainModel()
     var connectDomain = ConnectDomainModel()
@@ -183,6 +190,10 @@ final class SiteWindowModel {
     /// detection hook in `loadAndStart()` when `TemplateScriptsSyncChecker` finds files the owner
     /// customized that the template has also moved on past (#1053).
     var scriptSyncModel: ScriptSyncModel?
+    /// Non-nil ⟺ the security.txt Adopt/Preserve sheet is presented (`.sheet(item:)`), set by the
+    /// detection hook in `loadAndStart()` when `SecurityTxtMigrationChecker` finds an unmarked
+    /// legacy file needing a decision (#745).
+    var securityTxtMigrationModel: SecurityTxtMigrationModel?
     var newPagePresented = false
     var newCollectionPresented = false
     var newPostPresented = false
@@ -455,6 +466,32 @@ final class SiteWindowModel {
         integrationWizardModel = IntegrationWizardModel(service: integrationOps, siteID: site.id)
     }
 
+    /// Mirrors `canOpenSiriReadiness`/`openSiriReadiness`: the enablement check reuses the exact
+    /// same catalog resolution `openThemeApplyWizard` guards on, so the menu item can never be
+    /// enabled for a click that silently does nothing (#1181 review).
+    var canOpenThemeApplyWizard: Bool { site != nil && resolvedThemeCatalog() != nil }
+
+    /// Presents the Apply a Theme wizard (Website ▸ Apply a Theme…, #1181), same fresh-
+    /// construction-from-`site` pattern as `presentDesignInterview`.
+    func openThemeApplyWizard(settings: AppSettings = .shared, bundle: Bundle = .main) {
+        guard themeApplyWizardModel == nil, let site,
+              let catalog = resolvedThemeCatalog(settings: settings, bundle: bundle) else { return }
+        themeApplyWizardModel = ThemeApplyWizardModel(
+            catalog: catalog,
+            businessType: SiteBusinessType.read(sourceDirectory: site.sourceDirectory) ?? "",
+            package: AnglesitePackage(url: site.packageURL)
+        )
+    }
+
+    /// Best-effort load of the bundled `ThemeCatalog` — same tolerance `AssistantSessionAssembler`
+    /// uses for `SetupThemeTool`, so a missing/unreadable template resolves to `nil` rather than
+    /// crashing. `settings`/`bundle` mirror `TemplateRuntime.resolve(settings:bundle:)`'s own test
+    /// seam (defaulting to the live app values) so tests can point at a fixture template.
+    private func resolvedThemeCatalog(settings: AppSettings = .shared, bundle: Bundle = .main) -> ThemeCatalog? {
+        guard let templateURL = TemplateRuntime.resolve(settings: settings, bundle: bundle).url else { return nil }
+        return try? ThemeCatalog.load(templateURL: templateURL)
+    }
+
     func openStyleGuide() {
         guard let styleGuide else { return }
         Task { await styleGuide.presentSheet() }
@@ -512,6 +549,20 @@ final class SiteWindowModel {
             package: AnglesitePackage(url: site.packageURL),
             siteID: site.id
         )
+    }
+
+    var canOpenWebsiteSettings: Bool { site != nil }
+
+    /// Website ▸ Website Settings… (#959): a menu shortcut into the same package `Info.plist`
+    /// the navigator's Website row already opens via `applyNavigatorSelection`'s
+    /// `.websiteSettings` case — slice-1 interim (spec §7,
+    /// docs/superpowers/specs/2026-07-13-website-design-window-cleanup-design.md), same surface
+    /// either way, not a separate one.
+    func openWebsiteSettings() {
+        guard let site else { return }
+        let layout = SiteFileTree.layout(for: site.packageURL)
+        guard let infoPlist = layout.infoPlist else { return }
+        openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
     }
 
     var canOpenEmailSetup: Bool { site != nil }
@@ -671,6 +722,7 @@ final class SiteWindowModel {
     var canRunAudit: Bool { site?.isValid == true && !siteOperationRunning && preview.canDeploy }
     var canRunHarden: Bool { site?.isValid == true && !harden.isRunning }
     var canRunDomainConfigAudit: Bool { site?.isValid == true && !domainConfigAudit.isRunning }
+    var canRunAgentReadiness: Bool { site?.isValid == true && !agentReadiness.isRunning }
     var canRunOnionRouting: Bool { site?.isValid == true && !onionRouting.isRunning }
     var canRecheckHealth: Bool { site != nil }
     var canOpenDomain: Bool { site != nil && !domain.isRunning }
@@ -984,13 +1036,8 @@ final class SiteWindowModel {
         case .file(let file):
             openFile(file)
         case .websiteSettings:
-            // Slice-1 interim: the website row opens the package Info.plist — exactly what the
-            // old sidebar Metadata row opened. The full Website Settings surface is slice 2
-            // (spec §7, docs/superpowers/specs/2026-07-13-website-design-window-cleanup-design.md).
-            guard let site else { return }
-            let layout = SiteFileTree.layout(for: site.packageURL)
-            guard let infoPlist = layout.infoPlist else { return }
-            openFile(FileRef(url: infoPlist, group: .metadata, name: "Info.plist"))
+            // Same target as Website ▸ Website Settings… (#959) — see `openWebsiteSettings`.
+            openWebsiteSettings()
         case .directory(let collection, let route):
             // #714 slice 3 (§6): a directory shows its route in the preview and its properties
             // (type, entries, feeds, template) in the inspector's collection context.
@@ -1107,6 +1154,7 @@ final class SiteWindowModel {
                     websiteTitle: site?.name ?? file.name,
                     sourceDirectory: site?.sourceDirectory ?? file.url.deletingLastPathComponent(),
                     configDirectory: site?.configDirectory,
+                    siteID: site?.id,
                     graphSnapshotProvider: { graphExplorer.snapshot },
                     onActiveWorkersChanged: { settings in
                         await preview.activeWorkersChanged(settings)
@@ -1837,23 +1885,46 @@ final class SiteWindowModel {
         // case) — narrow enough that a manual QA pass covering it (see this PR's test plan) is the
         // practical verification, not a proof.
         await AppKitConstraintStormMitigation.settle()
+
+        // #745: retry a commit an interrupted prior migration didn't finish, before looking for
+        // any new work — otherwise a stale pending commit could sit alongside a fresh one.
+        await ExistingSiteMigrationCommitter.retryPendingCommit(
+            sourceDirectory: resolved.sourceDirectory,
+            configDirectory: resolved.configDirectory,
+            message: "chore: migrate existing site to current template baseline"
+        )
+        var migrationTouchedPaths: [String] = []
+        // `SiteRuntimeState.ready` carries associated values (siteID/url/workersDevURL), so this
+        // is a pattern match, not `== .ready` (`Sources/AnglesiteCore/SiteRuntime.swift:15`).
+        let wasRuntimeAlreadyReady: Bool = {
+            if case .ready = preview.state { return true }
+            return false
+        }()
+
         if let templateURL = TemplateRuntime.resolve().url {
             let plan = TemplateScriptsSyncChecker.check(
                 sourceDirectory: resolved.sourceDirectory,
                 configDirectory: resolved.configDirectory,
                 templateDirectory: templateURL
             )
-            if !plan.toApply.isEmpty {
+            // Applied one action at a time, not as a single batch: `applyQueued` throws on the
+            // first file it can't process but leaves every earlier write (and its baseline entry)
+            // intact — batching the call would silently drop those already-landed files from
+            // `migrationTouchedPaths`, so they'd never reach the committer (their baselines are
+            // already reconciled, so the checker wouldn't re-flag them either). Matches the fix
+            // already applied to the headless orchestrator, `ExistingSiteMigration.swift`.
+            for action in plan.toApply {
                 do {
                     try TemplateScriptsSyncApplier.applyQueued(
-                        plan.toApply,
+                        [action],
                         sourceDirectory: resolved.sourceDirectory,
                         configDirectory: resolved.configDirectory,
                         templateDirectory: templateURL
                     )
+                    migrationTouchedPaths.append(action.relativePath)
                 } catch {
                     Self.logger.error(
-                        "scripts/ silent refresh failed for \(resolved.id, privacy: .public): \(String(describing: error), privacy: .public)"
+                        "scripts/ silent refresh failed for \(action.relativePath, privacy: .public) in \(resolved.id, privacy: .public): \(String(describing: error), privacy: .public)"
                     )
                 }
             }
@@ -1871,6 +1942,9 @@ final class SiteWindowModel {
                                     configDirectory: resolved.configDirectory,
                                     templateDirectory: templateURL
                                 )
+                                if decision == .update {
+                                    migrationTouchedPaths.append(divergence.relativePath)
+                                }
                                 return true
                             } catch {
                                 // Logged, and the row stays in `ScriptSyncModel.pending` rather than
@@ -1890,6 +1964,64 @@ final class SiteWindowModel {
                     )
                 }
             }
+        }
+
+        // Same mitigation, same reasoning, as the `settle()` call above between the dependency-sync
+        // and scripts-sync sheets: this security.txt sheet is a THIRD `.sheet(item:)` +
+        // `.interactiveDismissDisabled()` presentation that can follow the scripts-sync sheet in
+        // the same synchronous continuation-resumption stack, and without settling here a
+        // silently-failed presentation would leave this method's `CheckedContinuation` unresumed
+        // forever — hanging the site open with no way to dismiss.
+        await AppKitConstraintStormMitigation.settle()
+
+        switch SecurityTxtMigrationChecker.check(sourceDirectory: resolved.sourceDirectory) {
+        case .nothingToDo:
+            break
+        case .silentBackfillMode(let mode):
+            migrationTouchedPaths += SecurityTxtMigrationApplier.applyBackfill(
+                mode: mode, sourceDirectory: resolved.sourceDirectory
+            )
+        case .silentAdopt:
+            // Already positively resolved by the checker (marker-owned, or an exact match against
+            // the old generator's shape) — applies the same way an unmodified `scripts/` file
+            // silently refreshes above, no decision needed even interactively.
+            migrationTouchedPaths += SecurityTxtMigrationApplier.applyDecision(
+                .adopt, sourceDirectory: resolved.sourceDirectory
+            )
+        case .needsDecision:
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                securityTxtMigrationModel = SecurityTxtMigrationModel { [weak self] decision in
+                    guard let self else { continuation.resume(); return }
+                    migrationTouchedPaths += SecurityTxtMigrationApplier.applyDecision(
+                        decision, sourceDirectory: resolved.sourceDirectory
+                    )
+                    self.securityTxtMigrationModel = nil
+                    continuation.resume()
+                }
+            }
+        }
+
+        let migrationCommitted = await ExistingSiteMigrationCommitter.commit(
+            touchedPaths: migrationTouchedPaths,
+            sourceDirectory: resolved.sourceDirectory,
+            configDirectory: resolved.configDirectory,
+            message: "chore: migrate existing site to current template baseline"
+        )
+        if !migrationCommitted {
+            // Files are correctly migrated on disk (git-recoverable either way) but the commit
+            // itself failed — surfaced per the design doc's "surface partial failures"
+            // requirement rather than silently retrying forever with no signal. The pending-commit
+            // record (Task 7) already ensures the next site-open retries it.
+            Self.logger.error(
+                "existing-site migration wrote files for \(resolved.id, privacy: .public) but couldn't commit them — will retry on next open"
+            )
+        }
+        if migrationCommitted, !migrationTouchedPaths.isEmpty, wasRuntimeAlreadyReady {
+            // The common case (a fresh site-open) hasn't started the runtime yet at this point in
+            // `loadAndStart()`, so `preview.open()` below naturally picks up the migrated files.
+            // This only fires for the narrow case where the runtime was already running before
+            // this pass began (design doc "Runtime refresh").
+            preview.restartDevServer()
         }
         styleGuide = ProjectConventionsModel(
             engine: conventionsEngine,
@@ -1960,6 +2092,7 @@ final class SiteWindowModel {
         buyDomain.configure(site: currentSite)
         harden.configure(site: currentSite)
         domainConfigAudit.configure(site: currentSite)
+        agentReadiness.configure(site: currentSite)
         // Cold-open path for any `PreviewSiteIntent` (#139) navigation; the already-open window
         // is handled reactively by `.onChange(of: router.pendingNavigation)` in `body`.
         applyPendingNavigation(for: resolved.id)

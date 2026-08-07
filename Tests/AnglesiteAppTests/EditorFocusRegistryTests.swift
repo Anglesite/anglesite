@@ -1,6 +1,5 @@
 import Testing
 import SwiftUI
-import AppKit
 @testable import AnglesiteAppCore
 
 @MainActor
@@ -36,18 +35,15 @@ struct EditorFocusRegistryTests {
         #expect(registry.active == nil)
     }
 
-    @Test("codePane and plainText cases activate independently")
+    @Test("plainText activates independently of a prior markdown activation")
     func otherCasesActivate() {
         let registry = EditorFocusRegistry()
-        let textView = NSTextView()
-        let codeToken = UUID()
-        registry.activate(.codePane(Weak(textView)), token: codeToken)
-        guard case .codePane(let box) = registry.active else {
-            Issue.record("expected .codePane to be active")
-            return
-        }
-        #expect(box.value === textView)
+        let controller = MarkdownEditorController()
+        registry.activate(.markdown(Weak(controller)), token: controller.id)
 
+        // A different token (e.g. the plain-text editor, or — since #517's follow-up —
+        // the Component Editor's Source-mode TextEditor, both of which share `.plainText`)
+        // takes over focus cleanly.
         var isPresented = false
         let binding = Binding(get: { isPresented }, set: { isPresented = $0 })
         registry.activate(.plainText(isPresented: binding), token: "some/file/path")
