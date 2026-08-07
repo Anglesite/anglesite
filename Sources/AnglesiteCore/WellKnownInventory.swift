@@ -407,13 +407,18 @@ public enum GeneratedEndpoints {
     /// One Anglesite generator's identity, for building the row a matched file becomes.
     struct Descriptor {
         let owner: String
-        let validatorID: String
+        /// `nil` means inventory-only: Anglesite makes no conformance claim for this endpoint
+        /// (mirrors `WellKnownEndpointDescriptor.validatorID`'s own doc comment).
+        let validatorID: String?
         let specificationURL: URL
+        /// IANA registry status. Defaults to `.permanent` for the RFC-registered generators
+        /// (security.txt, mta-sts.txt); a community lexicon with no IANA entry overrides this.
+        var registration: WellKnownEndpointDescriptor.Registration = .permanent
 
         func descriptor(suffix: String) -> WellKnownEndpointDescriptor {
             WellKnownEndpointDescriptor(
                 id: owner, suffix: suffix, match: .exact, delivery: .generated, owner: owner,
-                registration: .permanent, specificationURL: specificationURL, validatorID: validatorID)
+                registration: registration, specificationURL: specificationURL, validatorID: validatorID)
         }
     }
 
@@ -423,10 +428,16 @@ public enum GeneratedEndpoints {
     private static let mtaSts = Descriptor(
         owner: "generator:mta-sts", validatorID: "rfc8461",
         specificationURL: URL(string: "https://www.rfc-editor.org/rfc/rfc8461")!)
+    private static let standardSitePublication = Descriptor(
+        owner: "generator:standard-site-publication", validatorID: nil,
+        specificationURL: URL(string: "https://standard.site/docs/lexicons/publication")!,
+        registration: .custom("community"))
 
     /// The generator whose marker appears on `content`'s first line (`security.txt`) or anywhere
-    /// in `content` (`mta-sts.txt`, matching `isMTAStsMarkerOwned`'s own scan), or `nil` when
-    /// `content` is `nil` or matches no known marker.
+    /// in `content` (`mta-sts.txt`, matching `isMTAStsMarkerOwned`'s own scan), or whose output
+    /// shape `content` matches in full (`site.standard.publication` — see
+    /// `isStandardSitePublicationURI`'s doc comment for why this one can't use a marker line), or
+    /// `nil` when `content` is `nil` or matches none of the above.
     static func matching(content: String?) -> Descriptor? {
         guard let content else { return nil }
         if content.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first == securityTxtMarker[...] {
@@ -435,6 +446,29 @@ public enum GeneratedEndpoints {
         if content.split(separator: "\n").contains(where: { $0 == mtaStsMarker[...] }) {
             return mtaSts
         }
+        if isStandardSitePublicationURI(content) {
+            return standardSitePublication
+        }
         return nil
+    }
+
+    /// Shape check for "this `.well-known/site.standard.publication` content is Anglesite's own
+    /// generated output" — mirrors `STANDARD_SITE_PUBLICATION_URI_PATTERN`/
+    /// `isStandardSitePublicationURI` in `Resources/Template/scripts/standard-site.ts`, duplicated
+    /// as a shape check (not logic) for the same JS-bridge-avoidance reason as the fixed markers
+    /// above. Unlike security.txt/mta-sts.txt, the response body here must be *exactly* the
+    /// at-URI (docs/superpowers/specs/2026-08-04-atproto-standard-site-design.md §4), leaving no
+    /// room for a separate marker line, so ownership is inferred from shape: `at://<did>/site.
+    /// standard.publication/<rkey>`, five non-empty-or-whitespace-free `/`-separated segments
+    /// after trimming.
+    private static func isStandardSitePublicationURI(_ content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let segments = trimmed.split(separator: "/", omittingEmptySubsequences: false)
+        guard segments.count == 5, segments[0] == "at:", segments[1].isEmpty,
+              !segments[2].isEmpty, !segments[2].contains(where: \.isWhitespace),
+              segments[3] == "site.standard.publication",
+              !segments[4].isEmpty, !segments[4].contains(where: \.isWhitespace)
+        else { return false }
+        return true
     }
 }
