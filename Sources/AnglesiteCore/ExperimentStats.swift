@@ -17,6 +17,11 @@ import Glibc
 /// upgrade: instead of Monte Carlo simulation, `probabilityTreatmentBeatsControl` uses the
 /// exact closed form for Beta-Binomial posteriors (Evan Miller's formula), so results are
 /// reproducible bit-for-bit across runs and platforms.
+///
+/// Front-doors: the Experiment Results sheet (`ExperimentStatsSheetView`) and
+/// `AnalyzeExperimentIntent` (#769) take each variant's counts as owner-typed input rather than
+/// reading them from a stored experiment config — there's no edge-side variant assignment or
+/// analytics pipeline to source them from yet. That's tracked separately as #1270.
 public enum ExperimentStats {
     // MARK: - Inputs / outputs
 

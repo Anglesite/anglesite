@@ -11,6 +11,7 @@ import {
   checkSecurityTxt,
   checkEmbedMedia,
   checkAnglesiteConfig,
+  checkRSL,
 } from "./pre-deploy-check";
 import { MTA_STS_MARKER, SECURITY_TXT_MARKER } from "./edge-artifacts";
 
@@ -378,6 +379,60 @@ test("checkMTAStsPolicy: reports missing, hand-authored, and malformed enabled p
   assert.ok(checkMTAStsPolicy(null, "MTA_STS_MODE=enforce\nMTA_STS_MX=mx.example.com").some((i) => /missing/.test(i.message)));
   assert.ok(checkMTAStsPolicy("version: STSv1\nmode: enforce\nmx: mx.example.com\nmax_age: 604800\n", "MTA_STS_MODE=enforce\nMTA_STS_MX=mx.example.com").some((i) => /not generated/.test(i.message)));
   assert.ok(checkMTAStsPolicy(validMTASts(), "MTA_STS_MODE=enforce\nMTA_STS_MX=not a host").some((i) => /no valid MX host/.test(i.message)));
+});
+
+const RSL_URL = "https://example.com/rsl.xml";
+const ROBOTS_WITH_LICENSE = `User-agent: *\nDisallow:\n\nLicense: ${RSL_URL}\n`;
+const HEADERS_WITH_RSL_LINK = `/*\n  Link: <${RSL_URL}>; rel="license"; type="application/rsl+xml"\n`;
+const VALID_RSL_XML = `<?xml version="1.0" encoding="UTF-8"?>\n<rsl xmlns="https://rslstandard.org/rsl">\n  <content url="/"><license><permits type="usage">search</permits></license></content>\n</rsl>\n`;
+
+test("checkRSL: inactive and nothing published is clean", () => {
+  assert.deepEqual(checkRSL(false, null, null, "User-agent: *\nDisallow:\n", "/*\n"), []);
+});
+
+test("checkRSL: inactive but rsl.xml or the robots License: directive was published is a contradiction", () => {
+  assert.ok(checkRSL(false, null, VALID_RSL_XML, "User-agent: *\nDisallow:\n", "/*\n").length > 0);
+  assert.ok(checkRSL(false, null, null, ROBOTS_WITH_LICENSE, "/*\n").length > 0);
+});
+
+test("checkRSL: active with all four projections consistent is clean", () => {
+  assert.deepEqual(
+    checkRSL(true, RSL_URL, VALID_RSL_XML, ROBOTS_WITH_LICENSE, HEADERS_WITH_RSL_LINK),
+    [],
+  );
+});
+
+test("checkRSL: active but rsl.xml missing is a warning, not silent", () => {
+  const issues = checkRSL(true, RSL_URL, null, ROBOTS_WITH_LICENSE, HEADERS_WITH_RSL_LINK);
+  assert.ok(issues.some((i) => i.severity === "warning" && /missing/.test(i.message)));
+});
+
+test("checkRSL: active but rsl.xml has no RSL namespace is an error", () => {
+  const bad = `<?xml version="1.0"?>\n<rsl>\n  <content url="/"><license/></content>\n</rsl>\n`;
+  const issues = checkRSL(true, RSL_URL, bad, ROBOTS_WITH_LICENSE, HEADERS_WITH_RSL_LINK);
+  assert.ok(issues.some((i) => i.severity === "error" && /namespace/.test(i.message)));
+});
+
+test("checkRSL: active but robots.txt has no License: directive is a warning", () => {
+  const issues = checkRSL(true, RSL_URL, VALID_RSL_XML, "User-agent: *\nDisallow:\n", HEADERS_WITH_RSL_LINK);
+  assert.ok(issues.some((i) => i.severity === "warning" && /License:/.test(i.message)));
+});
+
+test("checkRSL: active but _headers has no Link header is a warning", () => {
+  const issues = checkRSL(true, RSL_URL, VALID_RSL_XML, ROBOTS_WITH_LICENSE, "/*\n");
+  assert.ok(issues.some((i) => i.severity === "warning" && /Link:/.test(i.message)));
+});
+
+test("checkRSL: robots License: pointing at a different URL than rsl.xml's is an error", () => {
+  const mismatched = `User-agent: *\nDisallow:\n\nLicense: https://example.com/wrong.xml\n`;
+  const issues = checkRSL(true, RSL_URL, VALID_RSL_XML, mismatched, HEADERS_WITH_RSL_LINK);
+  assert.ok(issues.some((i) => i.severity === "error" && /doesn't match/.test(i.message) && i.file === "dist/robots.txt"));
+});
+
+test("checkRSL: _headers Link pointing at a different URL than rsl.xml's is an error", () => {
+  const mismatched = `/*\n  Link: <https://example.com/wrong.xml>; rel="license"; type="application/rsl+xml"\n`;
+  const issues = checkRSL(true, RSL_URL, VALID_RSL_XML, ROBOTS_WITH_LICENSE, mismatched);
+  assert.ok(issues.some((i) => i.severity === "error" && /doesn't match/.test(i.message) && i.file === "dist/_headers"));
 });
 
 test("checkEmbedMedia: a hotlinked platform image is an error", () => {

@@ -647,7 +647,15 @@ struct SiteWindow: View {
                 ProjectStyleGuideView(model: styleGuide, siteName: site.name)
             }
         }
-        .sheet(isPresented: $bindableModel.domain.sheetPresented) {
+        .sheet(isPresented: $bindableModel.domain.sheetPresented, onDismiss: {
+            // Sequences the "Set up email" handoff to `EmailSetupSheetView` after this sheet's
+            // own dismissal transaction finishes — same pattern as the Connect Domain → Buy
+            // Domain handoff just below.
+            if model.domain.pendingEmailSetup {
+                model.domain.pendingEmailSetup = false
+                model.presentEmailSetup()
+            }
+        }) {
             DomainSheetView(model: model.domain)
         }
         .sheet(isPresented: $bindableModel.connectDomain.sheetPresented, onDismiss: {
@@ -779,6 +787,12 @@ struct SiteWindow: View {
         }
         .sheet(item: $bindableModel.repurposeModel) { repurposeModel in
             RepurposeView(model: repurposeModel)
+        }
+        .sheet(item: $bindableModel.emailSetupModel) { setupModel in
+            EmailSetupSheetView(model: setupModel, onDone: { model.emailSetupModel = nil })
+        }
+        .sheet(item: $bindableModel.experimentStatsModel) { statsModel in
+            ExperimentStatsSheetView(model: statsModel, onDone: { model.experimentStatsModel = nil })
         }
         .sheet(item: $bindableModel.designInterviewModel) { interviewModel in
             NavigationStack {
@@ -1045,23 +1059,14 @@ struct SiteWindow: View {
             .background(Color(NSColor.windowBackgroundColor))
     }
 
-    /// Builds the Edit-menu Delete/Duplicate actions for the current Navigator selection, or nil
-    /// when there's no site or no selection. `delete`/`duplicate` are individually nil when the
-    /// selected row isn't a page/post (`canDelete`/`canDuplicate`), which is what disables the
-    /// individual menu items rather than hiding the whole group.
+    /// Builds the Edit-menu Duplicate/Publish/Unpublish actions for the current Navigator
+    /// selection, or nil when there's no site or no selection. Each is individually nil when the
+    /// selected row doesn't support that verb (`canDuplicate`/`canPublish`/`canUnpublish`), which
+    /// is what disables the individual menu items rather than hiding the whole group. Delete has
+    /// no action built here (#989) — see `NavigatorSelectionActions`.
     private func navigatorSelectionActions(for model: SiteWindowModel) -> NavigatorSelectionActions? {
         guard model.site != nil, let navigator = model.navigator, let id = navigator.selection else {
             return nil
-        }
-        let deleteAction: (() -> Void)?
-        if navigator.canDelete(id) {
-            deleteAction = {
-                guard let item = navigator.item(for: id) else { return }
-                contentDeleteTitle = "Delete “\(item.title)”?"
-                model.deleteConfirmation = item
-            }
-        } else {
-            deleteAction = nil
         }
         let duplicateAction: (() -> Void)?
         if navigator.canDuplicate(id) {
@@ -1088,6 +1093,6 @@ struct SiteWindow: View {
             unpublishAction = nil
         }
         return NavigatorSelectionActions(
-            delete: deleteAction, duplicate: duplicateAction, publish: publishAction, unpublish: unpublishAction)
+            duplicate: duplicateAction, publish: publishAction, unpublish: unpublishAction)
     }
 }
