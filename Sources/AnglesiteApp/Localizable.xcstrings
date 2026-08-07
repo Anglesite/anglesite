@@ -373,6 +373,9 @@
     "Adds robots.txt rules refusing known AI-training crawlers (GPTBot, ClaudeBot, and others). This reduces your site's visibility to AI assistants and AI-generated search summaries — it does not affect traditional search engines." : {
 
     },
+    "Adopt as Generated" : {
+
+    },
     "Advanced" : {
 
     },
@@ -1521,6 +1524,9 @@
     "Group" : {
 
     },
+    "Hand-Authored security.txt Found" : {
+
+    },
     "Hand-authored" : {
 
     },
@@ -2245,6 +2251,9 @@
 
     },
     "Preformatted Text" : {
+
+    },
+    "Preserve as Hand-Authored" : {
 
     },
     "Preview" : {
@@ -3174,6 +3183,9 @@
     "This site hasn't been published yet" : {
 
     },
+    "This site publishes a security.txt Anglesite didn't generate. Adopt it so Anglesite keeps it current going forward, or leave it as yours to maintain." : {
+
+    },
     "This site will stop receiving posts from " : {
 
     },
@@ -3530,6 +3542,9 @@
 
     },
     "running…" : {
+
+    },
+    "security.txt" : {
 
     },
     "selector" : {

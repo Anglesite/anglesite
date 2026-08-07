@@ -425,6 +425,27 @@ struct SiteOperationsTests {
         #expect(await recorder.arguments.isEmpty)
     }
 
+    @Test("headless deploy backfills SECURITY_TXT_MODE before the deploy proceeds (#745)")
+    func headlessDeployBackfillsSecurityTxtMode() async throws {
+        let package = try temporaryPackage()
+        defer { try? FileManager.default.removeItem(at: package) }
+        let site = makeSite(name: "Blue Bottle Cafe", packageURL: package)
+        try "SECURITY_CONTACT=security@example.com\n".write(
+            to: site.sourceDirectory.appendingPathComponent(".site-config"),
+            atomically: true, encoding: .utf8
+        )
+        let ops = SiteOperations(factory: SocialWorkerFactory(recorder: SocialWorkerRecorder()), store: throwawayStore())
+
+        let result = await ops.deploy(site: site)
+
+        guard case .succeeded = result else {
+            Issue.record("expected success, got \(result)")
+            return
+        }
+        let config = try String(contentsOf: site.sourceDirectory.appendingPathComponent(".site-config"), encoding: .utf8)
+        #expect(config.contains("SECURITY_TXT_MODE=generated"))
+    }
+
     @Test("headless deploy still reports coarse progress milestones through onProgress")
     func headlessDeployReportsProgress() async throws {
         let package = try temporaryPackage()
