@@ -263,13 +263,28 @@ final class DomainModel {
     }
 
     private func runVerifyBlueskyHandle(domain: String, did: String) async {
-        switch await ATProtoDIDVerification.verify(domain: domain, expectedDID: did, transport: atprotoDIDTransport) {
+        let outcome = await ATProtoDIDVerification.verify(domain: domain, expectedDID: did, transport: atprotoDIDTransport)
+        // `dismissSheet()`/`openSheet()` cancel `inFlight` and reset `blueskyHandlePhase` to
+        // `.idle` — without this guard, a verification that was already resuming from its
+        // `await` when that happened would clobber that reset (or a subsequently reopened
+        // sheet's fresh state) with a stale result the user never asked for in this session.
+        guard !Task.isCancelled else { return }
+        switch outcome {
         case .verified:
             blueskyHandlePhase = .verified(domain: domain)
-        case .mismatch, .unreachable:
+        case .mismatch:
+            // The endpoint IS live and serving DID-shaped content — just not this account's,
+            // so "redeploy" would be misleading advice (e.g. someone else's atproto-did file,
+            // or a stale marker a redeploy hasn't overwritten for an unrelated reason).
             blueskyHandlePhase = .failed(
                 domain: domain,
-                reason: "Couldn't confirm /.well-known/atproto-did on \(domain) yet. Redeploy your site, then try again."
+                reason: "\(domain) already serves a different Bluesky DID at /.well-known/atproto-did. "
+                    + "Make sure this domain is connected to the right Bluesky account, then try again."
+            )
+        case .unreachable:
+            blueskyHandlePhase = .failed(
+                domain: domain,
+                reason: "Couldn't reach /.well-known/atproto-did on \(domain) yet. Redeploy your site, then try again."
             )
         }
     }

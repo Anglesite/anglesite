@@ -3,6 +3,26 @@ import Foundation
 @testable import AnglesiteAppCore
 @testable import AnglesiteCore
 
+/// A `POSSEHTTPTransport` whose calls suspend until the test explicitly resolves them —
+/// mirrors `ConnectDomainModelTests.ControllableRDAPLookupService`, used to exercise a
+/// verification still in flight when the sheet is dismissed/reopened out from under it.
+private actor ControllableATProtoDIDTransport {
+    private var continuations: [CheckedContinuation<(Data, HTTPURLResponse), Error>] = []
+
+    func fetch(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func resolve(callIndex index: Int, body: String, status: Int = 200) {
+        let http = HTTPURLResponse(url: URL(string: "https://example.com")!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        continuations[index].resume(returning: (Data(body.utf8), http))
+    }
+
+    func callCount() -> Int { continuations.count }
+}
+
 @MainActor
 @Suite struct DomainModelTests {
     private actor RecordingOps: DomainOperationsService {
@@ -188,5 +208,33 @@ import Foundation
             Issue.record("expected .failed, got \(model.blueskyHandlePhase)")
             return
         }
+    }
+
+    @Test func dismissingSheetDuringVerificationDoesNotClobberResetState() async throws {
+        let (site, tmp) = try makeConfiguredSite(
+            siteConfig: "SITE_URL=https://example.com\nATPROTO_DID=\(Self.did)\n")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let transport = ControllableATProtoDIDTransport()
+        let model = DomainModel(ops: RecordingOps(), atprotoDIDTransport: { request in
+            try await transport.fetch(request)
+        })
+        model.configure(site: site)
+        await loadDomain(model, domain: "example.com")
+
+        model.useAsBlueskyHandle()
+        // Let the spawned `Task` actually start and suspend inside `transport.fetch`, so
+        // dismissal below races a verification that's genuinely still in flight.
+        while await transport.callCount() == 0 { await Task.yield() }
+        #expect(model.blueskyHandlePhase == .verifying(domain: "example.com"))
+
+        model.dismissSheet()
+        #expect(model.blueskyHandlePhase == .idle)
+
+        // The in-flight fetch finally resolves *after* dismissal cancelled its `Task` — the
+        // result must not land and clobber the `.idle` reset (the bug this test guards).
+        await transport.resolve(callIndex: 0, body: Self.did)
+        for _ in 0..<5 { await Task.yield() }
+
+        #expect(model.blueskyHandlePhase == .idle)
     }
 }

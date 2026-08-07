@@ -148,12 +148,14 @@ struct DomainSheetView: View {
                 } label: {
                     Label("Add Google verification", systemImage: "checkmark.seal")
                 }
+                .disabled(model.isRunning)
                 Button {
                     model.openEmailSetup()
                 } label: {
                     Label("Set up email", systemImage: "envelope")
                 }
                 .help("Recommend an email provider and pre-fill its DNS records")
+                .disabled(model.isRunning)
                 Spacer()
                 Button {
                     model.refresh()
@@ -168,6 +170,7 @@ struct DomainSheetView: View {
                     Label("Add record", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(model.isRunning)
             }
             .padding(12)
             if model.blueskyHandlePhase != .idle {
