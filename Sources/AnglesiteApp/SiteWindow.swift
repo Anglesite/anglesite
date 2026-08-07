@@ -424,6 +424,23 @@ struct SiteWindow: View {
             }
             .defaultCustomization(.hidden)
 
+            ToolbarItem(id: SiteToolbarItemID.agentReadiness.rawValue, placement: .primaryAction) {
+                Button {
+                    model.agentReadiness.openSheet()
+                } label: {
+                    if model.agentReadiness.isRunning {
+                        Label("Checking Agent Readiness…", systemImage: "sparkle.magnifyingglass")
+                    } else {
+                        Label("Agent Readiness", systemImage: "sparkle.magnifyingglass")
+                    }
+                }
+                .disabled(!model.canRunAgentReadiness)
+                .help(site.isValid
+                      ? "Check Cloudflare's Agent Readiness score for this site's deployed URL"
+                      : "Site is missing required files")
+            }
+            .defaultCustomization(.hidden)
+
             ToolbarItem(id: SiteToolbarItemID.onionRouting.rawValue, placement: .primaryAction) {
                 Button {
                     model.onionRouting.openSheet()
@@ -635,6 +652,9 @@ struct SiteWindow: View {
         }
         .sheet(isPresented: $bindableModel.harden.sheetPresented) {
             HardenSheetView(model: model.harden)
+        }
+        .sheet(isPresented: $bindableModel.agentReadiness.sheetPresented) {
+            AgentReadinessSheetView(model: model.agentReadiness)
         }
         .sheet(isPresented: $bindableModel.onionRouting.sheetPresented) {
             OnionRoutingSheetView(model: model.onionRouting)

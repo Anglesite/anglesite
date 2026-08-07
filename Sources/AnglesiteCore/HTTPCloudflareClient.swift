@@ -95,6 +95,41 @@ private struct CFRegistrarRegistrationState: Decodable, Sendable {
 private struct CFWorkerScript: Decodable, Sendable { let id: String }
 private struct CFWorkerDomain: Decodable, Sendable { let hostname: String; let service: String }
 
+/// URL Scanner `POST .../urlscanner/v2/scan` response — a flat object, unlike the rest of this
+/// file's v4 endpoints: no `{success, result, errors}` envelope (confirmed against the live API
+/// reference). Only `uuid` (the scan id to poll) is needed here.
+private struct CFURLScanSubmission: Decodable, Sendable { let uuid: String }
+
+/// One Agent Readiness check's result, as nested under
+/// `meta.processors.agentReadiness.checks.<category>.<checkID>` in a finished scan's result.
+private struct CFAgentReadinessCheck: Decodable, Sendable { let status: String }
+
+/// The four *scored* Agent Readiness categories. `commerce` (x402/UCP/ACP) is deliberately
+/// omitted — Cloudflare tracks it but excludes it from the tier, per the blog announcement.
+private struct CFAgentReadinessChecks: Decodable, Sendable {
+    let botAccessControl: [String: CFAgentReadinessCheck]?
+    let contentAccessibility: [String: CFAgentReadinessCheck]?
+    let discoverability: [String: CFAgentReadinessCheck]?
+    let discovery: [String: CFAgentReadinessCheck]?
+}
+
+private struct CFAgentReadinessNextLevel: Decodable, Sendable { let name: String; let target: Int }
+
+private struct CFAgentReadiness: Decodable, Sendable {
+    let level: Int
+    let levelName: String
+    let checks: CFAgentReadinessChecks
+    let nextLevel: CFAgentReadinessNextLevel?
+}
+
+private struct CFScanResult: Decodable, Sendable {
+    struct Meta: Decodable, Sendable {
+        struct Processors: Decodable, Sendable { let agentReadiness: CFAgentReadiness? }
+        let processors: Processors?
+    }
+    let meta: Meta?
+}
+
 /// Body for DELETE requests, which Cloudflare's API doesn't require but tolerates.
 private struct CFEmptyBody: Encodable, Sendable {}
 private struct CFBotManagement: Decodable, Sendable {
@@ -743,5 +778,91 @@ extension HTTPCloudflareClient: CloudflareRegistrarWriting {
             return outcome
         }
         return .stillProcessing
+    }
+}
+
+// MARK: - AgentReadinessScanning conformance
+
+extension HTTPCloudflareClient: AgentReadinessScanning {
+    /// `POST /accounts/{id}/urlscanner/v2/scan` with `options.agentReadiness: true`. Submitted
+    /// `unlisted` — the app shouldn't publish an owner's scan to Cloudflare's public URL Scanner
+    /// listing without their say-so. Reuses `resolveAccountID` (the Registrar conformance above,
+    /// same file so its `private` scope still applies) since URL Scanner is account-scoped too.
+    public func submitAgentReadinessScan(url: URL, apiToken: String) async throws -> UUID {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        struct ScanRequest: Encodable, Sendable {
+            struct Options: Encodable, Sendable { let agentReadiness: Bool }
+            let url: String
+            let visibility: String
+            let options: Options
+        }
+        let body = ScanRequest(url: url.absoluteString, visibility: "unlisted", options: .init(agentReadiness: true))
+        let (data, _) = try await send(method: "POST", "/accounts/\(accountID)/urlscanner/v2/scan", body: body, apiToken: apiToken)
+        let submission: CFURLScanSubmission
+        do {
+            submission = try JSONDecoder().decode(CFURLScanSubmission.self, from: data)
+        } catch {
+            throw CloudflareError.malformedResponse
+        }
+        guard let scanID = UUID(uuidString: submission.uuid) else { throw CloudflareError.malformedResponse }
+        return scanID
+    }
+
+    /// `GET /accounts/{id}/urlscanner/v2/result/{scan_id}`. A 404 means the scan hasn't finished
+    /// processing yet (the URL Scanner API's documented behavior for an in-flight scan id) — that
+    /// maps to `nil` rather than an error so callers can poll in a loop without special-casing it.
+    public func agentReadinessResult(scanID: UUID, apiToken: String) async throws -> AgentReadinessReport? {
+        let accountID = try await resolveAccountID(apiToken: apiToken)
+        guard let url = URL(string: Self.base + "/accounts/\(accountID)/urlscanner/v2/result/\(scanID.uuidString.lowercased())") else {
+            throw CloudflareError.malformedResponse
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, http) = try await transport(request)
+        if http.statusCode == 404 { return nil }
+        if http.statusCode == 401 || http.statusCode == 403 { throw CloudflareError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw CloudflareError.http(status: http.statusCode) }
+        let result: CFScanResult
+        do {
+            result = try JSONDecoder().decode(CFScanResult.self, from: data)
+        } catch {
+            throw CloudflareError.malformedResponse
+        }
+        guard let readiness = result.meta?.processors?.agentReadiness else {
+            throw CloudflareError.malformedResponse
+        }
+        return Self.mapAgentReadinessReport(readiness)
+    }
+
+    /// Maps the raw wire shape to the public report, translating each check id through
+    /// `AgentReadinessCatalog` for owner-friendly copy. A category with no checks in the response
+    /// (all four are optional on the wire) is dropped rather than shown empty.
+    private static func mapAgentReadinessReport(_ raw: CFAgentReadiness) -> AgentReadinessReport {
+        func category(_ dict: [String: CFAgentReadinessCheck]?, id: String) -> AgentReadinessReport.Category? {
+            guard let dict, !dict.isEmpty else { return nil }
+            let checks = dict.map { checkID, rawCheck -> AgentReadinessReport.Check in
+                let info = AgentReadinessCatalog.checkInfo(for: checkID)
+                let status = AgentReadinessReport.Check.Status(rawValue: rawCheck.status.lowercased()) ?? .neutral
+                return AgentReadinessReport.Check(
+                    id: checkID, displayName: info.displayName, status: status,
+                    hint: status == .pass ? info.passHint : info.failHint,
+                    anglesiteProvides: info.anglesiteProvides)
+            }.sorted { $0.displayName < $1.displayName }
+            return AgentReadinessReport.Category(
+                id: id, displayName: AgentReadinessCatalog.categoryDisplayName(for: id), checks: checks)
+        }
+
+        let categories = [
+            category(raw.checks.discoverability, id: "discoverability"),
+            category(raw.checks.contentAccessibility, id: "contentAccessibility"),
+            category(raw.checks.botAccessControl, id: "botAccessControl"),
+            category(raw.checks.discovery, id: "discovery"),
+        ].compactMap { $0 }
+
+        return AgentReadinessReport(
+            level: raw.level, levelName: raw.levelName, categories: categories,
+            nextLevel: raw.nextLevel.map { AgentReadinessReport.NextLevel(name: $0.name, target: $0.target) })
     }
 }
