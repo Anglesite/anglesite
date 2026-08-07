@@ -82,6 +82,21 @@ const GENERIC_LINK_PATTERNS = [
 ];
 
 /**
+ * Strip HTML tags, repeating until the string stabilizes so that
+ * overlapping/nested tag-like sequences (e.g. "<<script>script>") can't
+ * survive a single removal pass.
+ */
+function stripTags(html: string): string {
+  let previous: string;
+  let current = html;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, "");
+  } while (current !== previous);
+  return current;
+}
+
+/**
  * Validate link text quality.
  * html-validate catches empty links (wcag/h30).
  * Heuristic catches generic phrases ("click here", "read more").
@@ -98,9 +113,7 @@ export function validateLinkText(html: string): A11yIssue[] {
 
   while ((match = linkRegex.exec(html)) !== null) {
     const attrs = match[1];
-    const linkInnerHtml = match[2];
-    const parsed = new DOMParser().parseFromString(linkInnerHtml, "text/html");
-    const text = (parsed.body.textContent ?? "").trim();
+    const text = stripTags(match[2]).trim();
     if (!text || /aria-label\s*=/.test(attrs)) continue;
 
     for (const pattern of GENERIC_LINK_PATTERNS) {
