@@ -57,6 +57,8 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib/resolve-asc-key.sh
+source "$SCRIPT_DIR/lib/resolve-asc-key.sh"
 BUILD_DIR="$REPO_ROOT/build"
 ARCHIVE_PATH="$BUILD_DIR/Anglesite.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export-mas"
@@ -110,23 +112,8 @@ if [[ "$VALIDATE_ONLY" -eq 0 ]]; then
         || bail "ASC_API_KEY_ID is unset (needed for upload). Re-run with --validate-only to skip the upload step."
     [[ -n "${ASC_API_ISSUER_ID:-}" ]] \
         || bail "ASC_API_ISSUER_ID is unset (needed for upload). Re-run with --validate-only to skip the upload step."
-    # xcodebuild (unlike altool) needs the API key file path spelled out; search the
-    # standard private_keys locations unless ASC_API_KEY_PATH points at it directly.
-    if [[ -n "${ASC_API_KEY_PATH:-}" ]]; then
-        [[ -f "$ASC_API_KEY_PATH" ]] || bail "ASC_API_KEY_PATH is set but no file exists at $ASC_API_KEY_PATH."
-        ASC_KEY_PATH="$ASC_API_KEY_PATH"
-    else
-        for dir in "$HOME/.appstoreconnect/private_keys" "$HOME/.private_keys" "$HOME/private_keys" "./private_keys"; do
-            if [[ -f "$dir/AuthKey_${ASC_API_KEY_ID}.p8" ]]; then
-                ASC_KEY_PATH="$dir/AuthKey_${ASC_API_KEY_ID}.p8"
-                break
-            fi
-        done
-        [[ -n "$ASC_KEY_PATH" ]] \
-            || bail "AuthKey_${ASC_API_KEY_ID}.p8 not found in ~/.appstoreconnect/private_keys/ or ~/.private_keys/. Install the .p8 there or set ASC_API_KEY_PATH."
-    fi
-    # xcodebuild requires -authenticationKeyPath to be absolute; normalize.
-    ASC_KEY_PATH="$(cd "$(dirname "$ASC_KEY_PATH")" && pwd)/$(basename "$ASC_KEY_PATH")"
+    # xcodebuild (unlike altool) needs the API key file path spelled out.
+    ASC_KEY_PATH="$(resolve_asc_key_path "$ASC_API_KEY_ID")"
 fi
 
 echo "  team:        $TEAM_ID"

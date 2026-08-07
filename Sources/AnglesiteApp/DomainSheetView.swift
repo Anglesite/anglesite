@@ -145,6 +145,12 @@ struct DomainSheetView: View {
                 } label: {
                     Label("Add Google verification", systemImage: "checkmark.seal")
                 }
+                Button {
+                    model.openEmailSetup()
+                } label: {
+                    Label("Set up email", systemImage: "envelope")
+                }
+                .help("Recommend an email provider and pre-fill its DNS records")
                 Spacer()
                 Button {
                     model.refresh()

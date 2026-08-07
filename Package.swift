@@ -495,6 +495,20 @@ if ProcessInfo.processInfo.environment["ANGLESITE_LINUX_SHELL"] == "1" {
         )
     )
     packageProducts.append(.executable(name: "anglesite-linux", targets: ["AnglesiteLinux"]))
+    // Depends on the AnglesiteLinux target itself (for @testable import), so it inherits the
+    // same GTK-toolchain requirement and only enters the graph under this same
+    // ANGLESITE_LINUX_SHELL=1 gate — but the tests it holds today (ShellModel.overlayCandidates,
+    // a pure function with no GTK/Adwaita touch points) need none of that to actually run; the
+    // gating is a build-graph consequence of testing the target, not a requirement of the tests
+    // themselves.
+    packageTargets.append(
+        .testTarget(
+            name: "AnglesiteLinuxTests",
+            dependencies: ["AnglesiteLinux"],
+            path: "Tests/AnglesiteLinuxTests",
+            swiftSettings: strictConcurrency
+        )
+    )
 }
 #endif
 

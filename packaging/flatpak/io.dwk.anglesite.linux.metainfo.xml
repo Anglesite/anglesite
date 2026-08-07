@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.dwk.anglesite.linux</id>
+  <name>Anglesite</name>
+  <summary>Click-to-edit websites with a live preview</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>ISC</project_license>
+  <developer id="io.dwk">
+    <name>David W. Keith</name>
+  </developer>
+  <description>
+    <p>
+      Anglesite gives non-technical site owners a click-to-edit experience for their website.
+      Open a site, edit it directly in a live preview, and deploy — no code editor required.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.dwk.anglesite.linux.desktop</launchable>
+  <url type="homepage">https://github.com/Anglesite/Anglesite</url>
+  <url type="bugtracker">https://github.com/Anglesite/Anglesite/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <!--
+      Placeholder — this manifest is an unverified packaging scaffold (#567), not yet built,
+      tested, or released. Fill in a real <release> entry (version + date) once a Flatpak build
+      has been verified per docs/superpowers/specs/2026-08-06-flatpak-packaging-investigation.md
+      §9 and is ready to ship.
+    -->
+    <release version="0.0.0" date="2026-08-06">
+      <description>
+        <p>Unreleased packaging scaffold — not yet built or verified.</p>
+      </description>
+    </release>
+  </releases>
+</component>
