@@ -129,6 +129,7 @@ final class DeployModel {
 
     private let command: DeployCommand
     private let webmentionCommand: WebmentionSendCommand
+    private let standardSitePublishCommand: StandardSitePublishCommand
     private let posseCommand: POSSESyndicationCommand
     private let websubPing: WebSubPublishPing
     private let activityPubOutboxBackfill: ActivityPubOutboxBackfill
@@ -172,6 +173,7 @@ final class DeployModel {
     init(
         command: DeployCommand = DeployCommand(),
         webmentionCommand: WebmentionSendCommand = WebmentionSendCommand(),
+        standardSitePublishCommand: StandardSitePublishCommand = StandardSitePublishCommand(),
         posseCommand: POSSESyndicationCommand = POSSESyndicationCommand(),
         websubPing: WebSubPublishPing = WebSubPublishPing(),
         activityPubOutboxBackfill: ActivityPubOutboxBackfill = ActivityPubOutboxBackfill(),
@@ -189,6 +191,7 @@ final class DeployModel {
     ) {
         self.command = command
         self.webmentionCommand = webmentionCommand
+        self.standardSitePublishCommand = standardSitePublishCommand
         self.posseCommand = posseCommand
         self.websubPing = websubPing
         self.activityPubOutboxBackfill = activityPubOutboxBackfill
@@ -784,6 +787,12 @@ final class DeployModel {
                     guard let self else { return }
                     await self.webmentionCommand.send(
                         siteID: siteID, siteDirectory: siteDirectory, configDirectory: configDirectory, siteBase: url
+                    )
+                },
+                publishStandardSite: { [weak self] in
+                    guard let self else { return }
+                    await self.standardSitePublishCommand.publish(
+                        siteID: siteID, siteDirectory: siteDirectory, configDirectory: configDirectory
                     )
                 },
                 syndicate: { [weak self] in

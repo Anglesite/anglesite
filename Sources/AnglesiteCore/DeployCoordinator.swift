@@ -279,21 +279,28 @@ public enum DeployCoordinator {
         try? await configStore.save(updated)
     }
 
-    /// Runs the four post-deploy passes — webmention-send, POSSE-syndication, WebSub publish-ping,
-    /// and ActivityPub outbox backfill (`sendWebmentions`, `syndicate`, `notifySubscribers`, and
-    /// `backfillActivityPubOutbox` below) — in the fixed order the deploy pipeline has always used:
-    /// Astro's build (already complete by the time this runs) regenerates the site's RSS/Atom/JSON
-    /// feeds, so webmention discovery is ordered after the deployed canonical pages exist, and each
-    /// subsequent pass is ordered after the ones before it (see each parameter's own doc comment for
-    /// why). `onMilestone` fires immediately before each pass so a UI caller can surface progress
+    /// Runs the five post-deploy passes — webmention-send, Standard.site record publish,
+    /// POSSE-syndication, WebSub publish-ping, and ActivityPub outbox backfill (`sendWebmentions`,
+    /// `publishStandardSite`, `syndicate`, `notifySubscribers`, and `backfillActivityPubOutbox`
+    /// below) — in the fixed order the deploy pipeline has always used: Astro's build (already
+    /// complete by the time this runs) regenerates the site's RSS/Atom/JSON feeds, so webmention
+    /// discovery is ordered after the deployed canonical pages exist, and each subsequent pass is
+    /// ordered after the ones before it (see each parameter's own doc comment for why).
+    /// `onMilestone` fires immediately before each pass so a UI caller can surface progress
     /// (`DeployModel` wires it to the Dock-tile progress bar, #526) — the milestone always fires even
     /// if the caller-supplied closure for that pass turns out to be a no-op (e.g. no pending
-    /// webmention targets). All four passes are awaited sequentially, never concurrently, matching
-    /// the historical behavior; none of the four closures is expected to throw (the real commands
+    /// webmention targets). All five passes are awaited sequentially, never concurrently, matching
+    /// the historical behavior; none of the five closures is expected to throw (the real commands
     /// they wrap are documented best-effort and never throw).
     public static func runPostDeploySequencing(
         onMilestone: (OperationProgress) -> Void,
         sendWebmentions: () async -> Void,
+        /// Standard.site record publish pass (#1231, see ``StandardSitePublishCommand``). Ordered
+        /// after webmentions, before POSSE: the site's `site.standard.publication`/
+        /// `site.standard.document` records should exist by the time the POSSE cross-post lands
+        /// so Bluesky's preview enhancement sees them. Best-effort and never throws, like every
+        /// other step here. Callers without a Standard.site pass configured pass a no-op.
+        publishStandardSite: () async -> Void = {},
         syndicate: () async -> Void,
         /// WebSub publish pings (#361): tells the site's own hub the feeds changed so it fans
         /// the update out to subscribers. Ordered before the ActivityPub backfill below — the
@@ -308,6 +315,8 @@ public enum DeployCoordinator {
     ) async {
         onMilestone(.deployWebmentions)
         await sendWebmentions()
+        onMilestone(.deployStandardSitePublishing)
+        await publishStandardSite()
         onMilestone(.deploySyndicating)
         await syndicate()
         onMilestone(.deployNotifyingSubscribers)
