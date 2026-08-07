@@ -424,6 +424,23 @@ struct SiteWindow: View {
             }
             .defaultCustomization(.hidden)
 
+            ToolbarItem(id: SiteToolbarItemID.agentReadiness.rawValue, placement: .primaryAction) {
+                Button {
+                    model.agentReadiness.openSheet()
+                } label: {
+                    if model.agentReadiness.isRunning {
+                        Label("Checking Agent Readiness…", systemImage: "sparkle.magnifyingglass")
+                    } else {
+                        Label("Agent Readiness", systemImage: "sparkle.magnifyingglass")
+                    }
+                }
+                .disabled(!model.canRunAgentReadiness)
+                .help(site.isValid
+                      ? "Check Cloudflare's Agent Readiness score for this site's deployed URL"
+                      : "Site is missing required files")
+            }
+            .defaultCustomization(.hidden)
+
             ToolbarItem(id: SiteToolbarItemID.onionRouting.rawValue, placement: .primaryAction) {
                 Button {
                     model.onionRouting.openSheet()
@@ -608,6 +625,13 @@ struct SiteWindow: View {
                 model.deploy.cancelWebmentionPaidPlanConfirmation()
             }
         }
+        .sheet(isPresented: $bindableModel.deploy.activityPubHandleRenameConfirmationPresented) {
+            if let change = model.deploy.activityPubHandleRenameChange {
+                ActivityPubHandleRenameSheetView(model: model.deploy, change: change) {
+                    model.deploy.cancelActivityPubHandleRenameConfirmation()
+                }
+            }
+        }
         .sheet(isPresented: $bindableModel.deploy.domainConfigDriftPresented) {
             if case .domainConfigDrift(let findings) = model.deploy.phase {
                 DomainConfigDriftSheetView(
@@ -635,6 +659,9 @@ struct SiteWindow: View {
         }
         .sheet(isPresented: $bindableModel.harden.sheetPresented) {
             HardenSheetView(model: model.harden)
+        }
+        .sheet(isPresented: $bindableModel.agentReadiness.sheetPresented) {
+            AgentReadinessSheetView(model: model.agentReadiness)
         }
         .sheet(isPresented: $bindableModel.onionRouting.sheetPresented) {
             OnionRoutingSheetView(model: model.onionRouting)
@@ -779,6 +806,30 @@ struct SiteWindow: View {
             // dismissal so per-row buttons are structurally the only way out.
             .interactiveDismissDisabled()
         }
+        .sheet(item: $bindableModel.securityTxtMigrationModel) { migrationModel in
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Hand-Authored security.txt Found")
+                        .font(.headline)
+                    Text("This site publishes a security.txt Anglesite didn't generate. Adopt it so Anglesite keeps it current going forward, or leave it as yours to maintain.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Preserve as Hand-Authored") { migrationModel.preserve() }
+                        Spacer()
+                        Button("Adopt as Generated") { migrationModel.adopt() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding()
+                .navigationTitle("security.txt")
+            }
+            .frame(minWidth: 420, minHeight: 220)
+            // Mirrors the scripts-sync sheet immediately above: `loadAndStart()` suspends on a
+            // `CheckedContinuation` that only Adopt/Preserve resume. Block outside-tap/swipe
+            // dismissal so those two buttons are structurally the only way out.
+            .interactiveDismissDisabled()
+        }
         .sheet(item: $bindableModel.copyEditModel) { reportModel in
             CopyEditReportView(model: reportModel)
         }
@@ -813,6 +864,17 @@ struct SiteWindow: View {
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Cancel") { model.integrationWizardModel = nil }
+                        }
+                    }
+            }
+        }
+        .sheet(item: $bindableModel.themeApplyWizardModel) { wizardModel in
+            NavigationStack {
+                ThemeApplyWizard(model: wizardModel, onDone: { model.themeApplyWizardModel = nil })
+                    .navigationTitle("Apply a Theme")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { model.themeApplyWizardModel = nil }
                         }
                     }
             }
@@ -1059,23 +1121,14 @@ struct SiteWindow: View {
             .background(Color(NSColor.windowBackgroundColor))
     }
 
-    /// Builds the Edit-menu Delete/Duplicate actions for the current Navigator selection, or nil
-    /// when there's no site or no selection. `delete`/`duplicate` are individually nil when the
-    /// selected row isn't a page/post (`canDelete`/`canDuplicate`), which is what disables the
-    /// individual menu items rather than hiding the whole group.
+    /// Builds the Edit-menu Duplicate/Publish/Unpublish actions for the current Navigator
+    /// selection, or nil when there's no site or no selection. Each is individually nil when the
+    /// selected row doesn't support that verb (`canDuplicate`/`canPublish`/`canUnpublish`), which
+    /// is what disables the individual menu items rather than hiding the whole group. Delete has
+    /// no action built here (#989) — see `NavigatorSelectionActions`.
     private func navigatorSelectionActions(for model: SiteWindowModel) -> NavigatorSelectionActions? {
         guard model.site != nil, let navigator = model.navigator, let id = navigator.selection else {
             return nil
-        }
-        let deleteAction: (() -> Void)?
-        if navigator.canDelete(id) {
-            deleteAction = {
-                guard let item = navigator.item(for: id) else { return }
-                contentDeleteTitle = "Delete “\(item.title)”?"
-                model.deleteConfirmation = item
-            }
-        } else {
-            deleteAction = nil
         }
         let duplicateAction: (() -> Void)?
         if navigator.canDuplicate(id) {
@@ -1102,6 +1155,6 @@ struct SiteWindow: View {
             unpublishAction = nil
         }
         return NavigatorSelectionActions(
-            delete: deleteAction, duplicate: duplicateAction, publish: publishAction, unpublish: unpublishAction)
+            duplicate: duplicateAction, publish: publishAction, unpublish: unpublishAction)
     }
 }

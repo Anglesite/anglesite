@@ -51,7 +51,11 @@ struct CloudflareOAuthTokenSourceTests {
                 #expect(tokenEndpoint == self.endpoint)
                 return OAuthToken(accessToken: "new-tok", tokenType: "bearer", expiresIn: 3600, refreshToken: "new-refresh")
             },
-            now: { self.epoch })
+            now: { self.epoch },
+            // A dedicated coordinator keeps this test isolated from other tests that also
+            // trigger a refresh through the `.shared` default (#1296 follow-up: parallel
+            // Swift Testing execution let tests cross-contaminate via the shared singleton).
+            coordinator: CloudflareOAuthRefreshCoordinator())
 
         #expect(try await source.resolve() == "new-tok")
         #expect(capturedRefreshToken == "old-refresh")
@@ -71,7 +75,8 @@ struct CloudflareOAuthTokenSourceTests {
                 #expect(tokenEndpoint == self.endpoint)
                 return OAuthToken(accessToken: "new-tok", tokenType: "bearer", expiresIn: 3600, refreshToken: "new-refresh")
             },
-            now: { self.epoch })
+            now: { self.epoch },
+            coordinator: CloudflareOAuthRefreshCoordinator())
 
         #expect(try await source.resolve() == "new-tok")
         #expect(capturedRefreshToken == "old-refresh")
@@ -90,7 +95,8 @@ struct CloudflareOAuthTokenSourceTests {
         let source = CloudflareOAuthTokenSource(
             secretStore: store,
             refresh: { _, _ in OAuthToken(accessToken: "new-tok", tokenType: "bearer", expiresIn: 3600, refreshToken: nil) },
-            now: { self.epoch })
+            now: { self.epoch },
+            coordinator: CloudflareOAuthRefreshCoordinator())
         _ = try await source.resolve()
         #expect(try store.readCloudflareOAuthCredential()?.refreshToken == "old-refresh")
     }
@@ -114,8 +120,59 @@ struct CloudflareOAuthTokenSourceTests {
         let source = CloudflareOAuthTokenSource(
             secretStore: store,
             refresh: { _, _ in throw CloudflareOAuthError.tokenExchangeFailed("network blip") },
-            now: { self.epoch })
+            now: { self.epoch },
+            coordinator: CloudflareOAuthRefreshCoordinator())
         #expect(try await source.resolve() == nil)
         #expect(try store.readCloudflareOAuthCredential() == original)
+    }
+
+    /// Records calls and blocks each one on a continuation until released, so a test can force
+    /// two concurrent `resolve()` calls to overlap a single in-flight refresh (#1296).
+    private actor RefreshGate {
+        private(set) var callCount = 0
+        private var continuation: CheckedContinuation<Void, Never>?
+
+        func recordCallAndWaitForRelease() async {
+            callCount += 1
+            await withCheckedContinuation { continuation = $0 }
+        }
+
+        func release() {
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
+    @Test("two concurrent resolve() calls on the same expired credential share one in-flight refresh")
+    func concurrentResolvesCoalesceIntoOneRefresh() async throws {
+        let store = InMemorySecretStore()
+        try store.writeCloudflareOAuthCredential(CloudflareOAuthCredential(
+            accessToken: "old-tok", refreshToken: "old-refresh", expiresAt: epoch.addingTimeInterval(-1),
+            tokenEndpoint: endpoint))
+        // A dedicated coordinator (rather than `.shared`) keeps this test isolated from others
+        // that also exercise `CloudflareOAuthTokenSource`.
+        let coordinator = CloudflareOAuthRefreshCoordinator()
+        let gate = RefreshGate()
+        let source = CloudflareOAuthTokenSource(
+            secretStore: store,
+            refresh: { _, _ in
+                await gate.recordCallAndWaitForRelease()
+                return OAuthToken(accessToken: "new-tok", tokenType: "bearer", expiresIn: 3600, refreshToken: "new-refresh")
+            },
+            now: { self.epoch },
+            coordinator: coordinator)
+
+        async let first = source.resolve()
+        // Wait for the first call's refresh to actually start (and block on the gate) before
+        // starting the second — otherwise the second might race ahead and see no in-flight task.
+        while await gate.callCount == 0 { await Task.yield() }
+        async let second = source.resolve()
+        await Task.yield()
+        await gate.release()
+
+        #expect(try await first == "new-tok")
+        #expect(try await second == "new-tok")
+        #expect(await gate.callCount == 1)
+        #expect(try store.readCloudflareOAuthCredential()?.refreshToken == "new-refresh")
     }
 }

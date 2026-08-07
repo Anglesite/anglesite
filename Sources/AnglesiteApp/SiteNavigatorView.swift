@@ -21,7 +21,11 @@ struct SiteNavigatorView: View {
         .listStyle(.sidebar)
         // Bare Delete key deletes the selection, matching Xcode/Mail/Notes sidebar convention
         // (#674). `deletableSelection()` is nil during inline-rename, so Delete edits the text
-        // field there instead — same guard the Return-to-rename affordance above uses.
+        // field there instead — same guard the Return-to-rename affordance above uses. This is
+        // also the ONLY Commands-level wiring for content delete (#989): `.onDeleteCommand` is
+        // what AppKit's standard Edit ▸ Delete menu item invokes too, so it doubles as that item's
+        // handler — a separate Commands `Button("Delete")` alongside it just renders as a second,
+        // indistinguishable "Delete" row.
         .onDeleteCommand {
             if let item = model.deletableSelection() {
                 onDeleteRequested(item)
@@ -46,6 +50,18 @@ struct SiteNavigatorView: View {
             // Disabled while editing: otherwise this default-button shortcut swallows Return
             // before the focused TextField's onSubmit, so commits never fire (#299 review).
             .disabled(model.editingItemID != nil)
+        }
+        .background {
+            // ⌘⌫ as a second key equivalent for the same delete action (#989) — a view-level key
+            // command, not a Commands-scene item, so it doesn't add another Edit-menu row.
+            Button("") {
+                if let item = model.deletableSelection() {
+                    onDeleteRequested(item)
+                }
+            }
+            .keyboardShortcut(.delete, modifiers: [.command])
+            .hidden()
+            .accessibilityHidden(true)
         }
         .alert(
             "Rename failed",

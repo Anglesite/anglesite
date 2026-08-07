@@ -32,6 +32,8 @@ public struct PodmanContainerControl: LocalContainerControl {
     private let astroCommand: String
     private let mcpCommand: String
     private let logCenter: LogCenter
+    private let flatpakHostSpawn: Bool
+    private let flatpakSpawnExecutable: URL
 
     private static let previewPort = 4321
     private static let mcpPort = 4399
@@ -81,13 +83,27 @@ public struct PodmanContainerControl: LocalContainerControl {
     ///   - logCenter: The `LogCenter` that `execInteractive` launches stream through before each
     ///     call's source-filtered subscription forwards lines to its own `onOutput`. Production
     ///     uses `.shared`.
+    ///   - flatpakHostSpawn: Whether to route every podman invocation through
+    ///     `flatpak-spawn --host` instead of exec'ing `podmanExecutable` directly — see
+    ///     `podmanInvocation(_:)` and
+    ///     docs/superpowers/specs/2026-08-06-flatpak-packaging-investigation.md §4. Defaults to
+    ///     detecting a Flatpak sandbox via the `FLATPAK_ID` env var Flatpak sets for every
+    ///     sandboxed process; injectable so tests can force either path without depending on the
+    ///     test runner's own environment.
+    ///   - flatpakSpawnExecutable: The `flatpak-spawn` binary `podmanInvocation(_:)` wraps podman
+    ///     calls in when `flatpakHostSpawn` is true. Defaults to the common path
+    ///     `/usr/bin/flatpak-spawn`, the same "injectable common-path default" shape as
+    ///     `podmanExecutable` — kept a separate parameter rather than hardcoded so tests (or a
+    ///     future non-standard install) can substitute it independently.
     public init(
         image: String = "localhost/anglesite-dev:latest",
         podmanExecutable: URL = URL(fileURLWithPath: "/usr/bin/podman"),
         supervisor: ProcessSupervisor = .shared,
         astroCommand: String = PodmanContainerControl.defaultAstroCommand,
         mcpCommand: String = PodmanContainerControl.defaultMCPCommand,
-        logCenter: LogCenter = .shared
+        logCenter: LogCenter = .shared,
+        flatpakHostSpawn: Bool = ProcessInfo.processInfo.environment["FLATPAK_ID"] != nil,
+        flatpakSpawnExecutable: URL = URL(fileURLWithPath: "/usr/bin/flatpak-spawn")
     ) {
         self.image = image
         self.podmanExecutable = podmanExecutable
@@ -96,6 +112,22 @@ public struct PodmanContainerControl: LocalContainerControl {
         self.astroCommand = astroCommand
         self.mcpCommand = mcpCommand
         self.logCenter = logCenter
+        self.flatpakHostSpawn = flatpakHostSpawn
+        self.flatpakSpawnExecutable = flatpakSpawnExecutable
+    }
+
+    /// Resolves the actual executable + argv for a podman invocation. Outside a Flatpak sandbox
+    /// this is a transparent passthrough. Inside one, `podmanExecutable` itself is unreachable —
+    /// bubblewrap's sandbox doesn't let the app exec arbitrary host binaries — so every call is
+    /// rewritten to run `flatpak-spawn --host <podmanExecutable> <arguments>`, which asks the
+    /// `org.freedesktop.Flatpak` host service (over the `--talk-name` D-Bus permission the
+    /// packaged app's manifest grants) to run the command unsandboxed. Podman itself is never
+    /// installed inside the sandbox — only the CLI invocation crosses the boundary. See the
+    /// investigation doc above for the options considered and the risks (conmon detach behavior,
+    /// document-portal path visibility) that still need live verification on a Flatpak build.
+    func podmanInvocation(_ arguments: [String]) -> (executable: URL, arguments: [String]) {
+        guard flatpakHostSpawn else { return (podmanExecutable, arguments) }
+        return (flatpakSpawnExecutable, ["--host", podmanExecutable.path] + arguments)
     }
 
     /// Boots a fresh rootless-podman container for the site and returns its preview/MCP URLs.
@@ -137,15 +169,16 @@ public struct PodmanContainerControl: LocalContainerControl {
         //    (`exec`, `port`, `stop` — none of which daemonize) goes through `ProcessSupervisor`
         //    normally and is unaffected.
         do {
+            let invocation = podmanInvocation([
+                "run", "-d", "--rm", "--name", name,
+                "-v", "\(cloneSource.path):\(Self.repoSharePath):ro",
+                "-p", "127.0.0.1::\(Self.previewPort)",
+                "-p", "127.0.0.1::\(Self.mcpPort)",
+                image, "sleep", "infinity",
+            ])
             try Self.spawnDetachedPodmanRun(
-                podmanExecutable: podmanExecutable,
-                arguments: [
-                    "run", "-d", "--rm", "--name", name,
-                    "-v", "\(cloneSource.path):\(Self.repoSharePath):ro",
-                    "-p", "127.0.0.1::\(Self.previewPort)",
-                    "-p", "127.0.0.1::\(Self.mcpPort)",
-                    image, "sleep", "infinity",
-                ]
+                podmanExecutable: invocation.executable,
+                arguments: invocation.arguments
             )
         } catch let error as LocalContainerError {
             throw error
@@ -195,16 +228,18 @@ public struct PodmanContainerControl: LocalContainerControl {
 
         var handles: [ProcessSupervisor.Handle] = []
         do {
+            let astroInvocation = podmanInvocation(["exec", name, "sh", "-lc", astroCommand])
             let astroHandle = try await supervisor.launch(
-                source: "astro", executable: podmanExecutable,
-                arguments: ["exec", name, "sh", "-lc", astroCommand],
+                source: "astro", executable: astroInvocation.executable,
+                arguments: astroInvocation.arguments,
                 logCenter: bridgeLogCenter
             )
             handles.append(astroHandle)
 
+            let mcpInvocation = podmanInvocation(["exec", name, "sh", "-lc", mcpCommand])
             let mcpHandle = try await supervisor.launch(
-                source: "mcp", executable: podmanExecutable,
-                arguments: ["exec", name, "sh", "-lc", mcpCommand],
+                source: "mcp", executable: mcpInvocation.executable,
+                arguments: mcpInvocation.arguments,
                 logCenter: bridgeLogCenter
             )
             handles.append(mcpHandle)
@@ -303,7 +338,8 @@ public struct PodmanContainerControl: LocalContainerControl {
         }
         arguments.append(name)
         arguments += argv
-        let result = try await supervisor.run(executable: podmanExecutable, arguments: arguments)
+        let invocation = podmanInvocation(arguments)
+        let result = try await supervisor.run(executable: invocation.executable, arguments: invocation.arguments)
         if !result.stdout.isEmpty { onOutput(result.stdout, .stdout) }
         if !result.stderr.isEmpty { onOutput(result.stderr, .stderr) }
         return ContainerExecResult(exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr)
@@ -346,10 +382,11 @@ public struct PodmanContainerControl: LocalContainerControl {
             }
         }
 
+        let invocation = podmanInvocation(arguments)
         let handle = try await supervisor.launch(
             source: source,
-            executable: podmanExecutable,
-            arguments: arguments,
+            executable: invocation.executable,
+            arguments: invocation.arguments,
             attachStdin: true,
             logCenter: logCenter
         )
@@ -378,7 +415,8 @@ public struct PodmanContainerControl: LocalContainerControl {
     private func execOneShot(
         name: String, label: String, onOutput: @escaping @Sendable (String, LogCenter.Stream) -> Void, _ argv: [String]
     ) async throws {
-        let result = try await supervisor.run(executable: podmanExecutable, arguments: ["exec", name] + argv)
+        let invocation = podmanInvocation(["exec", name] + argv)
+        let result = try await supervisor.run(executable: invocation.executable, arguments: invocation.arguments)
         for line in result.stdout.split(separator: "\n", omittingEmptySubsequences: true) {
             onOutput("[\(label)] \(line)", .stdout)
         }
@@ -393,8 +431,9 @@ public struct PodmanContainerControl: LocalContainerControl {
     /// `podman port <name> <guestPort>/tcp` prints `0.0.0.0:PORT` (or `127.0.0.1:PORT`) for the
     /// OS-assigned host port podman published. Parses the trailing port number.
     private func resolvedHostPort(name: String, guestPort: Int) async throws -> Int {
+        let invocation = podmanInvocation(["port", name, "\(guestPort)/tcp"])
         let result = try await supervisor.run(
-            executable: podmanExecutable, arguments: ["port", name, "\(guestPort)/tcp"])
+            executable: invocation.executable, arguments: invocation.arguments)
         guard result.exitCode == 0 else {
             throw LocalContainerError.bootFailed("podman port lookup failed for \(guestPort): \(result.stderr)")
         }
@@ -416,7 +455,8 @@ public struct PodmanContainerControl: LocalContainerControl {
     }
 
     private func stopContainer(name: String) async {
-        _ = try? await supervisor.run(executable: podmanExecutable, arguments: ["stop", "-t", "5", name])
+        let invocation = podmanInvocation(["stop", "-t", "5", name])
+        _ = try? await supervisor.run(executable: invocation.executable, arguments: invocation.arguments)
     }
 
     /// Podman container names must start with an alphanumeric and contain only

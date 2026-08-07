@@ -3,9 +3,11 @@ import "../styles/global.css";
 import Hcard from "../components/Hcard.astro";
 import Rights from "../components/Rights.astro";
 import { readConfig, siteLang } from "../../scripts/config";
-import { siteLicense } from "../lib/licensing-data.ts";
+import { licensingPolicy, siteLicense } from "../lib/licensing-data.ts";
 import { headLicense, type LicenseRef } from "../lib/licensing.ts";
+import { rslPublished } from "../lib/rsl.ts";
 import { readRobotsConfig, isNoindexed } from "../lib/robots-config.ts";
+import { standardSiteDocumentURI, standardSitePublicationURI } from "../../scripts/standard-site.ts";
 // anglesite:imports — integration component imports are injected here on setup
 
 interface Props {
@@ -24,9 +26,23 @@ interface Props {
    * must not render <html lang="">, so this uses `||`, never `??`.
    */
   lang?: string;
+  /**
+   * The current page's canonical URL path (e.g. `/blog/hello-world/`), when this page has a
+   * `site.standard.document` record (#1231's post-deploy pass publishes one per eligible post).
+   * Omit for pages with no document — the index, tag pages, admin-ish routes, etc.
+   */
+  documentPath?: string;
 }
 
-const { title, description, lang } = Astro.props;
+const { title, description, lang, documentPath } = Astro.props;
+// Standard.site (Atmosphere) verification links (#1232, increment 2 of #1230): both at-URIs are
+// computable at build time with no network call — see standard-site.ts's doc comment. Gated on
+// both `.site-config` keys `StandardSitePublishCommand` persists on first successful publish
+// (#1231); a site that has never connected a Bluesky/Atmosphere account has neither, so this
+// renders nothing and the page is byte-identical to a build before this feature existed.
+const atprotoDID = readConfig("ATPROTO_DID");
+const atprotoSiteID = readConfig("ATPROTO_SITE_ID");
+const standardSiteIdentity = atprotoDID && atprotoSiteID ? { did: atprotoDID, siteID: atprotoSiteID } : undefined;
 // Astro's built-in Markdown `layout:` frontmatter mechanism (a plain .md page under
 // src/pages/ that selects this layout via `layout: ../layouts/BaseLayout.astro`) passes
 // the page's frontmatter as a nested Astro.props.frontmatter object rather than spreading
@@ -44,6 +60,11 @@ const license = headLicense(Astro.props.license, siteLicense());
 // Read directly by route rather than threaded as a prop (#1093) — every page renders through
 // this one layout, so the check lives in exactly one place instead of every call site.
 const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()));
+// #992: rslPublished (not bare rslActive) also checks the policy actually has content to
+// declare, matching whether `scripts/edge-artifacts.ts` actually wrote rsl.xml — the same
+// stronger gate `scripts/csp.ts` (the Link: header) uses, so this <link> never appears pointing
+// at an rsl.xml that wasn't actually generated (PR #1290 review).
+const rsl = rslPublished(licensingPolicy(), readConfig("SITE_URL"));
 ---
 
 <!doctype html>
@@ -60,11 +81,24 @@ const noindex = isNoindexed(Astro.url.pathname, readRobotsConfig(process.cwd()))
     <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed.json" />
     <link rel="indieauth-metadata" href="/.well-known/oauth-authorization-server" />
     {license && <link rel="license" href={license.url} title={license.name} />}
+    {rsl && <link rel="license" type="application/rsl+xml" href="/rsl.xml" />}
     {readConfig("WEBMENTION_RECEIVE_ENABLED") === "true" && (
       <link rel="webmention" href="/webmention" />
     )}
     {readConfig("MICROPUB_ENABLED") === "true" && (
       <link rel="micropub" href="/micropub" />
+    )}
+    {standardSiteIdentity && (
+      <link
+        rel="site.standard.publication"
+        href={standardSitePublicationURI(standardSiteIdentity.did, standardSiteIdentity.siteID)}
+      />
+    )}
+    {standardSiteIdentity && documentPath && (
+      <link
+        rel="site.standard.document"
+        href={standardSiteDocumentURI(standardSiteIdentity.did, standardSiteIdentity.siteID, documentPath)}
+      />
     )}
     <slot name="head" />
     <!-- anglesite:head-end -->

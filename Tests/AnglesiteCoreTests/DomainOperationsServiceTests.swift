@@ -264,6 +264,7 @@ final class FakeWriter: CloudflareWriting, @unchecked Sendable {
     func enableZstandardCompression(zoneID: String, apiToken: String) async throws {}
     func setPageShield(zoneID: String, enabled: Bool, apiToken: String) async throws {}
     func enableOnionRouting(zoneID: String, enabled: Bool, apiToken: String) async throws {}
+    func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
     func attachWorkersCustomDomain(hostname: String, workerScriptName: String, apiToken: String) async throws -> CustomDomainAttachResult {
         return .attached
     }

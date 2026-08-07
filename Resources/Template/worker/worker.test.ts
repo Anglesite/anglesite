@@ -1198,9 +1198,75 @@ test("activitypub: actor document is served as activity+json", async () => {
   const response = await fetchWorker(new Request("https://owner.example/users/site"));
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toContain("application/activity+json");
-  const body = await response.json() as { type: string; preferredUsername: string };
+  const body = await response.json() as { id: string; type: string; preferredUsername: string };
   expect(body.type).toBe("Person");
-  expect(body.preferredUsername).toBe("site");
+  // The actor IRI stays the fixed `/users/site` regardless of the handle (#1239).
+  expect(body.id).toBe("https://owner.example/users/site");
+  // preferredUsername defaults to the hostname (no AP_USERNAME set in testEnv) — see the
+  // "handle" block below for the override/invalid/default coverage.
+  expect(body.preferredUsername).toBe("owner.example");
+});
+
+// --- Fediverse handle: AP_USERNAME default/override/validation (#1239) ---------------------
+// `preferredUsername` and the WebFinger map both derive from `resolvePreferredUsername`; the
+// actor IRI (`/users/site`) never changes regardless of the resolved handle.
+
+test("handle: preferredUsername defaults to the hostname with a leading www. stripped", async () => {
+  const response = await fetchWorker(new Request("https://www.owner.example/users/site"));
+  const body = await response.json() as { preferredUsername: string };
+  expect(body.preferredUsername).toBe("owner.example");
+});
+
+test("handle: AP_USERNAME overrides the default preferredUsername", async () => {
+  const response = await worker.fetch(
+    new Request("https://owner.example/users/site"),
+    { ...testEnv, AP_USERNAME: "alice" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  const body = await response.json() as { id: string; preferredUsername: string };
+  expect(body.preferredUsername).toBe("alice");
+  // Overriding the handle never moves the actor IRI.
+  expect(body.id).toBe("https://owner.example/users/site");
+});
+
+test("handle: a mixed-case AP_USERNAME override is lowercased, matching the case-insensitive grammar", async () => {
+  const response = await worker.fetch(
+    new Request("https://owner.example/users/site"),
+    { ...testEnv, AP_USERNAME: "Alice" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  const body = await response.json() as { preferredUsername: string };
+  expect(body.preferredUsername).toBe("alice");
+});
+
+test("handle: an invalid AP_USERNAME falls back to the hostname default, not a malformed document", async () => {
+  const response = await worker.fetch(
+    new Request("https://owner.example/users/site"),
+    { ...testEnv, AP_USERNAME: "not valid!" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(200);
+  const body = await response.json() as { preferredUsername: string };
+  expect(body.preferredUsername).toBe("owner.example");
+});
+
+test("handle: the FEP-2c59 webfinger back-link on the actor document matches the resolved handle", async () => {
+  const response = await worker.fetch(
+    new Request("https://owner.example/users/site"),
+    { ...testEnv, AP_USERNAME: "alice" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  const body = await response.json() as { webfinger?: string };
+  expect(body.webfinger).toBe("acct:alice@owner.example");
+});
+
+test("handle: HEAD /users/site still succeeds with no body to patch", async () => {
+  const response = await worker.fetch(
+    new Request("https://owner.example/users/site", { method: "HEAD" }),
+    testEnv,
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(200);
 });
 
 test("activitypub: outbox collection is served", async () => {
@@ -1320,6 +1386,160 @@ test("micropub-to-activitypub fan-out: an html-only mf2 rich-text content object
   expect(outboxPage.orderedItems?.some((item) => item.object?.content?.includes("Hello, html-only fediverse"))).toBe(true);
 });
 
+type FanOutAttachment = { type?: string; url?: string; name?: string };
+type FanOutOutboxItem = { object?: { content?: string; attachment?: FanOutAttachment[] } };
+
+test("micropub-to-activitypub fan-out (#1240): a JSON create with photos lands a Note carrying the expected attachment array", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: {
+        content: ["A photo for Pixelfed"],
+        // Mixed shapes: a bare URL string and the mf2 alt-text object form { value, alt } —
+        // both must map to an AS2 `Image` attachment.
+        photo: ["https://media.example/plain.jpg", { value: "https://media.example/alt.jpg", alt: "A view" }],
+      },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("A photo for Pixelfed"));
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/plain.jpg" },
+    { type: "Image", url: "https://media.example/alt.jpg", name: "A view" },
+  ]);
+});
+
+test("micropub-to-activitypub fan-out (#1240): a photo-less JSON create publishes a Note with no attachment field", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: { content: ["No photo here"] },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("No photo here"));
+  expect(published?.object?.attachment).toBeUndefined();
+});
+
+test("micropub-to-activitypub fan-out (#1240, #1325 review): a photo-only create with no caption still fans out", async () => {
+  // The primary case #1240 exists to fix: Pixelfed renders only posts with an attachment, and a
+  // bare photo with no caption text is a normal, common Micropub shape — it must not be dropped
+  // by a `content`-only guard (a bug caught in PR review before merge).
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: JSON.stringify({
+      type: ["h-entry"],
+      properties: { photo: ["https://media.example/caption-less.jpg"] },
+    }),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) =>
+    item.object?.attachment?.some((attachment) => attachment.url === "https://media.example/caption-less.jpg"),
+  );
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/caption-less.jpg" },
+  ]);
+});
+
+test("micropub-to-activitypub fan-out (#1240): a form-encoded create with photo fields lands the same attachment mapping", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const body = new URLSearchParams();
+  body.append("h", "entry");
+  body.append("content", "Form-encoded photo post");
+  body.append("photo", "https://media.example/form-a.jpg");
+  body.append("photo[]", "https://media.example/form-b.jpg");
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: body.toString(),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("Form-encoded photo post"));
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/form-a.jpg" },
+    { type: "Image", url: "https://media.example/form-b.jpg" },
+  ]);
+});
+
+test("micropub-to-activitypub fan-out (#1240, #1325 review): a form-encoded create using the properties[photo][] nesting convention still attaches", async () => {
+  const { token, keyPair } = await mintAccessToken("create");
+  const url = "https://owner.example/micropub";
+  const ctx = createExecutionContext();
+  const body = new URLSearchParams();
+  body.append("h", "entry");
+  // Same `properties[x]` nesting convention `content` already falls back to
+  // (`form.get("properties[content]")`) — a client using it for `photo` must not have its
+  // attachments silently dropped from the fan-out.
+  body.append("properties[content]", "Nested-properties photo post");
+  body.append("properties[photo][]", "https://media.example/nested.jpg");
+  const createResponse = await worker.fetch(new Request(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization: `DPoP ${token}`,
+      DPoP: await dpopProof(url, "POST", keyPair, token),
+    },
+    body: body.toString(),
+  }), testEnv, ctx);
+  expect(createResponse.status).toBe(201);
+  await waitOnExecutionContext(ctx);
+
+  const outboxPageResponse = await fetchWorker(new Request("https://owner.example/users/site/outbox?page=1"));
+  const outboxPage = await outboxPageResponse.json() as { orderedItems?: FanOutOutboxItem[] };
+  const published = outboxPage.orderedItems?.find((item) => item.object?.content?.includes("Nested-properties photo post"));
+  expect(published?.object?.attachment).toEqual([
+    { type: "Image", url: "https://media.example/nested.jpg" },
+  ]);
+});
+
 test("micropub-to-activitypub fan-out: never fires when ActivityPub isn't provisioned", async () => {
   const { AP_PUBLISH_TOKEN: _unusedToken, ...envWithoutToken } = testEnv;
   const { token, keyPair } = await mintAccessToken("create");
@@ -1365,23 +1585,86 @@ test("websub queue consumer: dispatches into @dwk/websub's consumer without thro
 // --- WebFinger discovery (V-4.4, #366) ------------------------------------------------------
 // Composition of @dwk/webfinger's handler, which is RFC 7033-conformant on its own (query
 // validation, CORS, JRD body, 400/404) — these tests cover only what this file supplies: the
-// resource map resolving `acct:site@<host>` to the ActivityPub actor, and the 503-when-
-// unconfigured guard every other composed handler in this file follows.
+// resource map resolving the canonical + alias `acct:` handles to the ActivityPub actor (#1239),
+// and the 503-when-unconfigured guard every other composed handler in this file follows.
 
-test("webfinger: resolves acct:site@<host> to the ActivityPub actor", async () => {
+test("webfinger: resolves the canonical acct:<hostname>@<host> handle by default", async () => {
   const response = await fetchWorker(
-    new Request("https://owner.example/.well-known/webfinger?resource=acct:site@owner.example"),
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:owner.example@owner.example"),
   );
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toContain("application/jrd+json");
   expect(response.headers.get("access-control-allow-origin")).toBe("*");
   const jrd = await response.json() as { subject: string; links: Array<{ rel: string; type?: string; href?: string }> };
-  expect(jrd.subject).toBe("acct:site@owner.example");
+  expect(jrd.subject).toBe("acct:owner.example@owner.example");
   expect(jrd.links).toContainEqual({
     rel: "self",
     type: "application/activity+json",
     href: "https://owner.example/users/site",
   });
+});
+
+test("webfinger: the legacy acct:site@<host> handle resolves as an alias to the canonical handle", async () => {
+  const response = await fetchWorker(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:site@owner.example"),
+  );
+  expect(response.status).toBe(200);
+  const jrd = await response.json() as { subject: string; links: Array<{ rel: string; type?: string; href?: string }> };
+  // The alias's JRD subject is the canonical handle, not the alias itself.
+  expect(jrd.subject).toBe("acct:owner.example@owner.example");
+  expect(jrd.links).toContainEqual({
+    rel: "self",
+    type: "application/activity+json",
+    href: "https://owner.example/users/site",
+  });
+});
+
+test("webfinger: with AP_USERNAME set, the override is canonical and both the hostname default and acct:site alias resolve", async () => {
+  const envWithOverride = { ...testEnv, AP_USERNAME: "alice" } as WorkerEnv;
+  const canonical = await worker.fetch(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:alice@owner.example"),
+    envWithOverride,
+    createExecutionContext(),
+  );
+  expect(canonical.status).toBe(200);
+  expect((await canonical.json() as { subject: string }).subject).toBe("acct:alice@owner.example");
+
+  for (const alias of ["site", "owner.example"]) {
+    const response = await worker.fetch(
+      new Request(`https://owner.example/.well-known/webfinger?resource=acct:${alias}@owner.example`),
+      envWithOverride,
+      createExecutionContext(),
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json() as { subject: string }).subject).toBe("acct:alice@owner.example");
+  }
+});
+
+test("webfinger: a mixed-case AP_USERNAME override still resolves at the conventional lowercase acct: query", async () => {
+  // Regression guard: the resource map is a plain object keyed by the resolved (lowercased)
+  // handle, so an un-normalized "Alice" override would only answer acct:Alice@... — undiscoverable
+  // via the lowercase acct:alice@... form most Fediverse clients query.
+  const response = await worker.fetch(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:alice@owner.example"),
+    { ...testEnv, AP_USERNAME: "Alice" } as WorkerEnv,
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(200);
+  const jrd = await response.json() as { subject: string };
+  expect(jrd.subject).toBe("acct:alice@owner.example");
+});
+
+test("webfinger: an AP_USERNAME override equal to the derived default produces no extra alias handle", async () => {
+  // The default *is* the canonical handle here, so acct:owner.example just resolves normally —
+  // no separate alias entry, but it must not error or produce a duplicate-key surprise either.
+  const envWithRedundantOverride = { ...testEnv, AP_USERNAME: "owner.example" } as WorkerEnv;
+  const response = await worker.fetch(
+    new Request("https://owner.example/.well-known/webfinger?resource=acct:owner.example@owner.example"),
+    envWithRedundantOverride,
+    createExecutionContext(),
+  );
+  expect(response.status).toBe(200);
+  expect((await response.json() as { subject: string }).subject).toBe("acct:owner.example@owner.example");
 });
 
 test("webfinger: 503 when ActivityPub isn't configured", async () => {

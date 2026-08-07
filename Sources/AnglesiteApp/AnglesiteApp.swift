@@ -219,7 +219,8 @@ struct AnglesiteApp: App {
             }
 
             NewContentCommands()
-            // Edit ▸ Delete ⌘⌫ / Duplicate ⌘D for the focused window's Navigator selection (#516).
+            // Edit ▸ Duplicate ⌘D / Publish / Unpublish for the focused window's Navigator
+            // selection (#516). Delete is deliberately not here — see NavigatorEditCommands (#989).
             NavigatorEditCommands()
             // Edit-menu skeleton: selection walkers, annotations, Find ▸ (menu-bar spec §2.3).
             EditMenuSkeletonCommands()

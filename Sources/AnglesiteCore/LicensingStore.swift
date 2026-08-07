@@ -236,18 +236,25 @@ public struct LicensingPolicy: Sendable, Equatable {
     public var collections: [LicensableCollection: CollectionLicenseRule]
     /// Site-wide AI usage permissions (#991).
     public var usage: AIUsage
+    /// Also emit RSL (#992 — phase 3 of the content licensing work). Off by default: no crawler
+    /// is confirmed to honor RSL, so this is a disclosure-style opt-in, not a protection. Mirrors
+    /// `publishRSL` on `LicensingPolicy` in `licensing.ts`; `src/lib/rsl.ts` derives every RSL
+    /// projection from this same policy, never from a separate signal.
+    public var publishRSL: Bool
 
     /// The all-defaults form is the empty policy — assert nothing, inherit everywhere, no
-    /// usage preferences — the same state ``LicensingStore/load()`` reports for a site with no
-    /// `licensing.json` at all.
+    /// usage preferences, no RSL — the same state ``LicensingStore/load()`` reports for a site
+    /// with no `licensing.json` at all.
     public init(
         defaultLicense: LicenseRef? = nil,
         collections: [LicensableCollection: CollectionLicenseRule] = [:],
-        usage: AIUsage = AIUsage()
+        usage: AIUsage = AIUsage(),
+        publishRSL: Bool = false
     ) {
         self.defaultLicense = defaultLicense
         self.collections = collections
         self.usage = usage
+        self.publishRSL = publishRSL
     }
 
     /// The effective stored rule for `collection` — an absent key *is* `.inherit`, which is
@@ -269,7 +276,7 @@ public struct LicensingPolicy: Sendable, Equatable {
 
 extension LicensingPolicy: Codable {
     private enum CodingKeys: String, CodingKey {
-        case `default`, collections, usage
+        case `default`, collections, usage, publishRSL
     }
 
     /// `collections` is a free-form object whose values are either null or a license, so it needs
@@ -348,7 +355,11 @@ extension LicensingPolicy: Codable {
                 }
             }
         }
-        self.init(defaultLicense: defaultLicense, collections: collections, usage: usage.clamped)
+        // A non-boolean `publishRSL` (a string, number, or object) degrades to false rather than
+        // throwing — matching `normalizePolicy`'s `rawPublishRSL === true` check, which is false
+        // for anything but the literal boolean `true`.
+        let publishRSL = ((try? container.decodeIfPresent(Bool.self, forKey: .publishRSL)) ?? nil) ?? false
+        self.init(defaultLicense: defaultLicense, collections: collections, usage: usage.clamped, publishRSL: publishRSL)
     }
 
     /// Template-compatible encoding: `default` is always written (an explicit null states "all
@@ -360,6 +371,7 @@ extension LicensingPolicy: Codable {
         // and says "all rights reserved" out loud rather than by omission.
         try container.encode(defaultLicense, forKey: .default)
         try container.encode(usage.clamped, forKey: .usage)
+        try container.encode(publishRSL, forKey: .publishRSL)
         var sub = container.nestedContainer(keyedBy: CollectionKey.self, forKey: .collections)
         // Sorted so a save produces a stable diff in the site's git repo.
         for collection in LicensableCollection.allCases {
