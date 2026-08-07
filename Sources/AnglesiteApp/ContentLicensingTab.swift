@@ -67,6 +67,7 @@ struct ContentLicensingTab: View {
             SettingsBox(title: "Site License") { siteDefaultSection }
             SettingsBox(title: "By Content Type") { perCollectionSection }
             SettingsBox(title: "AI and Crawlers") { aiUsageSection }
+            SettingsBox(title: "RSL") { rslSection }
             if model.isSavingLicensing {
                 ProgressView().controlSize(.small)
             }
@@ -348,6 +349,24 @@ struct ContentLicensingTab: View {
             }
             .labelsHidden()
             .frame(width: 140)
+        }
+    }
+
+    // MARK: RSL
+
+    /// The disclosure-style RSL toggle (#992, phase 3 of the content licensing work). RSL is a
+    /// fourth *projection* of the same policy above — the site default, per-collection overrides,
+    /// and AI usage permissions already captured by the sections above — never a separate signal
+    /// of its own. Labeled honestly, following the BBEdit-style convention the AI usage copy
+    /// above already established: as of the design spike, no AI crawler is confirmed to honor
+    /// RSL, so this is a disclosure, not a protection.
+    private var rslSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle("Also publish RSL", isOn: $model.licensingPolicy.publishRSL)
+                .toggleStyle(.switch)
+            Text("No AI company currently honors this standard; it records your terms — the license and AI usage settings above — in machine-readable form (rsl.xml, a robots.txt License: line, and a matching Link header).")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 }

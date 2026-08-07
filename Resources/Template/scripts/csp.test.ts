@@ -144,6 +144,19 @@ test("buildHeaders: no noindex entries leaves output unchanged from today", () =
   assert.equal(buildHeaders(""), buildHeaders("", false, []));
 });
 
+test("buildHeaders: no rslUrl omits the Link header", () => {
+  assert.doesNotMatch(buildHeaders(""), /Link:/);
+});
+
+test("buildHeaders: rslUrl adds a rel=license Link header inside the /* block", () => {
+  const out = buildHeaders("", false, [], "https://example.com/rsl.xml");
+  assert.match(out, /\n  Link: <https:\/\/example\.com\/rsl\.xml>; rel="license"; type="application\/rsl\+xml"\n/);
+  // Inside the /* block: precedes its blank-line terminator, not appended as its own route.
+  const linkIndex = out.indexOf("Link:");
+  const blockEnd = out.indexOf("\n\n");
+  assert.ok(linkIndex > 0 && linkIndex < blockEnd, "Link: must be inside the /* block");
+});
+
 test("buildHeaders: a newline in a path can't open an extra header block", () => {
   const entries: RobotsConfigEntry[] = [{ path: "/evil/\n/*\n  X-Frame-Options: ALLOWALL" }];
   const out = buildHeaders("", false, entries);

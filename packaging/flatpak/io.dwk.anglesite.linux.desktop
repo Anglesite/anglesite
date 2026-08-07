@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Anglesite
+GenericName=Website Editor
+Comment=Click-to-edit websites with a live preview
+Exec=anglesite-linux %f
+Icon=io.dwk.anglesite.linux
+Terminal=false
+Categories=Development;WebDevelopment;
+StartupNotify=true
