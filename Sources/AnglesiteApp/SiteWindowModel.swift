@@ -1245,7 +1245,10 @@ final class SiteWindowModel {
         // spell its own `[weak self]` capture without the compiler flagging the mismatch against an
         // implicitly-captured strong `self` in this outer scope.
         Task { [self] in
-            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else {
+                pendingWebsiteSettingsTab = nil
+                return
+            }
             let kind = EditorKind.resolve(for: file)
             switch kind {
             case .text, .component, .markdown:
