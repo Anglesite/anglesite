@@ -19,7 +19,8 @@ default plus optional per-collection overrides:
     "photos": { "url": "https://creativecommons.org/licenses/by-nc/4.0/", "name": "CC BY-NC 4.0" },
     "notes": null
   },
-  "usage": { "search": "yes", "aiInput": "no", "aiTrain": "no", "blockAICrawlers": true }
+  "usage": { "search": "yes", "aiInput": "no", "aiTrain": "no", "blockAICrawlers": true },
+  "publishRSL": false
 }
 ```
 
@@ -41,3 +42,17 @@ The resolved license is emitted three ways: `license` in the page's schema.org J
 `u-license` in the entry's Microformats2 markup, and `<link rel="license">` in `<head>`.
 Set `COPYRIGHT_HOLDER` in `.site-config` to name the rights holder in the footer; it falls back
 to your profile name.
+
+`"publishRSL": true` adds [RSL](https://rslstandard.org/rsl) as a fourth projection of this same
+policy — declaratory, not enforcement: as of this writing no AI crawler is confirmed to honor RSL,
+so it records your terms in machine-readable form rather than protecting anything. It only takes
+effect with a usable `https://` `SITE_URL` set in `.site-config` (RSL's own discovery surfaces need
+an absolute URL to point at). When active, the build writes `public/rsl.xml` — one `<content>`
+block per the site default plus any collection that diverges from it, each declaring the same
+`usage` permits/prohibits and (for a Creative Commons license Anglesite recognizes) a `free` or
+`attribution` `<payment>` — and adds a matching `License:` line to `robots.txt`, a `Link:
+rel="license"` header via `public/_headers`, a `<link rel="license" type="application/rsl+xml">` in
+every page's `<head>`, and an `xmlns:rsl` `<rsl:content>` element per item in the RSS/Atom feeds.
+Anglesite never emits an RSL `<legal type="warranty">`/`<legal type="attestation">`, a `<payment>`
+type other than `free`/`attribution`, or a `<reporting>` element — see
+`docs/superpowers/specs/2026-07-26-really-simple-licensing-spike.md` §Q3 for why.
