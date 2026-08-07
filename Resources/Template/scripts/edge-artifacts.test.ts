@@ -10,6 +10,8 @@ import {
   aiCrawlers,
   contentSignalDirective,
   readLicensingUsage,
+  readLicensingPolicy,
+  planRslFile,
   normalizeSecurityContact,
   normalizeSecurityContacts,
   resolveSecurityTxtMode,
@@ -26,7 +28,7 @@ import {
   isAtprotoDidOwned,
   planAtprotoDid,
 } from "./edge-artifacts";
-import { NO_USAGE, type AIUsage } from "../src/lib/licensing.ts";
+import { NO_USAGE, type AIUsage, type LicensingPolicy } from "../src/lib/licensing.ts";
 import type { RobotsConfigEntry } from "../src/lib/robots-config.ts";
 
 test("buildRobotsTxt: allows all crawlers by default and ends with a newline", () => {
@@ -149,6 +151,25 @@ test("buildRobotsTxt: no blank line between Disallow: and Content-Signal (stays 
   );
 });
 
+test("buildRobotsTxt: omits License when rslUrl is unset", () => {
+  assert.doesNotMatch(buildRobotsTxt(), /License:/);
+  assert.doesNotMatch(buildRobotsTxt(undefined, "https://example.com"), /License:/);
+});
+
+test("buildRobotsTxt: License stands outside every User-agent group, alongside Sitemap", () => {
+  const out = buildRobotsTxt(undefined, "https://example.com", [], [], "https://example.com/rsl.xml");
+  assert.match(out, /^Sitemap: https:\/\/example\.com\/sitemap\.xml$/m);
+  assert.match(out, /^License: https:\/\/example\.com\/rsl\.xml$/m);
+  const before = out.slice(0, out.indexOf("License:"));
+  assert.match(before, /\n\n$/, "a blank line must precede License so it reads as a non-group field");
+});
+
+test("buildRobotsTxt: License can be emitted even without a Sitemap line", () => {
+  const out = buildRobotsTxt(undefined, undefined, [], [], "https://example.com/rsl.xml");
+  assert.doesNotMatch(out, /Sitemap:/);
+  assert.match(out, /^License: https:\/\/example\.com\/rsl\.xml$/m);
+});
+
 function withLicensingDoc(doc: unknown): string {
   const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
   mkdirSync(resolve(dir, "src/data"), { recursive: true });
@@ -224,6 +245,116 @@ test("readLicensingUsage: logs a read-failure message, not a syntax message, for
   const message = String(logs[0][0]);
   assert.match(message, /could not be read/);
   assert.doesNotMatch(message, /is not valid JSON/);
+});
+
+test("readLicensingPolicy: an absent document yields the empty policy and no clamp", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "edge-artifacts-"));
+  const out = readLicensingPolicy(dir);
+  assert.equal(out.policy.default, null);
+  assert.equal(out.policy.publishRSL, false);
+  assert.deepEqual(out.policy.usage, NO_USAGE);
+  assert.equal(out.clamped, false);
+});
+
+test("readLicensingPolicy: reads publishRSL and the default license alongside usage", () => {
+  const dir = withLicensingDoc({
+    default: { url: "https://creativecommons.org/licenses/by/4.0/", name: "CC BY 4.0" },
+    publishRSL: true,
+  });
+  const out = readLicensingPolicy(dir);
+  assert.equal(out.policy.publishRSL, true);
+  assert.deepEqual(out.policy.default, {
+    url: "https://creativecommons.org/licenses/by/4.0/",
+    name: "CC BY 4.0",
+  });
+});
+
+test("readLicensingPolicy: readLicensingUsage is a thin projection of it", () => {
+  const dir = withLicensingDoc({ usage: { aiInput: "no", aiTrain: "no", blockAICrawlers: true } });
+  const policy = readLicensingPolicy(dir);
+  const usage = readLicensingUsage(dir);
+  assert.deepEqual(usage, { usage: policy.policy.usage, clamped: policy.clamped });
+});
+
+// --- planRslFile (#992, PR #1290 review) ------------------------------------------------------
+// public/rsl.xml must be removed once a prior build's copy is no longer justified — RSL turned
+// off, SITE_URL cleared, or (the case a bare rslActive check missed) the policy no longer has
+// anything to declare — or it sits in public/ forever and keeps getting copied into every dist/.
+
+const CC_BY: LicensingPolicy["default"] = {
+  url: "https://creativecommons.org/licenses/by/4.0/",
+  name: "CC BY 4.0",
+};
+const EMPTY_POLICY: LicensingPolicy = {
+  default: null,
+  collections: {},
+  usage: NO_USAGE,
+  publishRSL: true,
+};
+
+test("planRslFile: writes when RSL is active and the policy has content", () => {
+  const plan = planRslFile({
+    policy: { ...EMPTY_POLICY, default: CC_BY },
+    siteUrl: "https://example.com",
+    holder: undefined,
+    existingContent: null,
+  });
+  assert.equal(plan.action.kind, "write");
+});
+
+test("planRslFile: does nothing when inactive and no stale file exists", () => {
+  const plan = planRslFile({
+    policy: { ...EMPTY_POLICY, publishRSL: false, default: CC_BY },
+    siteUrl: "https://example.com",
+    holder: undefined,
+    existingContent: null,
+  });
+  assert.deepEqual(plan.action, { kind: "none" });
+});
+
+test("planRslFile: removes a stale file when publishRSL is off", () => {
+  const plan = planRslFile({
+    policy: { ...EMPTY_POLICY, publishRSL: false, default: CC_BY },
+    siteUrl: "https://example.com",
+    holder: undefined,
+    existingContent: "<rsl xmlns=\"https://rslstandard.org/rsl\"></rsl>",
+  });
+  assert.equal(plan.action.kind, "delete-stale");
+  assert.match(plan.note!, /no longer active/);
+});
+
+test("planRslFile: removes a stale file when SITE_URL becomes unusable", () => {
+  const plan = planRslFile({
+    policy: { ...EMPTY_POLICY, default: CC_BY },
+    siteUrl: undefined,
+    holder: undefined,
+    existingContent: "<rsl xmlns=\"https://rslstandard.org/rsl\"></rsl>",
+  });
+  assert.equal(plan.action.kind, "delete-stale");
+});
+
+test("planRslFile: removes a stale file when RSL is active but the policy has nothing to declare", () => {
+  // The bug PR #1290 review found: an earlier version gated the Link header/<link> tag (and,
+  // before this fix, left main() with no cleanup at all) on rslActive alone, which is true here
+  // even though buildRslDocument has nothing to write.
+  const plan = planRslFile({
+    policy: EMPTY_POLICY,
+    siteUrl: "https://example.com",
+    holder: undefined,
+    existingContent: "<rsl xmlns=\"https://rslstandard.org/rsl\"></rsl>",
+  });
+  assert.equal(plan.action.kind, "delete-stale");
+  assert.match(plan.note!, /nothing to declare/);
+});
+
+test("planRslFile: does nothing when active with nothing to declare and no stale file exists", () => {
+  const plan = planRslFile({
+    policy: EMPTY_POLICY,
+    siteUrl: "https://example.com",
+    holder: undefined,
+    existingContent: null,
+  });
+  assert.deepEqual(plan.action, { kind: "none" });
 });
 
 const NOW = new Date("2026-06-28T12:00:00Z");

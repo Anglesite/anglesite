@@ -61,6 +61,12 @@ final class PlistEditorModel {
     private(set) var licensingError: String?
     private(set) var isSavingLicensing = false
     private(set) var licensingLoadFailed = false
+    /// Whether Markdown for Agents (#1247) is enabled for this site's deploys — `Config/`-backed
+    /// (`SiteSettings.markdownForAgentsDisabled`), not part of `licensingPolicy`'s git-tracked
+    /// `licensing.json`: it's a Cloudflare zone setting applied at deploy time, not generated
+    /// content. Defaults to `true` (enabled), matching the feature's default-on ask.
+    private(set) var markdownForAgentsEnabled = true
+    private(set) var markdownForAgentsError: String?
     var mtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var savedMtaStsSettings = MTAStsPolicyAsset.Settings()
     private(set) var mtaStsError: String?
@@ -124,6 +130,21 @@ final class PlistEditorModel {
     private(set) var workerLastDeployedIDs: [String] = []
     /// The most recently loaded `SiteSettings`, the base for toggle read-modify-write saves.
     private var workerSettings = SiteSettings()
+
+    /// The ActivityPub handle text field's current value (#1239) — pre-filled with
+    /// `DeployCoordinator.resolveEffectiveActivityPubUsername` (the `.site-config` `AP_USERNAME`
+    /// override, or the hostname-derived default) by `loadWorkers()`. Mutable (like
+    /// `websiteTitle`) so the Workers tab can bind a `TextField` to it directly for live typing;
+    /// `saveActivityPubUsername(_:)` is the explicit commit step, called on blur/submit.
+    var activityPubUsername = ""
+    /// The advisory lock (design doc §"Owner-chosen username"): once the actor has federated
+    /// (`DeployCoordinator.isActivityPubHandleLocked`), the field goes read-only in the UI.
+    /// `Source/` stays a plain, hand-editable git repo regardless (CLAUDE.md "Git is the source
+    /// of truth") — deploy-time rename detection (`saveActivityPubUsername`'s sibling concern on
+    /// the deploy path) is the real backstop, not this flag.
+    private(set) var activityPubUsernameLocked = false
+    private(set) var activityPubUsernameError: String?
+
     private let configDirectory: URL?
     private let workerCatalogProvider: @Sendable () async -> [WorkerDescriptor]
     private let graphSnapshotProvider: @MainActor () -> SiteGraphExplorerSnapshot?
@@ -247,6 +268,13 @@ final class PlistEditorModel {
                 licensingError = "Couldn't load existing licensing.json — it may be corrupted or hand-edited. Fix it externally or your next save will discard it. (\(error.localizedDescription))"
                 licensingLoadFailed = true
             }
+            if let configDirectory {
+                let settings = (try? await SiteConfigStore(configDirectory: configDirectory).load()) ?? SiteSettings()
+                markdownForAgentsEnabled = !(settings.markdownForAgentsDisabled ?? false)
+            } else {
+                markdownForAgentsEnabled = true
+            }
+            markdownForAgentsError = nil
             let lang = SiteLanguageAsset.parseSettings(from: config)
             langSettings = lang
             savedLangSettings = lang
@@ -884,6 +912,50 @@ final class PlistEditorModel {
         workersError = catalog.isEmpty
             ? String(localized: "The worker catalog couldn't be loaded. Check your network connection and reopen this tab.")
             : nil
+        activityPubUsername = DeployCoordinator.resolveEffectiveActivityPubUsername(siteDirectory: sourceDirectory) ?? ""
+        activityPubUsernameError = nil
+        // `siteURL` is nilable here (an unresolvable/malformed site URL doesn't skip the check,
+        // it just narrows it to the local outbox ledger) — see `isActivityPubHandleLocked`'s own
+        // doc comment for why that matters.
+        let siteURL = DeployCoordinator.resolveSiteURL(siteDirectory: sourceDirectory).flatMap(URL.init(string:))
+        activityPubUsernameLocked = await DeployCoordinator.isActivityPubHandleLocked(
+            siteURL: siteURL, configDirectory: configDirectory
+        )
+    }
+
+    /// Persists the ActivityPub handle override to `.site-config`'s `AP_USERNAME` key (#1239),
+    /// validating at entry per the design doc (`DeployCoordinator.isValidActivityPubUsername` —
+    /// the same grammar `worker.ts` re-checks at request time). Lowercased before comparing or
+    /// writing — the grammar is case-insensitive, but WebFinger's local-part lookup is
+    /// exact-match case-sensitive (RFC 7565), so a mixed-case value would only resolve at that
+    /// exact casing (`worker.ts`'s `resolvePreferredUsername` does the same normalization); this
+    /// also keeps the displayed field in sync with what `resolveEffectiveActivityPubUsername`
+    /// resolves after a reload. A value equal to the hostname-derived default is deduped — the
+    /// key is removed rather than written, so `.site-config` doesn't grow a redundant line every
+    /// time an owner types the default back in. No-ops when the handle is locked; the UI disables
+    /// the field in that state, so this would only be reached via a bypass.
+    func saveActivityPubUsername(_ newValue: String) {
+        guard !activityPubUsernameLocked else { return }
+        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty || DeployCoordinator.isValidActivityPubUsername(trimmed) else {
+            activityPubUsernameError = String(localized: "Handles can only contain letters, numbers, underscores, periods, and hyphens.")
+            return
+        }
+        activityPubUsernameError = nil
+        let normalized = trimmed.lowercased()
+        let defaultUsername = DeployCoordinator.defaultActivityPubUsername(siteDirectory: sourceDirectory)
+        let configURL = sourceDirectory.appendingPathComponent(".site-config")
+        let existing = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        let updated: String
+        if normalized.isEmpty || normalized == defaultUsername {
+            updated = SiteConfigFile.remove(["AP_USERNAME"], from: existing)
+            activityPubUsername = defaultUsername ?? ""
+        } else {
+            updated = SiteConfigFile.upsert([("AP_USERNAME", normalized)], into: existing)
+            activityPubUsername = normalized
+        }
+        guard updated != existing else { return }
+        try? updated.write(to: configURL, atomically: true, encoding: .utf8)
     }
 
     /// Persists a settings-activated worker toggle immediately (design doc §8): read-modify-write
@@ -926,9 +998,38 @@ final class PlistEditorModel {
         await onActiveWorkersChanged(settings)
     }
 
+    /// Persists the Markdown for Agents opt-out immediately (#1247) — read-modify-write of
+    /// `Config/settings.plist`, same immediate-persist contract as `setWorkerActive`: this is
+    /// app-owned deploy-mechanics state, not part of the tab's dirty-tracked licensing save.
+    func setMarkdownForAgentsEnabled(_ enabled: Bool) async {
+        guard let configDirectory else { return }
+        let store = SiteConfigStore(configDirectory: configDirectory)
+        var settings = (try? await store.load()) ?? SiteSettings()
+        settings.markdownForAgentsDisabled = enabled ? nil : true
+        do {
+            try await store.save(settings)
+            markdownForAgentsEnabled = enabled
+            markdownForAgentsError = nil
+        } catch {
+            markdownForAgentsError = String(localized: "Couldn't save this change: \(error.localizedDescription)")
+        }
+    }
+
     /// Dashboard deep-links are enabled only after the first deploy that included a worker
     /// (design doc §8) — before that there is nothing on Cloudflare to look at.
     var workerDashboardEnabled: Bool { !workerLastDeployedIDs.isEmpty }
+
+    /// Whether ActivityPub is currently active — gates the handle field's visibility (#1239): it
+    /// lives with the activation flow, not a buried always-visible setting the owner must
+    /// discover before it means anything.
+    var activityPubActive: Bool {
+        workerGroups
+            .flatMap(\.rows)
+            .contains { row in
+                row.id == WorkerComposition.activitypubWorkerID
+                    && row.status == .settingsActivated(isOn: true)
+            }
+    }
 
     /// The deployed worker script is named after the site slug — the same derivation the deploy
     /// path uses (`SiteOperations`/`DeployModel`: `SiteSlug.derive(from: site.name)`).

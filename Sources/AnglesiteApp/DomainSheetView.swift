@@ -290,6 +290,10 @@ struct DomainSheetView: View {
                 ), format: .number)
                 .help("Lower numbers are preferred mail servers, e.g. 10.")
             }
+            if draft.context == .bluesky {
+                Link("Learn more about Atmosphere", destination: URL(string: "https://atmosphereaccount.com")!)
+                    .font(.callout)
+            }
         }
         .padding(16)
     }

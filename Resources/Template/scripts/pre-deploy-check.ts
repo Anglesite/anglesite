@@ -24,8 +24,9 @@ import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAllowedDomains } from "./csp";
 import { readConfigFromString } from "./config";
-import { isMTAStsMarkerOwned, isSecurityTxtMarkerOwned, normalizeMTAStsMX, resolveMTAStsMode, resolveSecurityTxtMode } from "./edge-artifacts";
+import { isMTAStsMarkerOwned, isSecurityTxtMarkerOwned, normalizeMTAStsMX, readLicensingPolicy, resolveMTAStsMode, resolveSecurityTxtMode } from "./edge-artifacts";
 import { ANGLESITE_CONFIG_RECOGNIZED_VERSIONS } from "./anglesite-config";
+import { rslActive, rslFileUrl } from "../src/lib/rsl.ts";
 
 interface Issue {
   severity: "error" | "warning";
@@ -538,6 +539,103 @@ export function checkMTAStsPolicy(content: string | null, configContent: string)
 }
 
 /**
+ * RSL conformance check (#992). Unlike security.txt/MTA-STS, there's no lifecycle mode to
+ * validate against — `rslActive` is a pure function of `publishRSL` and `SITE_URL`, so this only
+ * checks that the four projections (`rsl.xml`, robots.txt `License:`, the `Link:` header, and —
+ * implicitly — the pointer they all share) actually agree with each other and with that gate.
+ * `BaseLayout.astro`'s `<link>` isn't checked here: it's per-page HTML, not a single build
+ * artifact, and `licensing.build.test.ts` already asserts it end-to-end against a real build.
+ */
+export function checkRSL(
+  rslActiveNow: boolean,
+  expectedRslUrl: string | null,
+  rslXmlContent: string | null,
+  robotsContent: string,
+  headersContent: string | null,
+): Issue[] {
+  const issues: Issue[] = [];
+  const file = "dist/rsl.xml";
+  const licenseDirective = robotsContent
+    .split("\n")
+    .find((line) => /^License:/i.test(line.trim()))
+    ?.replace(/^License:\s*/i, "")
+    .trim();
+  const rslLinkHeader = headersContent?.includes('rel="license"; type="application/rsl+xml"')
+    ? headersContent.match(/Link:\s*<([^>]+)>;\s*rel="license";\s*type="application\/rsl\+xml"/)?.[1]
+    : undefined;
+
+  if (!rslActiveNow) {
+    if (rslXmlContent !== null) {
+      issues.push({
+        severity: "warning",
+        category: "rsl-issue",
+        message: "dist/rsl.xml was published, but RSL isn't active (publishRSL is off, or SITE_URL isn't a usable https URL).",
+        file,
+      });
+    }
+    if (licenseDirective) {
+      issues.push({
+        severity: "warning",
+        category: "rsl-issue",
+        message: "robots.txt has a License: directive, but RSL isn't active.",
+        file: "dist/robots.txt",
+      });
+    }
+    return issues;
+  }
+
+  if (rslXmlContent === null) {
+    issues.push({
+      severity: "warning",
+      category: "rsl-issue",
+      message: "publishRSL is on but dist/rsl.xml is missing — the policy may have nothing to declare (no default license and no stated usage preference).",
+      file,
+    });
+  } else if (!/<rsl\s[^>]*xmlns="https:\/\/rslstandard\.org\/rsl"/.test(rslXmlContent)) {
+    issues.push({
+      severity: "error",
+      category: "rsl-issue",
+      message: "dist/rsl.xml doesn't declare the RSL namespace (xmlns=\"https://rslstandard.org/rsl\") on its root element.",
+      file,
+    });
+  }
+
+  if (!licenseDirective) {
+    issues.push({
+      severity: "warning",
+      category: "rsl-issue",
+      message: "RSL is active but robots.txt has no License: directive.",
+      file: "dist/robots.txt",
+    });
+  } else if (expectedRslUrl && licenseDirective !== expectedRslUrl) {
+    issues.push({
+      severity: "error",
+      category: "rsl-issue",
+      message: `robots.txt License: (${licenseDirective}) doesn't match the site's rsl.xml URL (${expectedRslUrl}).`,
+      file: "dist/robots.txt",
+    });
+  }
+
+  if (!rslLinkHeader) {
+    issues.push({
+      severity: "warning",
+      category: "rsl-issue",
+      message: 'RSL is active but dist/_headers has no Link: rel="license" header.',
+      file: "dist/_headers",
+    });
+  } else if (expectedRslUrl && rslLinkHeader !== expectedRslUrl) {
+    issues.push({
+      severity: "error",
+      category: "rsl-issue",
+      message: `dist/_headers Link: header (${rslLinkHeader}) doesn't match the site's rsl.xml URL (${expectedRslUrl}).`,
+      file: "dist/_headers",
+    });
+  }
+
+  return issues;
+}
+
+/**
  * Structural validation of `Source/anglesite.json` (#1173): the file parses as JSON, is a JSON
  * object, and declares a recognized schema version. Deliberately shallow — per-section field
  * validation is `DomainConfigStore`'s job (Swift-side, #1169) and the #1171 drift audit's; this
@@ -633,6 +731,24 @@ async function scan(): Promise<Issue[]> {
     (e: NodeJS.ErrnoException) => (e.code === "ENOENT" ? null : Promise.reject(e)),
   );
   issues.push(...checkMTAStsPolicy(mtaStsContent, configContent));
+
+  const robotsContent = await readFile(join(DIST_DIR, "robots.txt"), "utf-8").catch(
+    (e: NodeJS.ErrnoException) => (e.code === "ENOENT" ? "" : Promise.reject(e)),
+  );
+  const rslXmlContent = await readFile(join(DIST_DIR, "rsl.xml"), "utf-8").catch(
+    (e: NodeJS.ErrnoException) => (e.code === "ENOENT" ? null : Promise.reject(e)),
+  );
+  const { policy: licensingPolicy } = readLicensingPolicy(process.cwd());
+  const siteUrl = readConfigFromString(configContent, "SITE_URL");
+  issues.push(
+    ...checkRSL(
+      rslActive(licensingPolicy, siteUrl),
+      rslFileUrl(siteUrl),
+      rslXmlContent,
+      robotsContent,
+      headersContent,
+    ),
+  );
 
   const relPaths: string[] = [];
 

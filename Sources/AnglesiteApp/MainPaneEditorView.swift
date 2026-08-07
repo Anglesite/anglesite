@@ -39,20 +39,7 @@ struct MainPaneEditorView: View {
                 } else {
                     switch EditorKind.resolve(for: model.file) {
                     case .text, .plist:
-                        TextEditor(text: $model.text)
-                            .font(.system(.body, design: .monospaced))
-                            .scrollContentBackground(.hidden)
-                            .findNavigator(isPresented: $model.isFindPresented)
-                            .focused($isPlainTextEditorFocused)
-                            .id(model.file.id)
-                            .onChange(of: isPlainTextEditorFocused) { _, focused in
-                                if focused {
-                                    EditorFocusRegistry.shared.activate(
-                                        .plainText(isPresented: $model.isFindPresented), token: model.file.id)
-                                } else {
-                                    EditorFocusRegistry.shared.resign(token: model.file.id)
-                                }
-                            }
+                        plainTextEditor
                     case .markdown:
                         MarkdownTextView(
                             text: $model.text,
@@ -65,9 +52,12 @@ struct MainPaneEditorView: View {
                                 model: componentEditor, fileEditor: model,
                                 onWebView: onCanvasWebView)
                         } else {
-                            TextEditor(text: $model.text)
-                                .font(.system(.body, design: .monospaced))
-                                .scrollContentBackground(.hidden)
+                            // Brief loading-state fallback before `componentEditor` finishes
+                            // activating (#1285) — reuses the same wiring and `isFindPresented`
+                            // flag as the `.text`/`.plist` case above rather than its own state,
+                            // since it's the same file and the real Source pane takes over once
+                            // loaded.
+                            plainTextEditor
                         }
                     }
                 }
@@ -91,6 +81,26 @@ struct MainPaneEditorView: View {
         } message: {
             Text("Another tool edited this file while you had unsaved changes.")
         }
+    }
+
+    /// The plain-text `TextEditor` with `.findNavigator`/`EditorFocusRegistry` wiring, shared by
+    /// the `.text`/`.plist` case and the `.component` case's pre-load fallback (#1285) — both show
+    /// the same file's text, so ⌘F should work identically in either.
+    private var plainTextEditor: some View {
+        TextEditor(text: $model.text)
+            .font(.system(.body, design: .monospaced))
+            .scrollContentBackground(.hidden)
+            .findNavigator(isPresented: $model.isFindPresented)
+            .focused($isPlainTextEditorFocused)
+            .id(model.file.id)
+            .onChange(of: isPlainTextEditorFocused) { _, focused in
+                if focused {
+                    EditorFocusRegistry.shared.activate(
+                        .plainText(isPresented: $model.isFindPresented), token: model.file.id)
+                } else {
+                    EditorFocusRegistry.shared.resign(token: model.file.id)
+                }
+            }
     }
 
     private var header: some View {

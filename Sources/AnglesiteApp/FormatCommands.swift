@@ -4,9 +4,10 @@ import SwiftUI
 /// not visual styling. The Markdown items are live against the focused Markdown editor
 /// (#797/#517) via `EditorFocusRegistry` — a focused-value can't disambiguate two editors in one
 /// window (main pane + inspector body), so the registry is the deliberate departure from the
-/// PlannedItem→focused-value convention. Format doesn't apply to the registry's other two cases
-/// (plain text, component code panes) — those stay PlannedItems here. Remaining items stay
-/// PlannedItems until their editors land.
+/// PlannedItem→focused-value convention. Format doesn't apply to the registry's other case
+/// (`.plainText`, which covers both the plain-text file editor and the Component Editor's
+/// Source-mode `TextEditor`) — those stay PlannedItems here, same as before. Remaining items
+/// stay PlannedItems until their editors land.
 struct FormatCommands: Commands {
     private let registry = EditorFocusRegistry.shared
 
