@@ -312,4 +312,50 @@ struct LicensingStoreTests {
         #expect(!AIUsage(search: .no, aiInput: .no, aiTrain: .unset, blockAICrawlers: false).mayBlockAICrawlers)
         #expect(!AIUsage(search: .no, aiInput: .yes, aiTrain: .no, blockAICrawlers: false).mayBlockAICrawlers)
     }
+
+    // MARK: publishRSL (#992)
+
+    @Test("publishRSL defaults to false, matching normalizePolicy's default in licensing.ts")
+    func publishRSLDefaultsFalse() {
+        #expect(LicensingPolicy().publishRSL == false)
+    }
+
+    @Test("save() then load() round-trips publishRSL true")
+    func publishRSLRoundTrips() throws {
+        let dir = try makeDirectory()
+        var policy = LicensingPolicy()
+        policy.publishRSL = true
+        try LicensingStore(sourceDirectory: dir).save(policy)
+        #expect(try LicensingStore(sourceDirectory: dir).load().publishRSL == true)
+    }
+
+    @Test("save() always writes publishRSL explicitly, even when false")
+    func saveAlwaysWritesPublishRSL() throws {
+        let dir = try makeDirectory()
+        try LicensingStore(sourceDirectory: dir).save(LicensingPolicy())
+        let json = try String(
+            contentsOf: dir.appendingPathComponent("src/data/licensing.json"), encoding: .utf8)
+        #expect(json.contains("\"publishRSL\""))
+    }
+
+    @Test(
+        "load() degrades a non-boolean publishRSL to false instead of throwing",
+        arguments: [
+            #"{"publishRSL":"true"}"#,
+            #"{"publishRSL":1}"#,
+            #"{"publishRSL":null}"#,
+        ]
+    )
+    func loadDegradesNonBooleanPublishRSL(_ json: String) throws {
+        let dir = try makeDirectory()
+        try write(json, to: dir)
+        #expect(try LicensingStore(sourceDirectory: dir).load().publishRSL == false)
+    }
+
+    @Test("an absent publishRSL key loads as false, matching a site with no licensing.json")
+    func loadAbsentPublishRSL() throws {
+        let dir = try makeDirectory()
+        try write(#"{"default":null}"#, to: dir)
+        #expect(try LicensingStore(sourceDirectory: dir).load().publishRSL == false)
+    }
 }

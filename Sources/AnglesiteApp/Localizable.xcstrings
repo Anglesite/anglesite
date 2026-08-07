@@ -412,6 +412,9 @@
     "Allowed MX hosts" : {
 
     },
+    "Also publish RSL" : {
+
+    },
     "Analytics" : {
 
     },
@@ -1933,6 +1936,9 @@
 
     },
     "New selector, e.g. .card-footer" : {
+
+    },
+    "No AI company currently honors this standard; it records your terms — the license and AI usage settings above — in machine-readable form (rsl.xml, a robots.txt License: line, and a matching Link header)." : {
 
     },
     "No Anglesite sites found" : {
