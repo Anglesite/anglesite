@@ -861,6 +861,17 @@ struct SiteWindow: View {
                     }
             }
         }
+        .sheet(item: $bindableModel.themeApplyWizardModel) { wizardModel in
+            NavigationStack {
+                ThemeApplyWizard(model: wizardModel, onDone: { model.themeApplyWizardModel = nil })
+                    .navigationTitle("Apply a Theme")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { model.themeApplyWizardModel = nil }
+                        }
+                    }
+            }
+        }
         .alert("Revert to the last saved version?", isPresented: $bindableModel.revertConfirmationPresented) {
             Button("Revert", role: .destructive) { Task { await model.confirmRevertToSaved() } }
             Button("Cancel", role: .cancel) {}

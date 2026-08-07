@@ -119,6 +119,11 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the Experiment Results sheet is presented (`.sheet(item:)`), same fresh-
     /// construction-from-`site` pattern as `copyEditModel`/`emailSetupModel` (#769).
     var experimentStatsModel: ExperimentStatsModel?
+    /// Non-nil ⟺ the Apply a Theme wizard is presented (`.sheet(item:)`), same coupling as
+    /// `integrationWizardModel` (#1181). Fresh-construction-from-`site` like `designInterviewModel`,
+    /// loading the same bundled `ThemeCatalog` `AssistantSessionAssembler` resolves for
+    /// `SetupThemeTool`.
+    var themeApplyWizardModel: ThemeApplyWizardModel?
     /// The window's `UndoManager`, published down from `SiteWindow`'s
     /// `@Environment(\.undoManager)` so applied edits register for Edit ▸ Undo (#527). Weak +
     /// `@ObservationIgnored`: the window owns it and it isn't render state. Forwarded on set
@@ -459,6 +464,32 @@ final class SiteWindowModel {
     func openIntegrationWizard() {
         guard integrationWizardModel == nil, let site else { return }
         integrationWizardModel = IntegrationWizardModel(service: integrationOps, siteID: site.id)
+    }
+
+    /// Mirrors `canOpenSiriReadiness`/`openSiriReadiness`: the enablement check reuses the exact
+    /// same catalog resolution `openThemeApplyWizard` guards on, so the menu item can never be
+    /// enabled for a click that silently does nothing (#1181 review).
+    var canOpenThemeApplyWizard: Bool { site != nil && resolvedThemeCatalog() != nil }
+
+    /// Presents the Apply a Theme wizard (Website ▸ Apply a Theme…, #1181), same fresh-
+    /// construction-from-`site` pattern as `presentDesignInterview`.
+    func openThemeApplyWizard(settings: AppSettings = .shared, bundle: Bundle = .main) {
+        guard themeApplyWizardModel == nil, let site,
+              let catalog = resolvedThemeCatalog(settings: settings, bundle: bundle) else { return }
+        themeApplyWizardModel = ThemeApplyWizardModel(
+            catalog: catalog,
+            businessType: SiteBusinessType.read(sourceDirectory: site.sourceDirectory) ?? "",
+            package: AnglesitePackage(url: site.packageURL)
+        )
+    }
+
+    /// Best-effort load of the bundled `ThemeCatalog` — same tolerance `AssistantSessionAssembler`
+    /// uses for `SetupThemeTool`, so a missing/unreadable template resolves to `nil` rather than
+    /// crashing. `settings`/`bundle` mirror `TemplateRuntime.resolve(settings:bundle:)`'s own test
+    /// seam (defaulting to the live app values) so tests can point at a fixture template.
+    private func resolvedThemeCatalog(settings: AppSettings = .shared, bundle: Bundle = .main) -> ThemeCatalog? {
+        guard let templateURL = TemplateRuntime.resolve(settings: settings, bundle: bundle).url else { return nil }
+        return try? ThemeCatalog.load(templateURL: templateURL)
     }
 
     func openStyleGuide() {
