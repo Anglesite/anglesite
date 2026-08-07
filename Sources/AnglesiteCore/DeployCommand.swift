@@ -675,8 +675,8 @@ public actor DeployCommand {
     }
 
     /// Default `TokenSource` for production: thin forwarding wrapper around
-    /// ``CloudflareAPICredentials/resolve(secretStore:)`` (#1211) — env var first (so a
-    /// developer's shell still wins), then a stored OAuth credential (refreshing it first if
+    /// ``CloudflareAPICredentials/resolve(secretStore:diagnosticSource:)`` (#1211) — env var first
+    /// (so a developer's shell still wins), then a stored OAuth credential (refreshing it first if
     /// expired), then the legacy pasted token, kept so a token a user already pasted keeps
     /// working.
     public static let keychainTokenSource: TokenSource = {

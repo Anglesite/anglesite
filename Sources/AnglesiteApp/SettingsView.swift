@@ -405,7 +405,7 @@ private struct AdvancedSettingsView: View {
     }
 }
 
-/// Cloudflare OAuth connection status (#1211) — the sibling of ``CloudflareTokenRow`` for the
+/// Cloudflare OAuth connection status (#1211) — the sibling of `CloudflareTokenRow` for the
 /// OAuth credential that every production Cloudflare call site now tries first (env var, then
 /// this, then the legacy pasted token — see `CloudflareAPICredentials.resolve()`). Read-only
 /// status + sign-out: sign-in itself only happens from a Deploy sheet's "Sign in with Cloudflare"
