@@ -924,8 +924,7 @@ final class PlistEditorModel {
         guard !activityPubUsernameLocked else { return }
         let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty || DeployCoordinator.isValidActivityPubUsername(trimmed) else {
-            activityPubUsernameError = String(
-                localized: "Handles can only contain letters, numbers, underscores, periods, and hyphens.")
+            activityPubUsernameError = String(localized: "Handles can only contain letters, numbers, underscores, periods, and hyphens.")
             return
         }
         activityPubUsernameError = nil

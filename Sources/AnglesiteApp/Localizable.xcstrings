@@ -214,6 +214,9 @@
     ":" : {
 
     },
+    "@" : {
+
+    },
     "@media %@" : {
 
     },
@@ -721,6 +724,9 @@
 
     },
     "Change Logo…" : {
+
+    },
+    "Changing your Fediverse handle" : {
 
     },
     "Channel" : {
@@ -1389,6 +1395,9 @@
     "Failed to load zone settings" : {
 
     },
+    "Fediverse Handle" : {
+
+    },
     "Feeds" : {
 
     },
@@ -1519,6 +1528,9 @@
 
     },
     "Hand-authored" : {
+
+    },
+    "Handles can only contain letters, numbers, underscores, periods, and hyphens." : {
 
     },
     "Harden" : {
@@ -1690,6 +1702,9 @@
 
     },
     "Justify" : {
+
+    },
+    "Keep @%@" : {
 
     },
     "Keep My Changes" : {
@@ -2191,6 +2206,9 @@
 
     },
     "Pause" : {
+
+    },
+    "People already follow you at this handle — it can't change without losing them." : {
 
     },
     "Permanent (301)" : {
@@ -3045,6 +3063,9 @@
     "Switch between Preview, Editor, and Graph" : {
 
     },
+    "Switch to @%@" : {
+
+    },
     "Syndication recorded" : {
 
     },
@@ -3142,6 +3163,12 @@
 
     },
     "This file has been customized. An update is available with changes it doesn't include yet." : {
+
+    },
+    "This is how people find and follow you across social networks. Once someone follows you it can't change without losing them." : {
+
+    },
+    "This is how people find and follow you across social networks. People already follow you as @%@ — switching to @%@ disconnects them; they'd need to find and follow you again under the new handle." : {
 
     },
     "This is your home page — search engines won't be able to crawl any page reachable only through it." : {
@@ -3488,6 +3515,9 @@
 
     },
     "example.com" : {
+
+    },
+    "handle" : {
 
     },
     "https://agent.example.com/acp" : {
