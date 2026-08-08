@@ -105,6 +105,15 @@ Notes:
 - **Working on the port itself:** `ANGLESITE_PORT_WIP=1 swift build --target AnglesiteCore` opts the not-yet-portable core into the manifest so in-flight seam work can be compile-checked locally. Apple-only targets (`AnglesiteBridge`, `AnglesiteIntents`, `AnglesiteContainer`, …) never build off-Darwin.
 - **Containers:** `podman` is not needed for the purity phase; it becomes relevant with the Linux MVP's `PodmanSiteRuntime`.
 
+### Claude Code cloud sessions
+
+Claude Code's cloud session containers (claude.ai/code) are Linux and ship no Swift toolchain, so agents there need the same swiftly install as any Linux contributor. Two pieces make that work, and both need a one-time tweak to the repo's cloud **environment settings** on claude.ai/code:
+
+1. **Setup script** (preferred): set the environment's setup script to `bash scripts/install-swift-linux.sh`. It runs at environment provisioning and the installed toolchain is cached, so every session starts with Swift ready instead of re-downloading it.
+2. **Network access:** the install downloads from swift.org, which is not in the default package-registry allowlist. If the environment restricts network access, allowlist `swift.org`, `www.swift.org`, and `download.swift.org`.
+
+The checked-in `SessionStart` hook ([`.claude/hooks/session-start.sh`](.claude/hooks/session-start.sh)) remains as a per-session fallback: it runs the same install script when no cached toolchain is present (needing the same allowlist), and persists the toolchain's `PATH` and the libxml2-shim `LD_LIBRARY_PATH` into each session via `$CLAUDE_ENV_FILE` — something a setup script can't do.
+
 ## Relationship to the sidecar repo
 
 This repo expects a sibling checkout of the sidecar repo, [`Anglesite/anglesite-skills`](https://github.com/Anglesite/anglesite-skills), in a directory named `anglesite` next to this one (both under the same parent directory) — or set `ANGLESITE_SIDECAR_SRC` to point elsewhere (`ANGLESITE_PLUGIN_SRC` remains a compatibility alias). The sibling repo supplies the **MCP sidecar** (`server/`), which the container-image scripts (`scripts/vendor-container-image.sh`, `scripts/build-podman-image.sh`) stage into the dev-server image; the MCP end-to-end tests also spawn it directly from the checkout (`ANGLESITE_PLUGIN_PATH`). Nothing from the sibling repo is bundled into the app itself anymore (#466).
