@@ -20,10 +20,19 @@ public struct SecurityAdvisory: Sendable, Equatable, Identifiable {
     /// GitHub's severity classification. `.unknown` is the decode fallback for any value this
     /// type doesn't yet recognize — GitHub can add severities without this type throwing on them.
     public enum Severity: String, Sendable, Equatable, Decodable {
-        case critical, high, moderate, low, unknown
+        // GitHub's REST API (both the security-advisories and Dependabot-alerts endpoints)
+        // sends "medium" for this tier, not "moderate" — only the Swift-side case name is
+        // "moderate". Every other case's raw value matches the wire value already.
+        case critical, high, moderate = "medium", low, unknown
 
         public init(from decoder: any Decoder) throws {
-            let raw = try decoder.singleValueContainer().decode(String.self)
+            var container = try decoder.singleValueContainer()
+            // `severity` is documented as nullable on repository security advisories.
+            guard !container.decodeNil() else {
+                self = .unknown
+                return
+            }
+            let raw = try container.decode(String.self)
             self = Severity(rawValue: raw) ?? .unknown
         }
     }

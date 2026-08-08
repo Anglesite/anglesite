@@ -10,9 +10,17 @@ struct RepoAdvisoryReadingTests {
         }
         #expect(try decode("critical") == .critical)
         #expect(try decode("high") == .high)
-        #expect(try decode("moderate") == .moderate)
+        // GitHub's API sends "medium" on the wire for this tier, not "moderate" — only the
+        // Swift-side case name is "moderate".
+        #expect(try decode("medium") == .moderate)
         #expect(try decode("low") == .low)
         #expect(try decode("something-new-github-adds-later") == .unknown)
+    }
+
+    @Test("Severity decodes a JSON null (documented nullable on repository advisories) to .unknown")
+    func severityDecodingNull() throws {
+        let severity = try JSONDecoder().decode(SecurityAdvisory.Severity.self, from: Data("null".utf8))
+        #expect(severity == .unknown)
     }
 
     @Test("SecurityAdvisory and DependabotAlert are Identifiable by their natural keys")

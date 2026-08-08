@@ -208,7 +208,7 @@ struct HTTPGitHubClientTests {
               {"ghsa_id":"GHSA-3333-3333-3333","summary":"Owner's own draft","severity":"low",
                "html_url":"https://github.com/acme/site/security/advisories/GHSA-3333-3333-3333",
                "published_at":null,"state":"draft"},
-              {"ghsa_id":"GHSA-4444-4444-4444","summary":"Already resolved","severity":"moderate",
+              {"ghsa_id":"GHSA-4444-4444-4444","summary":"Already resolved","severity":"medium",
                "html_url":"https://github.com/acme/site/security/advisories/GHSA-4444-4444-4444",
                "published_at":"2026-01-01T00:00:00Z","state":"closed"}
             ]
@@ -225,7 +225,7 @@ struct HTTPGitHubClientTests {
         let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
             [
               {"number":7,"dependency":{"package":{"name":"left-pad","ecosystem":"npm"}},
-               "security_advisory":{"severity":"moderate"},
+               "security_advisory":{"severity":"medium"},
                "security_vulnerability":{"first_patched_version":{"identifier":"1.3.0"}},
                "html_url":"https://github.com/acme/site/security/dependabot/7"},
               {"number":9,"dependency":{"package":{"name":"left-pad-legacy","ecosystem":"npm"}},
@@ -281,13 +281,63 @@ struct HTTPGitHubClientTests {
         }
     }
 
-    @Test("the alerts request targets the state=open query and sends the bearer token")
+    @Test("the alerts request targets the state=open query, sets per_page=100, and sends the bearer token")
     func alertsRequestShape() async {
         let box = RequestBox()
         let client = HTTPGitHubClient(transport: Self.recordingTransport(status: 200, json: "[]", into: box))
         _ = try? await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
         let request = await box.last
-        #expect(request?.url?.absoluteString == "https://api.github.com/repos/acme/site/dependabot/alerts?state=open")
+        #expect(request?.url?.absoluteString == "https://api.github.com/repos/acme/site/dependabot/alerts?state=open&per_page=100")
         #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
+    }
+
+    @Test("the advisories request sets per_page=100")
+    func advisoriesRequestShape() async {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(status: 200, json: "[]", into: box))
+        _ = try? await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        let request = await box.last
+        #expect(request?.url?.absoluteString == "https://api.github.com/repos/acme/site/security-advisories?per_page=100")
+    }
+
+    @Test("a null severity on one advisory falls back to .unknown instead of dropping the whole batch")
+    func openSecurityAdvisoriesNullSeverity() async throws {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
+            [
+              {"ghsa_id":"GHSA-5555-5555-5555","summary":"No severity yet","severity":null,
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-5555-5555-5555",
+               "published_at":null,"state":"triage"}
+            ]
+            """))
+        let advisories = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        #expect(advisories.map(\.id) == ["GHSA-5555-5555-5555"])
+        #expect(advisories[0].severity == .unknown)
+    }
+
+    @Test("openSecurityAdvisories follows the Link: rel=\"next\" header across pages")
+    func openSecurityAdvisoriesPaginates() async throws {
+        let page1 = """
+            [{"ghsa_id":"GHSA-1111-1111-1111","summary":"Page 1","severity":"high",
+              "html_url":"https://github.com/acme/site/security/advisories/GHSA-1111-1111-1111",
+              "published_at":null,"state":"triage"}]
+            """
+        let page2 = """
+            [{"ghsa_id":"GHSA-2222-2222-2222","summary":"Page 2","severity":"low",
+              "html_url":"https://github.com/acme/site/security/advisories/GHSA-2222-2222-2222",
+              "published_at":null,"state":"triage"}]
+            """
+        let nextURL = "https://api.github.com/repos/acme/site/security-advisories?per_page=100&page=2"
+        let client = HTTPGitHubClient(transport: { request in
+            if request.url?.absoluteString.contains("page=2") == true {
+                let http = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (Data(page2.utf8), http)
+            }
+            let http = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Link": "<\(nextURL)>; rel=\"next\", <\(nextURL)>; rel=\"last\""])!
+            return (Data(page1.utf8), http)
+        })
+        let advisories = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        #expect(advisories.map(\.id) == ["GHSA-1111-1111-1111", "GHSA-2222-2222-2222"])
     }
 }
