@@ -382,7 +382,8 @@ jobs:
           ANGLESITE_PLUGIN_PATH: ${{ github.workspace }}/anglesite-plugin
         run: |
           set -o pipefail
-          swift test -c debug --parallel 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
+          source scripts/lib/timing-sensitive-tests.sh
+          swift test -c debug --parallel --skip "$TIMING_SENSITIVE_TEST_FILTER" 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
 
       - name: Surface Swift errors (annotations + job summary)
         if: failure() && steps.swift-test.outcome == 'failure'
@@ -390,6 +391,64 @@ jobs:
 
       - name: Build (release)
         run: swift build -c release
+
+  timing-sensitive-tests:
+    name: Timing-sensitive suites (isolated lane)
+    # Same macos-15 task-allocator rationale as build-test: this lane also runs Swift
+    # concurrency/subprocess code against the host's libswift_Concurrency.
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
+    runs-on: macos-26
+    timeout-minutes: 15
+    # Independent of (not sequential after) build-test: these suites share no state with
+    # the rest of the test run, so there's no correctness reason to wait — only a
+    # scheduler-contention reason to give them their own process. Running in parallel
+    # keeps this from adding to build-test's wall-clock cost. See #1344.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select latest available Xcode
+        id: xcode
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app 2>/dev/null | sort -V
+          # Skip Xcode 26.3 on the current runner image: its toolchain builds test targets that
+          # link /usr/lib/swift/libswift_DarwinFoundation3.dylib, which the image does not ship, so
+          # `swift test` fails to load AnglesitePackageTests.xctest ("Library not loaded"). Prefer the
+          # newest *working* Xcode — 26.3 is excluded, so 27 is still auto-selected once it lands.
+          # Remove the grep once the 26.3 image is repaired (or Xcode 27 is available).
+          LATEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | grep -vE '/Xcode_26\.3(\.app|\.[0-9]+\.app)$' | tail -1)
+          echo "Selecting: $LATEST"
+          sudo xcode-select -s "$LATEST"
+          echo "version=$(basename "$LATEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Show toolchain versions
+        run: swift --version
+
+      # Distinct key namespace from build-test's `swiftpm-macos-...` cache: this job never sets
+      # ANGLESITE_PLUGIN_PATH, so it resolves/builds a different (smaller) target set, and sharing
+      # a cache key would just churn. See linux-build-test's cache step for the general key-scheme
+      # rationale (including the `v1` bump-on-recurrence convention).
+      - name: Cache SwiftPM build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: swiftpm-timing-sensitive-macos-v1-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            swiftpm-timing-sensitive-macos-v1-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-timing-sensitive-macos-v1-${{ steps.xcode.outputs.version }}-
+
+      # tee + pipefail + annotate step: same compile-error-burying fix as build-test's Test step
+      # (#1335).
+      - name: Run timing-sensitive suites in isolation
+        id: timing-sensitive-test
+        run: |
+          set -o pipefail
+          scripts/test-timing-sensitive.sh 2>&1 | tee "$RUNNER_TEMP/swift-timing-sensitive-test.log"
+
+      - name: Surface Swift errors (annotations + job summary)
+        if: failure() && steps.timing-sensitive-test.outcome == 'failure'
+        run: scripts/annotate-swift-log.sh "$RUNNER_TEMP/swift-timing-sensitive-test.log" "Timing-sensitive suites (isolated lane) ▸ Run timing-sensitive suites in isolation"
 
   ios-build:
     name: iOS app target (AnglesiteMobile)
@@ -764,6 +823,7 @@ jobs:
       - help-book-links
       - linux-build-test
       - build-test
+      - timing-sensitive-tests
       - ios-build
       - concurrency-tsan
       - docs-docc

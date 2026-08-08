@@ -80,27 +80,23 @@ extension DomainOperationsService {
 public struct DomainOperations: DomainOperationsService {
     private let reader: any CloudflareReading
     private let writer: any CloudflareWriting
-    private let tokenProvider: @Sendable () -> String?
+    private let tokenProvider: @Sendable () async -> String?
 
     /// All three dependencies are injectable seams for tests; the defaults (live HTTP client,
     /// ``defaultTokenProvider``) are what production callers should use.
     public init(
         reader: any CloudflareReading = HTTPCloudflareClient(),
         writer: any CloudflareWriting = HTTPCloudflareClient(),
-        tokenProvider: @escaping @Sendable () -> String? = DomainOperations.defaultTokenProvider
+        tokenProvider: @escaping @Sendable () async -> String? = DomainOperations.defaultTokenProvider
     ) {
         self.reader = reader
         self.writer = writer
         self.tokenProvider = tokenProvider
     }
 
-    /// Env var first (matches `HardenModel.apiToken()`), then the platform secret store
-    /// (the user's Keychain on macOS).
-    public static let defaultTokenProvider: @Sendable () -> String? = {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
-            return env
-        }
-        return try? PlatformSecretStore.make().readCloudflareToken()
+    /// Env → OAuth (refresh-aware) → legacy-token, via the shared resolver (#1211).
+    public static let defaultTokenProvider: @Sendable () async -> String? = {
+        try? await CloudflareAPICredentials.resolve()
     }
 
     private func resolveZone(domain: String, token: String) async -> Result<String, DomainOperationError> {
@@ -118,7 +114,7 @@ public struct DomainOperations: DomainOperationsService {
 
     /// See ``DomainOperationsService/listRecords(domain:)``.
     public func listRecords(domain: String) async -> Result<[DNSRecord], DomainOperationError> {
-        guard let token = tokenProvider() else { return .failure(.noToken) }
+        guard let token = await tokenProvider() else { return .failure(.noToken) }
         switch await resolveZone(domain: domain, token: token) {
         case .failure(let error):
             return .failure(error)
@@ -138,7 +134,7 @@ public struct DomainOperations: DomainOperationsService {
         domain: String, type: String, name: String, content: String, ttl: Int, priority: Int?,
         purpose: String?, sourceDirectory: URL?
     ) async -> Result<Void, DomainOperationError> {
-        guard let token = tokenProvider() else { return .failure(.noToken) }
+        guard let token = await tokenProvider() else { return .failure(.noToken) }
         switch await resolveZone(domain: domain, token: token) {
         case .failure(let error):
             return .failure(error)
@@ -167,7 +163,7 @@ public struct DomainOperations: DomainOperationsService {
         domain: String, recordID: String, type: String?, name: String?, content: String?,
         sourceDirectory: URL?
     ) async -> Result<Void, DomainOperationError> {
-        guard let token = tokenProvider() else { return .failure(.noToken) }
+        guard let token = await tokenProvider() else { return .failure(.noToken) }
         switch await resolveZone(domain: domain, token: token) {
         case .failure(let error):
             return .failure(error)

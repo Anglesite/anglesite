@@ -39,8 +39,9 @@ public enum InboxSubmissionSync {
         guard let settings = try? SiteConfigStore.read(from: configDirectory),
               let resources = settings.provisionedWorkerResources,
               let accountID = resources.inboxAccountID, !accountID.isEmpty,
-              let namespaceID = resources.inboxKVNamespaceID, !namespaceID.isEmpty,
-              let token = try? secretStore.readCloudflareToken(), !token.isEmpty
+              let namespaceID = resources.inboxKVNamespaceID, !namespaceID.isEmpty
+        else { return 0 }
+        guard let token = try? await CloudflareAPICredentials.resolve(secretStore: secretStore), !token.isEmpty
         else { return 0 }
 
         let client = InboxKVClient(

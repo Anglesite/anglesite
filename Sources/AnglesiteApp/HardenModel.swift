@@ -31,7 +31,7 @@ final class HardenModel {
 
     private let reader: any CloudflareReading
     private let writer: any CloudflareWriting
-    private let keychain: KeychainStore
+    private let keychain: any SecretStore
     private var inFlight: Task<Void, Never>?
 
     private var currentSite: CurrentSite?
@@ -39,7 +39,7 @@ final class HardenModel {
     init(
         reader: any CloudflareReading = HTTPCloudflareClient(),
         writer: any CloudflareWriting = HTTPCloudflareClient(),
-        keychain: KeychainStore = KeychainStore()
+        keychain: any SecretStore = KeychainStore()
     ) {
         self.reader = reader
         self.writer = writer
@@ -76,6 +76,12 @@ final class HardenModel {
         guard !domain.isEmpty else { return }
         guard !isRunning else { return }
 
+        // Flip out of .idle/.preview synchronously, before the Task (and its `await apiToken()`
+        // hop, which can now do a real OAuth-refresh network round trip) even starts — matching
+        // DomainConfigAuditModel's runAudit()/reconcile(), so isRunning can't under-report while a
+        // token resolves (#1211 review).
+        phase = .resolvingZone(domain: domain)
+
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
             await self?.runResolveAndPlan(domain: domain)
@@ -85,6 +91,12 @@ final class HardenModel {
     func apply() {
         guard case .preview(let plan, let domain, let zoneID) = phase else { return }
         guard !plan.isEmpty else { return }
+
+        // Flip to .applying synchronously before the Task starts (see resolveAndPlan()'s comment)
+        // — this also closes a double-click hole: apply()'s only guard was `case .preview = phase`
+        // with no isRunning check, so a second click while the token was still resolving used to
+        // pass the same guard, cancel `inFlight`, and silently restart (#1211 review).
+        phase = .applying(plan: plan, domain: domain)
 
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
@@ -101,20 +113,15 @@ final class HardenModel {
 
     // MARK: - Private
 
-    private func apiToken() -> String? {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
-            return env
-        }
-        return try? keychain.readCloudflareToken()
+    private func apiToken() async -> String? {
+        try? await CloudflareAPICredentials.resolve(secretStore: keychain)
     }
 
     private func runResolveAndPlan(domain: String) async {
-        guard let token = apiToken() else {
+        guard let token = await apiToken() else {
             phase = .failed(reason: "No Cloudflare API token found. Add one in Settings → Credentials.")
             return
         }
-
-        phase = .resolvingZone(domain: domain)
 
         do {
             guard let zoneID = try await reader.resolveZoneID(domain: domain, apiToken: token) else {
@@ -133,12 +140,10 @@ final class HardenModel {
     }
 
     private func runApply(plan: HardenPlan, domain: String, zoneID: String) async {
-        guard let token = apiToken() else {
+        guard let token = await apiToken() else {
             phase = .failed(reason: "No Cloudflare API token found.")
             return
         }
-
-        phase = .applying(plan: plan, domain: domain)
 
         let executor = HardenExecutor(reader: reader, writer: writer)
         let result = await executor.execute(
