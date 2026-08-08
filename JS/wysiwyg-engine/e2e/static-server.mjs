@@ -1,27 +1,29 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { join, extname, normalize } from "node:path";
+import { join } from "node:path";
 
 const root = new URL(".", import.meta.url).pathname;
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
+
+// This fixture server has exactly two files to serve — enumerate them explicitly rather than
+// building a filesystem path from the request URL. There is no dynamic path expression here for
+// a path-traversal scanner (or a future edit) to worry about: `route.file` below is always one
+// of these two literals, never derived from `req.url`.
+const ROUTES = {
+  "/": { file: "fixture.html", type: "text/html" },
+  "/fixture.html": { file: "fixture.html", type: "text/html" },
+  "/.generated/fixture-bundle.js": { file: ".generated/fixture-bundle.js", type: "text/javascript" },
+};
 
 createServer(async (req, res) => {
-  const urlPath = (req.url ?? "/fixture.html").split("?")[0];
-  const requestedPath = urlPath === "/" ? "/fixture.html" : urlPath;
-  const resolvedPath = join(root, normalize(requestedPath));
-
-  // Bound to 127.0.0.1 and test-only, but still validate: normalize() collapses `..`
-  // segments, and this check refuses anything that still resolves outside `root` (e.g.
-  // `/../../etc/passwd`) before it ever reaches the filesystem.
-  if (resolvedPath !== root && !resolvedPath.startsWith(root)) {
-    res.writeHead(403);
-    res.end("forbidden");
+  const route = ROUTES[(req.url ?? "/").split("?")[0]];
+  if (!route) {
+    res.writeHead(404);
+    res.end("not found");
     return;
   }
-
   try {
-    const body = await readFile(resolvedPath);
-    res.writeHead(200, { "Content-Type": types[extname(resolvedPath)] ?? "application/octet-stream" });
+    const body = await readFile(join(root, route.file));
+    res.writeHead(200, { "Content-Type": route.type });
     res.end(body);
   } catch {
     res.writeHead(404);
