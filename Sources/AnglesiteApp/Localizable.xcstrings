@@ -1,6 +1,50 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Traffic" : {
+
+    },
+    "No traffic recorded in the last 7 days." : {
+
+    },
+    "Last 7 days: %lld pageviews · %lld visits" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Last 7 days: %1$lld pageviews · %2$lld visits"
+          }
+        }
+      }
+    },
+    "7-day pageviews trend" : {
+
+    },
+    "%lld total pageviews over the last 7 days, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld total pageviews over the last 7 days, %2$@"
+          }
+        }
+      }
+    },
+    "trending up" : {
+
+    },
+    "trending down" : {
+
+    },
+    "holding steady" : {
+
+    },
+    "Day" : {
+
+    },
+    "Pageviews" : {
+
+    },
     "" : {
 
     },

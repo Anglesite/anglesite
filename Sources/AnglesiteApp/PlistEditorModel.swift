@@ -9,6 +9,7 @@ final class PlistEditorModel {
     let sourceDirectory: URL
     private let initialWebsiteTitle: String
     private let analyticsProvider: any CloudflareWebAnalyticsProviding
+    private let rumAnalyticsProvider: any CloudflareRUMAnalyticsProviding
     private let customAnalyticsValidator: any CustomAnalyticsHTMLValidating
     private let keychain: KeychainStore
     private let capabilityProber: CloudflareCapabilityProber
@@ -23,6 +24,9 @@ final class PlistEditorModel {
     private(set) var isInstallingIcons = false
     private(set) var isSavingAnalytics = false
     private(set) var isConfiguringCloudflareAnalytics = false
+    private(set) var isLoadingRUMSummary = false
+    private(set) var rumSummary: RUMAnalyticsSummary?
+    private(set) var rumSummaryError: String?
     private(set) var hasWebsiteIcons = false
     var analyticsSettings = WebsiteAnalyticsAsset.Settings() {
         didSet {
@@ -214,6 +218,7 @@ final class PlistEditorModel {
          graphSnapshotProvider: @escaping @MainActor () -> SiteGraphExplorerSnapshot? = { nil },
          onActiveWorkersChanged: @escaping (SiteSettings) async -> Void = { _ in },
          analyticsProvider: any CloudflareWebAnalyticsProviding = CloudflareWebAnalyticsClient(),
+         rumAnalyticsProvider: any CloudflareRUMAnalyticsProviding = CloudflareRUMAnalyticsClient(),
          customAnalyticsValidator: (any CustomAnalyticsHTMLValidating)? = nil,
          containerControlProvider: @escaping AstroHTMLValidator.ContainerControlProvider = { nil },
          keychain: KeychainStore = KeychainStore(),
@@ -237,6 +242,7 @@ final class PlistEditorModel {
         self.graphSnapshotProvider = graphSnapshotProvider
         self.onActiveWorkersChanged = onActiveWorkersChanged
         self.analyticsProvider = analyticsProvider
+        self.rumAnalyticsProvider = rumAnalyticsProvider
         // `customAnalyticsValidator` lets tests inject a fake directly; production leaves it nil
         // and instead wires `containerControlProvider` through to the real `AstroHTMLValidator`,
         // resolved lazily at validation time (#961).
@@ -842,6 +848,29 @@ final class PlistEditorModel {
             _ = await saveAnalytics()
         } catch {
             analyticsError = error.localizedDescription
+        }
+    }
+
+    /// Fetches the last 7 days' pageviews/visits summary for the Analytics tab (#1114). A no-op
+    /// when Cloudflare Analytics isn't enabled for this site — there's no siteTag to query. A
+    /// thrown error clears any prior summary rather than leaving a stale one on screen.
+    func loadRUMSummary() async {
+        guard cloudflareAnalyticsEnabled else { return }
+        guard !isLoadingRUMSummary else { return }
+        isLoadingRUMSummary = true
+        rumSummaryError = nil
+        defer { isLoadingRUMSummary = false }
+        do {
+            guard let token = try await cloudflareToken(), !token.isEmpty else {
+                rumSummary = nil
+                rumSummaryError = CloudflareWebAnalyticsError.missingToken.localizedDescription
+                return
+            }
+            rumSummary = try await rumAnalyticsProvider.summary(
+                siteTag: analyticsSettings.cloudflareToken, apiToken: token, days: 7)
+        } catch {
+            rumSummary = nil
+            rumSummaryError = error.localizedDescription
         }
     }
 
