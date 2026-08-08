@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Charts
 import AnglesiteCore
 
 struct PlistEditorView: View {
@@ -342,7 +343,9 @@ struct PlistEditorView: View {
                         .font(.callout)
                 }
             }
+            rumSummarySection
         }
+        .task { await model.loadRUMSummary() }
         .popover(isPresented: $showingCustomAnalyticsHelp, arrowEdge: .trailing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Custom Analytics")
@@ -353,6 +356,40 @@ struct PlistEditorView: View {
                     .frame(width: 280, alignment: .leading)
             }
             .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var rumSummarySection: some View {
+        if model.cloudflareAnalyticsEnabled {
+            SettingsBox(title: "Traffic") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if model.isLoadingRUMSummary {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else if let rumSummaryError = model.rumSummaryError {
+                        Label(rumSummaryError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.callout)
+                    } else if let summary = model.rumSummary {
+                        if summary.dailyPageviews.isEmpty {
+                            Text("No traffic recorded in the last 7 days.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Last 7 days: \(summary.totalPageviews) pageviews · \(summary.totalVisits) visits")
+                            Chart(summary.dailyPageviews, id: \.date) { day in
+                                BarMark(
+                                    x: .value("Day", day.date, unit: .day),
+                                    y: .value("Pageviews", day.pageviews)
+                                )
+                            }
+                            .frame(height: 60)
+                            .accessibilityLabel("7-day pageviews trend")
+                            .accessibilityValue("\(summary.totalPageviews) total pageviews over the last 7 days")
+                        }
+                    }
+                }
+            }
         }
     }
 
