@@ -9,6 +9,7 @@ final class PlistEditorModel {
     let sourceDirectory: URL
     private let initialWebsiteTitle: String
     private let analyticsProvider: any CloudflareWebAnalyticsProviding
+    private let rumAnalyticsProvider: any CloudflareRUMAnalyticsProviding
     private let customAnalyticsValidator: any CustomAnalyticsHTMLValidating
     private let keychain: KeychainStore
     private let capabilityProber: CloudflareCapabilityProber
@@ -23,6 +24,9 @@ final class PlistEditorModel {
     private(set) var isInstallingIcons = false
     private(set) var isSavingAnalytics = false
     private(set) var isConfiguringCloudflareAnalytics = false
+    private(set) var isLoadingRUMSummary = false
+    private(set) var rumSummary: RUMAnalyticsSummary?
+    private(set) var rumSummaryError: String?
     private(set) var hasWebsiteIcons = false
     var analyticsSettings = WebsiteAnalyticsAsset.Settings() {
         didSet {
@@ -214,6 +218,7 @@ final class PlistEditorModel {
          graphSnapshotProvider: @escaping @MainActor () -> SiteGraphExplorerSnapshot? = { nil },
          onActiveWorkersChanged: @escaping (SiteSettings) async -> Void = { _ in },
          analyticsProvider: any CloudflareWebAnalyticsProviding = CloudflareWebAnalyticsClient(),
+         rumAnalyticsProvider: any CloudflareRUMAnalyticsProviding = CloudflareRUMAnalyticsClient(),
          customAnalyticsValidator: (any CustomAnalyticsHTMLValidating)? = nil,
          containerControlProvider: @escaping AstroHTMLValidator.ContainerControlProvider = { nil },
          keychain: KeychainStore = KeychainStore(),
@@ -237,6 +242,7 @@ final class PlistEditorModel {
         self.graphSnapshotProvider = graphSnapshotProvider
         self.onActiveWorkersChanged = onActiveWorkersChanged
         self.analyticsProvider = analyticsProvider
+        self.rumAnalyticsProvider = rumAnalyticsProvider
         // `customAnalyticsValidator` lets tests inject a fake directly; production leaves it nil
         // and instead wires `containerControlProvider` through to the real `AstroHTMLValidator`,
         // resolved lazily at validation time (#961).
@@ -845,6 +851,29 @@ final class PlistEditorModel {
         }
     }
 
+    /// Fetches the last 7 days' pageviews/visits summary for the Analytics tab (#1114). A no-op
+    /// when Cloudflare Analytics isn't enabled for this site — there's no siteTag to query. A
+    /// thrown error clears any prior summary rather than leaving a stale one on screen.
+    func loadRUMSummary() async {
+        guard cloudflareAnalyticsEnabled else { return }
+        guard !isLoadingRUMSummary else { return }
+        isLoadingRUMSummary = true
+        rumSummaryError = nil
+        defer { isLoadingRUMSummary = false }
+        do {
+            guard let token = try await cloudflareToken(), !token.isEmpty else {
+                rumSummary = nil
+                rumSummaryError = CloudflareWebAnalyticsError.missingToken.localizedDescription
+                return
+            }
+            rumSummary = try await rumAnalyticsProvider.summary(
+                siteTag: analyticsSettings.cloudflareToken, apiToken: token, days: 7)
+        } catch {
+            rumSummary = nil
+            rumSummaryError = error.localizedDescription
+        }
+    }
+
     /// Also returns the raw `.site-config` contents alongside the parsed analytics settings, so
     /// `load()` can reuse them for `MTAStsPolicyAsset.parseSettings`/`SecurityReportingAsset.parseSettings`
     /// instead of reading the file from disk a second time.
@@ -860,37 +889,12 @@ final class PlistEditorModel {
         return (WebsiteAnalyticsAsset.parseMigratingLegacySettings(layoutSource: source, config: config), config)
     }
 
+    /// Env → OAuth (refresh-aware) → legacy-token, via the shared resolver (#1211) — the same
+    /// order every other production Cloudflare call site now uses. `diagnosticSource: "analytics"`
+    /// restores the debug-pane breadcrumb this call site logged before sharing the resolver (a
+    /// fallback source in use is worth a log line; a normal OAuth resolution isn't).
     private func cloudflareToken() async throws -> String? {
-        do {
-            if let token = try keychain.readCloudflareToken(), !token.isEmpty {
-                return token
-            }
-        } catch {
-            if cloudflareEnvironmentToken() == nil {
-                throw error
-            }
-            await LogCenter.shared.append(
-                source: "analytics",
-                stream: .stderr,
-                text: "Could not read Cloudflare API token from Keychain; falling back to CLOUDFLARE_API_TOKEN."
-            )
-        }
-        if let env = cloudflareEnvironmentToken() {
-            await LogCenter.shared.append(
-                source: "analytics",
-                stream: .stderr,
-                text: "Using CLOUDFLARE_API_TOKEN environment fallback for Cloudflare Analytics."
-            )
-            return env
-        }
-        return nil
-    }
-
-    private func cloudflareEnvironmentToken() -> String? {
-        let token = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let token, !token.isEmpty else { return nil }
-        return token
+        try await CloudflareAPICredentials.resolve(secretStore: keychain, diagnosticSource: "analytics")
     }
 
     private static func isWebsiteTitleEntry(_ entry: PlistDocumentIO.PlistEntry) -> Bool {

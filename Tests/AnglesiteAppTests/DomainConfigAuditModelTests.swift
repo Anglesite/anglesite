@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import AnglesiteCore
+import AnglesiteTestSupport
 @testable import AnglesiteAppCore
 
 private final class StubReader: CloudflareReading, @unchecked Sendable {
@@ -55,7 +56,11 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
 }
 
-@Suite(.serialized)
+/// `.timeLimit`: see #1349 — the full `AnglesiteAppTests` target has hung indefinitely under
+/// local machine contention (many concurrent `swift test` runs oversubscribing the cooperative
+/// thread pool), with this suite one of the observed stall points. A wedged test now fails as an
+/// unambiguous time-limit violation instead of hanging the whole run forever.
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct DomainConfigAuditModelTests {
     /// A per-case scratch service (see `KeychainStore`'s own doc comment) so these tests never
     /// touch the developer's real login keychain — every test that claims `CLOUDFLARE_API_TOKEN`
@@ -113,6 +118,71 @@ struct DomainConfigAuditModelTests {
             return
         }
         #expect(reason.contains("example.com"))
+    }
+
+    /// Regression coverage for the #1211 restructuring: the token check moved from a synchronous
+    /// pre-`Task` guard into the async task body, since resolving via `CloudflareAPICredentials`
+    /// needs an `await` hop. `phase` must still flip to `.auditing` synchronously (so `isRunning`
+    /// is observably true) before the in-task token check can land on `.failed` — this pins both
+    /// halves of that contract, not just the eventual outcome.
+    @MainActor
+    @Test("runAudit() surfaces the no-token failure after isRunning has already flipped true")
+    func runAuditNoTokenAvailable() async throws {
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
+        let declared = DomainConfig(domain: .init(hostname: "example.com"))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        let model = DomainConfigAuditModel(reader: StubReader(), writer: StubWriter(), keychain: InMemorySecretStore())
+        model.configure(site: site)
+
+        model.runAudit()
+        #expect(model.isRunning)
+        while model.isRunning { await Task.yield() }
+
+        guard case .failed(let reason) = model.phase else {
+            Issue.record("expected .failed, got \(model.phase)")
+            return
+        }
+        #expect(reason.contains("token"))
+    }
+
+    /// Same regression coverage as ``runAuditNoTokenAvailable()``, for `reconcile()`'s identical
+    /// restructuring.
+    @MainActor
+    @Test("reconcile() surfaces the no-token failure after isRunning has already flipped true")
+    func reconcileNoTokenAvailable() async throws {
+        let record = DomainConfig.DNSRecord(
+            type: "TXT", name: "_atproto", content: "did=did:plc:abc", purpose: "verification:bluesky")
+        let declared = DomainConfig(domain: .init(hostname: "example.com"), dns: .init(managedRecords: [record]))
+        let (site, cleanup) = try tempSite(declaring: declared)
+        defer { cleanup() }
+        // Token available for the audit step, so phase reaches `.results` with a non-empty plan —
+        // reconcile()'s own guard requires that starting phase. Claimed explicitly via the shared
+        // coordinator (#1211 review) rather than relying on ambient/leaked env state.
+        let model = DomainConfigAuditModel(reader: StubReader(zoneID: "z1"), writer: StubWriter(), keychain: InMemorySecretStore())
+        model.configure(site: site)
+        let auditToken = await CloudflareAPITokenTestEnvironment.shared.claimSet()
+        model.runAudit()
+        while model.isRunning { await Task.yield() }
+        auditToken.release()
+        guard case .results = model.phase else {
+            Issue.record("expected .results before exercising reconcile()'s no-token path, got \(model.phase)")
+            return
+        }
+
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
+
+        model.reconcile()
+        #expect(model.isRunning)
+        while model.isRunning { await Task.yield() }
+
+        guard case .failed(let reason) = model.phase else {
+            Issue.record("expected .failed, got \(model.phase)")
+            return
+        }
+        #expect(reason.contains("token"))
     }
 
     @MainActor

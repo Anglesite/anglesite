@@ -36,7 +36,7 @@ final class DomainConfigAuditModel {
 
     private let reader: any CloudflareReading
     private let writer: any CloudflareWriting
-    private let keychain: KeychainStore
+    private let keychain: any SecretStore
     private var inFlight: Task<Void, Never>?
 
     private var currentSite: CurrentSite?
@@ -44,7 +44,7 @@ final class DomainConfigAuditModel {
     init(
         reader: any CloudflareReading = HTTPCloudflareClient(),
         writer: any CloudflareWriting = HTTPCloudflareClient(),
-        keychain: KeychainStore = KeychainStore()
+        keychain: any SecretStore = KeychainStore()
     ) {
         self.reader = reader
         self.writer = writer
@@ -74,10 +74,13 @@ final class DomainConfigAuditModel {
         phase = .idle
     }
 
-    /// Validates synchronously (site open, declared domain present, token available) and, only
-    /// once that succeeds, flips `phase` to `.auditing` *before* spawning the network task — so a
-    /// caller that immediately checks `isRunning` (a synchronous poll loop, e.g. in tests) always
-    /// observes the running state rather than racing the task's own first `phase` write.
+    /// Validates synchronously (site open, declared domain present) and, only once that succeeds,
+    /// flips `phase` to `.auditing` *before* spawning the network task — so a caller that
+    /// immediately checks `isRunning` (a synchronous poll loop, e.g. in tests) always observes the
+    /// running state rather than racing the task's own first `phase` write. Token resolution now
+    /// needs an `async` hop (a stored OAuth credential may need refreshing, #1211) — it happens
+    /// inside the task, and a missing token surfaces as `.failed` from there instead of blocking
+    /// this synchronous prelude.
     func runAudit() {
         guard !isRunning else { return }
         guard let site = currentSite else {
@@ -96,16 +99,12 @@ final class DomainConfigAuditModel {
             phase = .failed(reason: "No domain is declared in anglesite.json yet. Attach a domain first.")
             return
         }
-        guard let token = apiToken() else {
-            phase = .failed(reason: "No Cloudflare API token found. Add one in Settings → Credentials.")
-            return
-        }
 
         phase = .auditing(domain: domain)
 
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
-            await self?.performAudit(declared: declared, domain: domain, token: token)
+            await self?.performAudit(declared: declared, domain: domain)
         }
     }
 
@@ -116,17 +115,13 @@ final class DomainConfigAuditModel {
             phase = .failed(reason: "No site is open.")
             return
         }
-        guard let token = apiToken() else {
-            phase = .failed(reason: "No Cloudflare API token found.")
-            return
-        }
         let declared = (try? DomainConfigStore(sourceDirectory: site.sourceDirectory).load()) ?? DomainConfig()
 
         phase = .reconciling(domain: domain)
 
         inFlight?.cancel()
         inFlight = Task { @MainActor [weak self] in
-            await self?.performReconcile(plan: plan, domain: domain, zoneID: zoneID, declared: declared, token: token)
+            await self?.performReconcile(plan: plan, domain: domain, zoneID: zoneID, declared: declared)
         }
     }
 
@@ -139,14 +134,15 @@ final class DomainConfigAuditModel {
 
     // MARK: - Private
 
-    private func apiToken() -> String? {
-        if let env = ProcessInfo.processInfo.environment["CLOUDFLARE_API_TOKEN"], !env.isEmpty {
-            return env
-        }
-        return try? keychain.readCloudflareToken()
+    private func apiToken() async -> String? {
+        try? await CloudflareAPICredentials.resolve(secretStore: keychain)
     }
 
-    private func performAudit(declared: DomainConfig, domain: String, token: String) async {
+    private func performAudit(declared: DomainConfig, domain: String) async {
+        guard let token = await apiToken() else {
+            phase = .failed(reason: "No Cloudflare API token found. Add one in Settings → Credentials.")
+            return
+        }
         do {
             guard let zoneID = try await reader.resolveZoneID(domain: domain, apiToken: token) else {
                 phase = .failed(reason: "Zone not found for \"\(domain)\". Check the domain and ensure your API token has Zone Read permission.")
@@ -172,8 +168,12 @@ final class DomainConfigAuditModel {
     }
 
     private func performReconcile(
-        plan: DomainConfigReconcilePlan, domain: String, zoneID: String, declared: DomainConfig, token: String
+        plan: DomainConfigReconcilePlan, domain: String, zoneID: String, declared: DomainConfig
     ) async {
+        guard let token = await apiToken() else {
+            phase = .failed(reason: "No Cloudflare API token found.")
+            return
+        }
         let reconciler = DomainConfigReconciler(reader: reader, writer: writer)
         let result = await reconciler.execute(
             plan: plan, zoneID: zoneID, domain: domain, apiToken: token, declared: declared)

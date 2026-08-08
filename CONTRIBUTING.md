@@ -64,7 +64,7 @@ Notes:
 - Container runtime tests are opt-in: `ANGLESITE_CONTAINER_TESTS=1` (plus `ANGLESITE_CONTAINER_E2E=1` for end-to-end cases).
 - MCP/apply-edit e2e tests run only when `ANGLESITE_PLUGIN_PATH` points at an Anglesite plugin checkout; otherwise they skip.
 - If you touch `Resources/Template/`, run `swift test` too — some Swift tests couple to the template markup.
-- CI runs the JS overlay checks, Linux portable-target builds, macOS `swift test` (including ThreadSanitizer lanes), an `Anglesite.xcodeproj` ↔ `project.yml` sync check, and an AppIntents schema check. All must pass.
+- CI runs the JS overlay checks, Linux portable-target builds, macOS `swift test` (including ThreadSanitizer and timing-sensitive-isolation lanes), an `Anglesite.xcodeproj` ↔ `project.yml` sync check, and an AppIntents schema check. All must pass.
 
 ## Code guidelines
 
