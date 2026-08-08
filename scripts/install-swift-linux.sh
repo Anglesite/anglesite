@@ -75,4 +75,32 @@ if ! command -v swiftly >/dev/null 2>&1; then
   # shellcheck source=/dev/null
   . "$SWIFTLY_ENV"
 fi
-swiftly install latest -y
+
+# `swiftly install` fetches swift.org's PGP keys itself (separate from
+# verify_swiftly_tarball above, which only covers the swiftly binary) before
+# verifying the toolchain download. That fetch has been observed to fail fast
+# — gpg importing a 0-byte temp file — 3 times in a row, back-to-back with no
+# delay, within one container; a fresh container hit no failures at all,
+# including under repeated direct pressure on the same code path. Each
+# attempt used a distinct temp filename (not a replayed/cached one), so it's
+# a fresh fetch failing every time in that container, not a corrupted local
+# artifact being reused — retrying has a mechanism by which it could help.
+# Whether the backoff below is what actually clears it is unverified: the
+# only reproductions were immediate back-to-back retries, not delayed ones,
+# and the specific broken container is gone. Treat this as a bounded,
+# logged mitigation for a failure mode that isn't fully understood, not a
+# confirmed fix — see install-swift-linux.test.sh for what IS verified
+# (attempt count, backoff timing, and exit code of this loop itself).
+attempt=1
+max_attempts=3
+delay=5
+until swiftly install latest -y; do
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "install-swift-linux.sh: swiftly install latest -y failed after $max_attempts attempts" >&2
+    exit 1
+  fi
+  echo "install-swift-linux.sh: swiftly install latest -y failed (attempt $attempt/$max_attempts) — retrying in ${delay}s" >&2
+  sleep "$delay"
+  attempt=$((attempt + 1))
+  delay=$((delay * 2))
+done
