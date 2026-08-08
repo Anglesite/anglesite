@@ -88,7 +88,11 @@ private struct StubTokenVerifying: TokenVerifying {
 /// `setenv`/`unsetenv` directly — it serializes the two incompatible desired states against each
 /// other instead of letting them race. Claim at the top of a test body (before any other `await`,
 /// so no other test's `deploy()` check can interleave) and release via `defer`.
-@Suite("DeployModel")
+/// `.timeLimit`: see #1349 — the full `AnglesiteAppTests` target has hung indefinitely under
+/// local machine contention (many concurrent `swift test` runs oversubscribing the cooperative
+/// thread pool), with a stall observed immediately after this suite. A wedged test now fails as
+/// an unambiguous time-limit violation instead of hanging the whole run forever.
+@Suite("DeployModel", .timeLimit(.minutes(1)))
 @MainActor
 struct DeployModelTests {
     @Test("sudden termination stays disabled until a deploy finishes")

@@ -56,7 +56,11 @@ private final class StubWriter: CloudflareWriting, @unchecked Sendable {
     func setMarkdownForAgents(hostname: String, enabled: Bool, apiToken: String) async throws -> Bool { true }
 }
 
-@Suite(.serialized)
+/// `.timeLimit`: see #1349 — the full `AnglesiteAppTests` target has hung indefinitely under
+/// local machine contention (many concurrent `swift test` runs oversubscribing the cooperative
+/// thread pool), with this suite one of the observed stall points. A wedged test now fails as an
+/// unambiguous time-limit violation instead of hanging the whole run forever.
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct DomainConfigAuditModelTests {
     /// A per-case scratch service (see `KeychainStore`'s own doc comment) so these tests never
     /// touch the developer's real login keychain — every test that claims `CLOUDFLARE_API_TOKEN`
