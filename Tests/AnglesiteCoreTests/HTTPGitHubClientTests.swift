@@ -37,7 +37,7 @@ struct HTTPGitHubClientTests {
     @Test("a 401 maps to .unauthorized")
     func unauthorized() async {
         let client = HTTPGitHubClient(transport: Self.transport(status: 401, json: #"{"message":"Bad credentials"}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 401)) {
             _ = try await client.createRepo(name: "site", isPrivate: true, token: "bad")
         }
     }
@@ -45,7 +45,7 @@ struct HTTPGitHubClientTests {
     @Test("a 403 also maps to .unauthorized")
     func forbidden() async {
         let client = HTTPGitHubClient(transport: Self.transport(status: 403, json: #"{"message":"Forbidden"}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 403)) {
             _ = try await client.createRepo(name: "site", isPrivate: true, token: "scoped-wrong")
         }
     }
@@ -172,7 +172,7 @@ struct HTTPGitHubClientTests {
     func enablePVRWithoutAdmin() async {
         let client = HTTPGitHubClient(transport: Self.transport(
             status: 403, json: #"{"message":"Must have admin rights to Repository."}"#))
-        await #expect(throws: GitHubRepoAPIError.unauthorized) {
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 403)) {
             try await client.enablePrivateVulnerabilityReporting(owner: "acme", name: "site", token: "tok")
         }
     }
@@ -191,5 +191,153 @@ struct HTTPGitHubClientTests {
         await #expect(throws: GitHubRepoAPIError.malformedResponse) {
             _ = try await client.isPrivate(owner: "acme", name: "site", token: "tok")
         }
+    }
+
+    // MARK: - RepoAdvisoryReading (#975)
+
+    @Test("open security advisories decode, keeping only triage/published state")
+    func openSecurityAdvisoriesFiltersState() async throws {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
+            [
+              {"ghsa_id":"GHSA-1111-1111-1111","summary":"Triage report","severity":"high",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-1111-1111-1111",
+               "published_at":null,"state":"triage"},
+              {"ghsa_id":"GHSA-2222-2222-2222","summary":"Published report","severity":"critical",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-2222-2222-2222",
+               "published_at":"2026-07-01T00:00:00Z","state":"published"},
+              {"ghsa_id":"GHSA-3333-3333-3333","summary":"Owner's own draft","severity":"low",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-3333-3333-3333",
+               "published_at":null,"state":"draft"},
+              {"ghsa_id":"GHSA-4444-4444-4444","summary":"Already resolved","severity":"medium",
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-4444-4444-4444",
+               "published_at":"2026-01-01T00:00:00Z","state":"closed"}
+            ]
+            """))
+        let advisories = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        #expect(advisories.map(\.id) == ["GHSA-1111-1111-1111", "GHSA-2222-2222-2222"])
+        #expect(advisories[0].severity == .high)
+        #expect(advisories[1].severity == .critical)
+        #expect(advisories[1].publishedAt != nil)
+    }
+
+    @Test("open Dependabot alerts decode package, severity, patched version, and URL")
+    func openDependabotAlertsDecode() async throws {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
+            [
+              {"number":7,"dependency":{"package":{"name":"left-pad","ecosystem":"npm"}},
+               "security_advisory":{"severity":"medium"},
+               "security_vulnerability":{"first_patched_version":{"identifier":"1.3.0"}},
+               "html_url":"https://github.com/acme/site/security/dependabot/7"},
+              {"number":9,"dependency":{"package":{"name":"left-pad-legacy","ecosystem":"npm"}},
+               "security_advisory":{"severity":"high"},
+               "security_vulnerability":{"first_patched_version":null},
+               "html_url":"https://github.com/acme/site/security/dependabot/9"}
+            ]
+            """))
+        let alerts = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        #expect(alerts.count == 2)
+        #expect(alerts[0].id == 7)
+        #expect(alerts[0].packageName == "left-pad")
+        #expect(alerts[0].ecosystem == "npm")
+        #expect(alerts[0].severity == .moderate)
+        #expect(alerts[0].patchedVersion == "1.3.0")
+        #expect(alerts[1].patchedVersion == nil)
+    }
+
+    @Test("a 401 on advisories maps to .unauthorized")
+    func openSecurityAdvisoriesUnauthorized() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 401, json: #"{"message":"Bad credentials"}"#))
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 401)) {
+            _ = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "bad")
+        }
+    }
+
+    /// GitHub answers this specific endpoint with 403 whenever Dependabot alerts are simply
+    /// disabled for the repository — SecurityReportsModel.recheck's whole rationale for awaiting
+    /// this endpoint independently rests on that being a `.unauthorized` case like 401, not a
+    /// distinct one, so it's worth pinning explicitly rather than relying only on the shared
+    /// 401/403 coverage elsewhere (`createRepo`'s tests).
+    @Test("a 403 on alerts (Dependabot disabled for the repo) also maps to .unauthorized")
+    func openDependabotAlertsForbidden() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 403, json: #"{"message":"Dependabot alerts are disabled"}"#))
+        await #expect(throws: GitHubRepoAPIError.unauthorized(status: 403)) {
+            _ = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("a transport failure on alerts maps to .network")
+    func openDependabotAlertsNetworkFailure() async {
+        let client = HTTPGitHubClient(transport: { _ in throw URLError(.notConnectedToInternet) })
+        await #expect(throws: GitHubRepoAPIError.network) {
+            _ = try await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("an unparseable advisories body maps to .malformedResponse")
+    func openSecurityAdvisoriesMalformed() async {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: "not json"))
+        await #expect(throws: GitHubRepoAPIError.malformedResponse) {
+            _ = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        }
+    }
+
+    @Test("the alerts request targets the state=open query, sets per_page=100, and sends the bearer token")
+    func alertsRequestShape() async {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(status: 200, json: "[]", into: box))
+        _ = try? await client.openDependabotAlerts(owner: "acme", name: "site", token: "tok")
+        let request = await box.last
+        #expect(request?.url?.absoluteString == "https://api.github.com/repos/acme/site/dependabot/alerts?state=open&per_page=100")
+        #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
+    }
+
+    @Test("the advisories request sets per_page=100")
+    func advisoriesRequestShape() async {
+        let box = RequestBox()
+        let client = HTTPGitHubClient(transport: Self.recordingTransport(status: 200, json: "[]", into: box))
+        _ = try? await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        let request = await box.last
+        #expect(request?.url?.absoluteString == "https://api.github.com/repos/acme/site/security-advisories?per_page=100")
+    }
+
+    @Test("a null severity on one advisory falls back to .unknown instead of dropping the whole batch")
+    func openSecurityAdvisoriesNullSeverity() async throws {
+        let client = HTTPGitHubClient(transport: Self.transport(status: 200, json: """
+            [
+              {"ghsa_id":"GHSA-5555-5555-5555","summary":"No severity yet","severity":null,
+               "html_url":"https://github.com/acme/site/security/advisories/GHSA-5555-5555-5555",
+               "published_at":null,"state":"triage"}
+            ]
+            """))
+        let advisories = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        #expect(advisories.map(\.id) == ["GHSA-5555-5555-5555"])
+        #expect(advisories[0].severity == .unknown)
+    }
+
+    @Test("openSecurityAdvisories follows the Link: rel=\"next\" header across pages")
+    func openSecurityAdvisoriesPaginates() async throws {
+        let page1 = """
+            [{"ghsa_id":"GHSA-1111-1111-1111","summary":"Page 1","severity":"high",
+              "html_url":"https://github.com/acme/site/security/advisories/GHSA-1111-1111-1111",
+              "published_at":null,"state":"triage"}]
+            """
+        let page2 = """
+            [{"ghsa_id":"GHSA-2222-2222-2222","summary":"Page 2","severity":"low",
+              "html_url":"https://github.com/acme/site/security/advisories/GHSA-2222-2222-2222",
+              "published_at":null,"state":"triage"}]
+            """
+        let nextURL = "https://api.github.com/repos/acme/site/security-advisories?per_page=100&page=2"
+        let client = HTTPGitHubClient(transport: { request in
+            if request.url?.absoluteString.contains("page=2") == true {
+                let http = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (Data(page2.utf8), http)
+            }
+            let http = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Link": "<\(nextURL)>; rel=\"next\", <\(nextURL)>; rel=\"last\""])!
+            return (Data(page1.utf8), http)
+        })
+        let advisories = try await client.openSecurityAdvisories(owner: "acme", name: "site", token: "tok")
+        #expect(advisories.map(\.id) == ["GHSA-1111-1111-1111", "GHSA-2222-2222-2222"])
     }
 }

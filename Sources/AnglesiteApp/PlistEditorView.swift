@@ -3,34 +3,37 @@ import SwiftUI
 import Charts
 import AnglesiteCore
 
+/// Website Settings' tab identity (#975 follow-up: internal, not `private`, so
+/// `SiteWindowModel.openWebsiteSettings(landOn:)` and `PlistEditorModel.requestedTab` — both in
+/// this module — can name a tab to land on from outside this view).
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case website = "Website"
+    case analytics = "Analytics"
+    case redirects = "Redirects"
+    case licensing = "Licensing"
+    case emailSecurity = "Email Security"
+    case securityReports = "Security Reports"
+    case social = "Social"
+    case workers = "Workers"
+    var id: Self { self }
+
+    var symbolName: String {
+        switch self {
+        case .website: return "globe"
+        case .analytics: return "chart.bar.xaxis"
+        case .redirects: return "arrow.triangle.turn.up.right.diamond.fill"
+        case .licensing: return "checkmark.seal"
+        case .emailSecurity: return "envelope.badge.shield.half.filled"
+        case .securityReports: return "doc.text.magnifyingglass"
+        case .social: return "at"
+        case .workers: return "bolt.fill"
+        }
+    }
+}
+
 struct PlistEditorView: View {
     @Bindable var model: PlistEditorModel
     let onWebsiteTitleSaved: (String) -> Void
-
-    private enum SettingsTab: String, CaseIterable, Identifiable {
-        case website = "Website"
-        case analytics = "Analytics"
-        case redirects = "Redirects"
-        case licensing = "Licensing"
-        case emailSecurity = "Email Security"
-        case securityReports = "Security Reports"
-        case social = "Social"
-        case workers = "Workers"
-        var id: Self { self }
-
-        var symbolName: String {
-            switch self {
-            case .website: return "globe"
-            case .analytics: return "chart.bar.xaxis"
-            case .redirects: return "arrow.triangle.turn.up.right.diamond.fill"
-            case .licensing: return "checkmark.seal"
-            case .emailSecurity: return "envelope.badge.shield.half.filled"
-            case .securityReports: return "doc.text.magnifyingglass"
-            case .social: return "at"
-            case .workers: return "bolt.fill"
-            }
-        }
-    }
 
     @Environment(\.controlActiveState) private var controlActiveState
     @State private var selectedTab: SettingsTab = .website
@@ -48,6 +51,15 @@ struct PlistEditorView: View {
             content
         }
         .task(id: model.file.id) { await model.load() }
+        // `initial: true` so this also applies a request already set before this view was ever
+        // rendered (`openWebsiteSettings(landOn:)` on a not-yet-open editor) — not just one set
+        // while the view is already live (the badge's button clicked while Settings is already
+        // showing some other tab). `.onChange` alone would only catch the latter.
+        .onChange(of: model.requestedTab, initial: true) { _, requestedTab in
+            guard let requestedTab else { return }
+            selectedTab = requestedTab
+            model.requestedTab = nil
+        }
         .onChange(of: titleFocused) { wasFocused, isFocused in
             if wasFocused && !isFocused {
                 Task { await saveWebsiteTitle() }
@@ -620,6 +632,8 @@ struct PlistEditorView: View {
 
             securityReportsGitHubCallout
 
+            openSecurityReportsSection
+
             if let securityReportingError = model.securityReportingError {
                 Label(securityReportingError, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
@@ -631,6 +645,7 @@ struct PlistEditorView: View {
             }
         }
         .task { await model.refreshRepoSecurityState() }
+        .task { await model.refreshSecurityReports() }
     }
 
     @ViewBuilder
@@ -729,6 +744,137 @@ struct PlistEditorView: View {
                 Text("This changes a setting on the GitHub repository. Anglesite never turns it back off.")
             }
         }
+    }
+
+    /// Only rendered for a site with a resolved GitHub remote — the same gate
+    /// `securityReportsGitHubCallout` uses, and for the same reason. `SecurityReportsModel.recheck`
+    /// deliberately doesn't set `lastCheckedAt` on the no-repo path (nothing was checked), so
+    /// without this gate a non-GitHub site would show "Not checked yet." forever and a
+    /// "Check for Reports" button that can't change it.
+    @ViewBuilder
+    private var openSecurityReportsSection: some View {
+        if model.securityReportingRepo != nil {
+            openReportsBox
+        }
+    }
+
+    private var openReportsBox: some View {
+        SettingsBox(title: "Open Reports") {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.securityReports.isRunning && model.securityReports.totalCount == 0 {
+                    // Covers both the very-first check (`lastCheckedAt == nil`) and a recheck that
+                    // starts from a previously-clean "No open reports." result — without the
+                    // `isRunning` branch, a recheck of an already-checked, already-empty site fell
+                    // through to the static "No open reports." text below with only the small
+                    // `ProgressView` in the footer to show anything was happening.
+                    Text("Checking for open GitHub security advisories and Dependabot alerts…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else if model.securityReports.totalCount == 0 {
+                    Text(model.securityReports.lastCheckedAt == nil ? "Not checked yet." : "No open reports.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(model.securityReports.openAdvisories) { advisory in
+                        advisoryRow(advisory)
+                    }
+                    ForEach(model.securityReports.openAlerts) { alert in
+                        alertRow(alert)
+                    }
+                }
+
+                if let lastError = model.securityReports.lastError {
+                    Label(lastError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                }
+
+                HStack {
+                    if model.securityReports.isRunning {
+                        ProgressView().controlSize(.small)
+                    }
+                    Spacer()
+                    Button("Check for Reports") { Task { await model.refreshSecurityReports() } }
+                        .controlSize(.small)
+                        .disabled(model.securityReports.isRunning)
+                }
+            }
+        }
+    }
+
+    // The leading glyph in these two rows distinguishes *kind* (advisory vs. dependency alert),
+    // so severity can't ride on its tint: each row states the tier in words next to the title and
+    // leads its accessibility label with it (`SecurityAdvisory.Severity.reportLabel`, shared with
+    // `SecurityReportsBadgeView`'s popover rows).
+    private func advisoryRow(_ advisory: SecurityAdvisory) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(advisory.severity.reportColor)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(advisory.severity.reportLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(advisory.severity.reportColor)
+                        // Already spoken by the summary's label below; announcing it twice would
+                        // make every row read its severity out of order.
+                        .accessibilityHidden(true)
+                    Text(advisory.summary)
+                        .font(.callout)
+                        .accessibilityLabel(advisory.severity.spokenLabel(for: advisory.summary))
+                }
+                HStack(spacing: 10) {
+                    Link("View on GitHub", destination: advisory.htmlURL)
+                        .font(.caption)
+                    Button("Forward to Anglesite") { forwardToAnglesite(advisory) }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+    }
+
+    private func alertRow(_ alert: DependabotAlert) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "shippingbox.fill")
+                .foregroundStyle(alert.severity.reportColor)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(alert.severity.reportLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(alert.severity.reportColor)
+                        .accessibilityHidden(true)
+                    Text("\(alert.packageName) (\(alert.ecosystem))")
+                        .font(.callout)
+                        .accessibilityLabel(alert.severity.spokenLabel(
+                            for: "\(alert.packageName) (\(alert.ecosystem))"))
+                }
+                if let offer = model.fixOffer(for: alert) {
+                    Button("Update Available") { model.requestDependencyFix(for: alert) }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                    Text("Bumps to \(offer.offeredRange)").font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    Link("View on GitHub", destination: alert.htmlURL)
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    /// Copies a plain-text summary of `advisory` to the pasteboard and opens
+    /// `Anglesite/Anglesite`'s advisory form — never an API call (#975, see
+    /// `AdvisoryForwarding`'s doc comment for why). The composition itself lives on
+    /// `PlistEditorModel` so it's testable; this wrapper is only the AppKit side effects, and
+    /// does nothing when the model can't name the site's repo yet.
+    private func forwardToAnglesite(_ advisory: SecurityAdvisory) {
+        guard let payload = model.forwardingPayload(for: advisory) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(payload.text, forType: .string)
+        NSWorkspace.shared.open(payload.formURL)
     }
 
     private var socialTab: some View {

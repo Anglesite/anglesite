@@ -7,6 +7,11 @@ import AnglesiteCore
 final class PlistEditorModel {
     let file: FileRef
     let sourceDirectory: URL
+    /// Set by `SiteWindowModel.openWebsiteSettings(landOn:)` (#975 follow-up: the security-reports
+    /// toolbar badge's "View all in Security Reports" button) to request a tab switch from outside
+    /// `PlistEditorView`. The view applies it and clears it back to `nil` — see its
+    /// `onChange(of: model.requestedTab)`.
+    var requestedTab: SettingsTab?
     private let initialWebsiteTitle: String
     private let analyticsProvider: any CloudflareWebAnalyticsProviding
     private let rumAnalyticsProvider: any CloudflareRUMAnalyticsProviding
@@ -102,6 +107,17 @@ final class PlistEditorModel {
     /// their unpopulated `false` defaults. The view must not render either sub-warning from that
     /// unpopulated data, which would assert PVR/visibility state nobody actually observed.
     private(set) var securityReportingStateIsKnown = false
+    /// Open GitHub security advisories + Dependabot alerts for this site (#975, the inbound
+    /// half of #843) — the same instance `SiteWindowModel` owns and the toolbar badge reads, so
+    /// a check kicked off from either place is visible in both.
+    let securityReports: SecurityReportsModel
+    /// The most recent `DependencySyncChecker.check` result, threaded in from `SiteWindowModel`
+    /// so a Dependabot-alert row can offer the same fix without a second `package.json` read.
+    private let dependencySyncOffers: DependencySyncOffers
+    /// Opens the dependency-update sheet for a single matched offer — forwards to
+    /// `SiteWindowModel.presentDependencyFixSheet(_:)`; a closure (not a direct dependency) so
+    /// this model doesn't need to know about `SiteWindowModel` or sheet presentation at all.
+    private let onOpenDependencyFix: (DependencyUpdateOffer) -> Void
     private let repoSecurity: any RepoSecurityReading & RepoSecurityWriting
     private let gitRunner: BackupCommand.GitRunner
     private let githubToken: @Sendable () throws -> String?
@@ -227,7 +243,10 @@ final class PlistEditorModel {
          domainOperations: any DomainOperationsService = DomainOperations(),
          repoSecurity: any RepoSecurityReading & RepoSecurityWriting = HTTPGitHubClient(),
          gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
-         githubToken: @escaping @Sendable () throws -> String? = { try KeychainStore().readGitHubToken() }) {
+         githubToken: @escaping @Sendable () throws -> String? = { try KeychainStore().readGitHubToken() },
+         securityReports: SecurityReportsModel? = nil,
+         dependencySyncOffers: DependencySyncOffers = DependencySyncOffers(),
+         onOpenDependencyFix: @escaping (DependencyUpdateOffer) -> Void = { _ in }) {
         self.file = file
         self.initialWebsiteTitle = websiteTitle
         self.sourceDirectory = sourceDirectory
@@ -254,6 +273,12 @@ final class PlistEditorModel {
         self.repoSecurity = repoSecurity
         self.gitRunner = gitRunner
         self.githubToken = githubToken
+        // Resolved here rather than as a default argument: constructing a `@MainActor` class
+        // (`SecurityReportsModel`) can't be a default value in this initializer under strict
+        // concurrency — same reasoning as `workerCatalogProvider` above.
+        self.securityReports = securityReports ?? SecurityReportsModel()
+        self.dependencySyncOffers = dependencySyncOffers
+        self.onOpenDependencyFix = onOpenDependencyFix
         self.hasWebsiteIcons = WebsiteIconInstaller.hasInstalledIcons(in: sourceDirectory)
     }
 
@@ -659,6 +684,43 @@ final class PlistEditorModel {
         }
     }
 
+    /// Re-checks `securityReports` against this site's GitHub remote. Called when the Security
+    /// Reports tab loads and from its manual "Check for reports" action — never on a timer.
+    /// Reuses `currentRemoteRepo()`/`githubToken()`, the same lookups the outbound-configuration
+    /// half of this tab already performs, rather than depending on `SiteWindowModel` for either.
+    func refreshSecurityReports() async {
+        let repo = await currentRemoteRepo()
+        let token = (try? githubToken()) ?? nil
+        await securityReports.recheck(repo: repo, token: token).value
+    }
+
+    /// The dependency-sync offer that would fix `alert`, if the bundled template already offers
+    /// a range that reaches its patched version. `nil` renders as "View on GitHub" instead of an
+    /// "Update available" action.
+    func fixOffer(for alert: DependabotAlert) -> DependencyUpdateOffer? {
+        DependencySync.fixOffer(for: alert, in: dependencySyncOffers)
+    }
+
+    /// Opens the dependency-update sheet for `alert`'s matched fix, if any. A no-op when
+    /// `fixOffer(for:)` finds nothing — the view only shows this action when a fix exists, but
+    /// this guard keeps the model's own contract self-consistent regardless of caller.
+    func requestDependencyFix(for alert: DependabotAlert) {
+        guard let offer = fixOffer(for: alert) else { return }
+        onOpenDependencyFix(offer)
+    }
+
+    /// What "Forward to Anglesite" needs in order to hand an advisory to `Anglesite/Anglesite`'s
+    /// own advisory form: the clipboard text and the form's URL. `nil` when this site's GitHub
+    /// repo isn't known yet — advisories can be on screen from the site-open check before the
+    /// Security Reports tab's own `refreshRepoSecurityState()` has resolved the remote, and the
+    /// clipboard text names that repo. The view does the pasteboard/browser work; composing it
+    /// lives here so it's testable without AppKit.
+    func forwardingPayload(for advisory: SecurityAdvisory) -> (text: String, formURL: URL)? {
+        guard let repo = securityReportingRepo else { return nil }
+        return (AdvisoryForwarding.clipboardText(for: advisory, siteRepo: repo),
+                AdvisoryForwarding.anglesiteAdvisoryFormURL)
+    }
+
     /// Publishes the repo's advisory form as the most-preferred contact, enabling private
     /// vulnerability reporting first when it's off. The view confirms before calling this —
     /// enabling PVR changes a GitHub repository setting.
@@ -727,10 +789,25 @@ final class PlistEditorModel {
         return true
     }
 
+    /// Coalesces concurrent `currentRemoteRepo()` callers onto a single `git remote get-url
+    /// origin` spawn. `refreshRepoSecurityState()` and `refreshSecurityReports()` both call it
+    /// from `.task` modifiers that start together when the Security Reports tab loads; without
+    /// this, that's two subprocess spawns for the same answer on every site open. Cleared once
+    /// the in-flight resolution completes, so a later explicit recheck (e.g. the "Check for
+    /// Reports" button) still re-resolves rather than reusing a possibly-stale answer.
+    private var pendingRemoteRepoResolution: Task<RemoteRepo?, Never>?
+
     private func currentRemoteRepo() async -> RemoteRepo? {
-        guard let result = try? await gitRunner(sourceDirectory, ["remote", "get-url", "origin"]),
-              result.exitCode == 0 else { return nil }
-        return RemoteRepo.parse(remoteURL: result.stdout)
+        if let pending = pendingRemoteRepoResolution {
+            return await pending.value
+        }
+        let task = Task<RemoteRepo?, Never> { [gitRunner, sourceDirectory] in
+            await GitRemoteResolver.origin(in: sourceDirectory, runner: gitRunner)
+        }
+        pendingRemoteRepoResolution = task
+        let repo = await task.value
+        pendingRemoteRepoResolution = nil
+        return repo
     }
 
     private func repoSecurityMessage(for error: any Error) -> String {

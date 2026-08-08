@@ -173,6 +173,10 @@ final class SiteWindowModel {
     var connectDomain = ConnectDomainModel()
     var buyDomain = BuyDomainModel()
     var health = HealthModel(runner: DefaultHealthCheckRunner())
+    /// Open GitHub security advisories and Dependabot alerts for this site's repo (#975, the
+    /// inbound half of #843). Drives `SecurityReportsBadgeView` in the toolbar and the "Open
+    /// reports" section of Website Settings ▸ Security Reports — both read this one instance.
+    var securityReports = SecurityReportsModel()
     /// Drives the determinate startup progress bar shown in `mainPane` while the dev server boots.
     var startup = StartupProgressModel()
     /// Observed so an already-open window reacts to a `PreviewSiteIntent` navigation request.
@@ -186,6 +190,11 @@ final class SiteWindowModel {
     /// Non-nil ⟺ the dependency-update-offer sheet is presented (`.sheet(item:)`), set by the
     /// detection hook in `loadAndStart()` when `DependencySyncChecker` finds offers to show.
     var dependencyUpdateModel: DependencyUpdateModel?
+    /// The most recent `DependencySyncChecker.check` result from `loadAndStart()`, kept even
+    /// when empty so the Security Reports tab's Dependabot-alert rows can offer the same fix
+    /// (`DependencySync.fixOffer`, #975) without a second `package.json` read. Set once per site
+    /// open; not re-derived reactively.
+    private(set) var dependencySyncOffers = DependencySyncOffers()
     /// Non-nil ⟺ the scripts/-divergence sheet is presented (`.sheet(item:)`), set by the
     /// detection hook in `loadAndStart()` when `TemplateScriptsSyncChecker` finds files the owner
     /// customized that the template has also moved on past (#1053).
@@ -214,6 +223,12 @@ final class SiteWindowModel {
     /// when the delete actually succeeded. Never break an inbound URL a user didn't choose to
     /// abandon (#584).
     var pendingRedirectOfferRoute: String?
+    /// Carries a requested `SettingsTab` across `openFile`'s async model-construction `Task` for
+    /// `openWebsiteSettings(landOn:)` (#975 follow-up: the security-reports badge's "View all in
+    /// Security Reports" button), the same "record a request, the target consumes and clears it"
+    /// shape as `pendingRedirectOfferRoute` above. Unused when Website Settings is already open —
+    /// that case sets `PlistEditorModel.requestedTab` directly instead, see `openWebsiteSettings`.
+    private var pendingWebsiteSettingsTab: SettingsTab?
     /// Editor/inspector state closed by a delete, keyed by the deleted file's relative path, so a
     /// ⌘Z restore of that file can put it back (#675). Written by every path that closes surfaces
     /// for a delete (`confirmDelete()` and `applyContentUndo`'s delete branch) and removed the
@@ -262,14 +277,24 @@ final class SiteWindowModel {
         return nil
     }
 
+    private let gitRunner: BackupCommand.GitRunner
+    private let githubToken: @Sendable () throws -> String?
+    private let runningAppVersion: () -> String?
+
     init(
         contentGraph: SiteContentGraph,
         knowledgeIndex: SiteKnowledgeIndex,
         semanticRanker: SemanticRanker?,
         conventionsEngine: ProjectConventionsEngine,
         runtimeFactory: any SiteRuntimeFactory,
-        contentIndexerStore: ContentIndexerStore
+        contentIndexerStore: ContentIndexerStore,
+        gitRunner: @escaping BackupCommand.GitRunner = BackupCommand.defaultRunner,
+        githubToken: @escaping @Sendable () throws -> String? = { try KeychainStore().readGitHubToken() },
+        runningAppVersion: @escaping () -> String? = { AppVersion.current() }
     ) {
+        self.gitRunner = gitRunner
+        self.githubToken = githubToken
+        self.runningAppVersion = runningAppVersion
         self.contentGraph = contentGraph
         self.deploy = DeployModel(
             contentGraph: contentGraph,
@@ -766,6 +791,88 @@ final class SiteWindowModel {
         health.recheck(siteID: site.id, siteDirectory: site.sourceDirectory)
     }
 
+    /// Resolves this site's GitHub origin via the injected `gitRunner`, sharing
+    /// `GitRemoteResolver.origin(in:runner:)` with `PlistEditorModel.currentRemoteRepo()` — see
+    /// that type's doc comment for why `PublishModel`'s `RepoBootstrap`-based resolution stays
+    /// separate. `nil` for no remote, a non-GitHub remote, or a failed git call.
+    private func currentGitHubRemote() async -> RemoteRepo? {
+        guard let site else { return nil }
+        return await GitRemoteResolver.origin(in: site.sourceDirectory, runner: gitRunner)
+    }
+
+    /// Kicks off a `securityReports` check and returns the settling `Task` so callers (and
+    /// tests) can await completion; production callers other than tests discard it. Called from
+    /// `loadAndStart()` on every site open (not awaited there, so it never delays open) and from
+    /// the badge popover / Settings-tab "Check for reports" action — one code path, many triggers.
+    @discardableResult
+    func recheckSecurityReports() -> Task<Void, Never> {
+        Task { [weak self] in
+            guard let self else { return }
+            let repo = await self.currentGitHubRemote()
+            let token = (try? self.githubToken()) ?? nil
+            await self.securityReports.recheck(repo: repo, token: token).value
+        }
+    }
+
+    /// Writes `offers` (bumps + additions) into the site's `package.json`. Shared by
+    /// `loadAndStart()`'s automatic offer sheet and `presentDependencyFixSheet(_:)`'s
+    /// single-offer sheet (#975), so both apply through the identical path. Uses the injected
+    /// `runningAppVersion` (not a direct `AppVersion.current()` call) so tests can supply a
+    /// non-nil version — a plain SwiftPM test host has no `CFBundleShortVersionString`.
+    private func applyDependencySyncOffers(_ offers: DependencySyncOffers, sourceDirectory: URL, configDirectory: URL) {
+        guard let runningVersion = runningAppVersion() else { return }
+        do {
+            try DependencySyncApplier.apply(
+                offers, sourceDirectory: sourceDirectory, configDirectory: configDirectory,
+                runningAppVersion: runningVersion)
+            preview.isUpdatingDependencies = true
+        } catch {
+            // package.json rewrite failed — nothing was written, so the site keeps its
+            // unchanged files; this boot/action is not treated as a post-update one.
+        }
+    }
+
+    /// Opens the dependency-update sheet pre-scoped to a single package bump — the Security
+    /// Reports tab's "Update available" action (#975) for a Dependabot alert
+    /// `DependencySync.fixOffer` already matched against the bundled template. Reuses the same
+    /// apply path as the automatic offer sheet, just for one offer instead of the full set.
+    func presentDependencyFixSheet(_ offer: DependencyUpdateOffer) {
+        guard let site else { return }
+        let offers = DependencySyncOffers(updates: [offer])
+        dependencyUpdateModel = DependencyUpdateModel(offers: offers) { [weak self] accepted in
+            guard let self else { return }
+            if accepted {
+                self.applyDependencySyncOffers(offers, sourceDirectory: site.sourceDirectory, configDirectory: site.configDirectory)
+            }
+            self.dependencyUpdateModel = nil
+        }
+    }
+
+    /// The Info.plist `FileRef` that `.websiteSettings` navigator selection and
+    /// `openWebsiteSettings(landOn:)` both open — the same file the slice-1 interim note above
+    /// describes. `nil` when there's no open site or the package layout can't locate Info.plist.
+    private func websiteSettingsFileRef() -> FileRef? {
+        guard let site else { return nil }
+        let layout = SiteFileTree.layout(for: site.packageURL)
+        guard let infoPlist = layout.infoPlist else { return nil }
+        return FileRef(url: infoPlist, group: .metadata, name: "Info.plist")
+    }
+
+    /// Opens Website Settings landed on `tab` — the security-reports toolbar badge's "View all in
+    /// Security Reports" button (#975 follow-up) calls this so the popover's summary has a route
+    /// into the tab that's the actual triage surface. If the settings editor is already open,
+    /// the request lands directly on its live `PlistEditorModel`; otherwise it's stashed in
+    /// `pendingWebsiteSettingsTab` for `openFile`'s async model-construction `Task` to consume.
+    func openWebsiteSettings(landOn tab: SettingsTab) {
+        guard let file = websiteSettingsFileRef() else { return }
+        if case .plist(let plistEditorModel) = activeEditor, activeEditorFile?.id == file.id {
+            plistEditorModel.requestedTab = tab
+        } else {
+            pendingWebsiteSettingsTab = tab
+        }
+        openFile(file)
+    }
+
     func openPreviewInBrowser() {
         guard let url = preview.readyURL else { return }
         NSWorkspace.shared.open(url)
@@ -1134,8 +1241,14 @@ final class SiteWindowModel {
             mainPaneMode = .editor(file)
             return
         }
-        Task {
-            guard await leaveCurrentEditor(), await leaveCurrentInspector() else { return }
+        // `[self]` is explicit rather than implicit so the `onOpenDependencyFix` closure below can
+        // spell its own `[weak self]` capture without the compiler flagging the mismatch against an
+        // implicitly-captured strong `self` in this outer scope.
+        Task { [self] in
+            guard await leaveCurrentEditor(), await leaveCurrentInspector() else {
+                pendingWebsiteSettingsTab = nil
+                return
+            }
             let kind = EditorKind.resolve(for: file)
             switch kind {
             case .text, .component, .markdown:
@@ -1145,10 +1258,16 @@ final class SiteWindowModel {
                 // wired in at the call site — see `SiteWindow.mainPaneContent`.
                 activeEditor = .text(FileEditorModel(file: file))
             case .plist:
-                // Captures the per-window child models directly (both outlive any editor and are
-                // never replaced), not `self` — no ownership cycle: neither owns the editor model.
+                // The data-providing closures capture the per-window child models directly (they
+                // outlive any editor and are never replaced) rather than `self` — no ownership
+                // cycle, since none of them owns the editor model. `onOpenDependencyFix` is the
+                // deliberate exception: presenting the fix sheet is window-level state, so it
+                // routes back through `presentDependencyFixSheet(_:)` on `self`, captured weakly
+                // so a closed window's model isn't kept alive by an editor that outlives it.
                 let graphExplorer = graphExplorer
                 let preview = preview
+                let securityReports = securityReports
+                let dependencySyncOffers = dependencySyncOffers
                 activeEditor = .plist(PlistEditorModel(
                     file: file,
                     websiteTitle: site?.name ?? file.name,
@@ -1159,8 +1278,15 @@ final class SiteWindowModel {
                     onActiveWorkersChanged: { settings in
                         await preview.activeWorkersChanged(settings)
                     },
-                    containerControlProvider: { [preview] in await preview.activeContainerControl() }
+                    containerControlProvider: { [preview] in await preview.activeContainerControl() },
+                    securityReports: securityReports,
+                    dependencySyncOffers: dependencySyncOffers,
+                    onOpenDependencyFix: { [weak self] offer in self?.presentDependencyFixSheet(offer) }
                 ))
+                if let tab = pendingWebsiteSettingsTab, case .plist(let plistEditorModel) = activeEditor {
+                    pendingWebsiteSettingsTab = nil
+                    plistEditorModel.requestedTab = tab
+                }
             }
             // Same mitigation as Graph/Cleanup/Reader/Followers/Communities (#1126): give a
             // presented inspector's dismissal its own transaction before the pane rebuild below,
@@ -1819,6 +1945,9 @@ final class SiteWindowModel {
         // #881: pull on site open. `SyncModel.start` no-ops entirely for a package that isn't in
         // iCloud Drive, so a plain local site sees zero sync activity here.
         sync.start(package: AnglesitePackage(url: resolved.packageURL))
+        // #975: fired here (not awaited) so a slow/offline GitHub check never delays site open —
+        // the toolbar badge and Settings tab populate whenever it settles.
+        recheckSecurityReports()
 
         #if ANGLESITE_MAS
         await grantController.acquireGrant(for: resolved, in: store)
@@ -1846,25 +1975,14 @@ final class SiteWindowModel {
                 templateDirectory: templateURL,
                 runningAppVersion: runningVersion
             )
+            dependencySyncOffers = offers
             if !offers.isEmpty {
                 await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                     dependencyUpdateModel = DependencyUpdateModel(offers: offers) { [weak self] accepted in
                         guard let self else { continuation.resume(); return }
                         if accepted {
-                            do {
-                                try DependencySyncApplier.apply(
-                                    offers,
-                                    sourceDirectory: resolved.sourceDirectory,
-                                    configDirectory: resolved.configDirectory,
-                                    runningAppVersion: runningVersion
-                                )
-                                self.preview.isUpdatingDependencies = true
-                            } catch {
-                                // package.json rewrite failed — nothing was written, so
-                                // the site opens against its unchanged files. Leave
-                                // isUpdatingDependencies false: this boot is a normal
-                                // one, not a post-update one.
-                            }
+                            self.applyDependencySyncOffers(
+                                offers, sourceDirectory: resolved.sourceDirectory, configDirectory: resolved.configDirectory)
                         }
                         self.dependencyUpdateModel = nil
                         continuation.resume()

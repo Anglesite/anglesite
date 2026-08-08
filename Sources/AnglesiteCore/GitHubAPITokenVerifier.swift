@@ -38,11 +38,12 @@ public enum GitHubTokenVerifyError: Error, Equatable, Sendable {
 
     /// The user-facing copy Settings shows for this failure. Notably, ``invalidToken``'s message
     /// carries the full token-creation recipe (fine-grained, All repositories, Contents +
-    /// Administration read/write) so the user can fix it without leaving the prompt.
+    /// Administration read/write, plus read-only Repository security advisories and Dependabot
+    /// alerts for #975) so the user can fix it without leaving the prompt.
     public var userMessage: String {
         switch self {
         case .invalidToken:
-            return "That token didn’t work. Create a fine-grained token scoped to All repositories with Contents: Read and write and Administration: Read and write access at github.com/settings/tokens and paste the whole token."
+            return "That token didn’t work. Create a fine-grained token scoped to All repositories with Contents: Read and write, Administration: Read and write, Repository security advisories: Read, and Dependabot alerts: Read access at github.com/settings/tokens and paste the whole token."
         case .network:
             return "Couldn’t reach GitHub. Check your connection and try again."
         case .unavailable(let reason):

@@ -771,6 +771,68 @@ extension SiteWindowModelTests {
         #expect(plistModel.file.group == .metadata)
     }
 
+    /// Review finding on PR #1304: a declined leave (`leaveCurrentEditor`/`leaveCurrentInspector`
+    /// returning `false` on an external conflict) used to return from `openFile`'s guard without
+    /// clearing `pendingWebsiteSettingsTab`, so the stashed tab request would spuriously apply to
+    /// the *next*, unrelated `.plist` editor open. Same real-conflict fixture as
+    /// `presentCleanupAbortsOnEditorConflict`, but on `openWebsiteSettings(landOn:)`.
+    @Test("openWebsiteSettings(landOn:) clears the pending tab when leaveCurrentEditor aborts, so a later unrelated open doesn't inherit it")
+    func openWebsiteSettingsLandOnClearsPendingTabOnAbort() async throws {
+        let (root, packageURL, package) = try makeSitePackage()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = makeModel()
+        model.site = SiteStore.Site(
+            id: "site-a", name: "Test", packageURL: packageURL,
+            isValid: true, missingSentinels: [], lastSeen: Date(), bookmarkData: nil
+        )
+
+        let editedFile = root.appendingPathComponent("conflict.txt")
+        try Data("original".utf8).write(to: editedFile)
+        let fileRef = FileRef(url: editedFile, group: .components, name: "conflict.txt")
+        let editorModel = FileEditorModel(file: fileRef)
+        await editorModel.load()
+        editorModel.text = "dirty edit"
+        try Data("changed on disk".utf8).write(to: editedFile)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(2)], ofItemAtPath: editedFile.path
+        )
+        model.mainPaneMode = .editor(fileRef)
+        model.activeEditor = .text(editorModel)
+
+        model.openWebsiteSettings(landOn: .securityReports)
+
+        var iterations = 0
+        while editorModel.conflictDiskContents == nil, iterations < 10_000 {
+            await Task.yield()
+            iterations += 1
+        }
+        guard editorModel.conflictDiskContents != nil else {
+            Issue.record("flushBeforeLeaving never surfaced the external conflict")
+            return
+        }
+        #expect(model.mainPaneMode == .editor(fileRef))
+        #expect(model.activeEditor != nil)
+
+        // Simulate the conflict being resolved (e.g. the user dismissed the alert and moved on)
+        // by clearing the editor directly, then open Website Settings again with no tab request —
+        // exactly like clicking the navigator's Website Settings row afterward. If
+        // `pendingWebsiteSettingsTab` had leaked past the aborted call above, this unrelated open
+        // would spuriously land on `.securityReports` instead of the default (`nil`) tab.
+        model.activeEditor = nil
+        model.mainPaneMode = .preview
+
+        model.openWebsiteSettings()
+
+        while model.activeEditor == nil { await Task.yield() }
+        guard case .plist(let plistModel) = model.activeEditor else {
+            Issue.record("expected the Info.plist to open as a .plist editor")
+            return
+        }
+        #expect(plistModel.file.url == package.infoPlistURL)
+        #expect(plistModel.requestedTab == nil)
+    }
+
     @Test("applyNavigatorSelection navigates the preview to a directory's route for .directory, clearing any open editor/inspector")
     func applyNavigatorSelectionDirectoryNavigatesPreview() async throws {
         let (root, packageURL, package) = try makeSitePackage()

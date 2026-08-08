@@ -11,9 +11,10 @@ public enum GitHubRepoAPIError: Error, Equatable, Sendable {
     /// distinct from `.api`, which means GitHub responded with a rejection.
     case network
     /// GitHub returned 401 or 403 — the token is invalid, expired, or missing the required scope.
-    /// Both statuses collapse into one case because the user-facing remedy is identical: fix the
-    /// token in Settings.
-    case unauthorized
+    /// Carries the actual status so callers that need to tell the two apart (e.g. a 403 can mean
+    /// a repo feature is simply off, not a bad token) can — most callers still show the same
+    /// "fix the token in Settings" remedy either way and can ignore the associated value.
+    case unauthorized(status: Int)
     /// A 422 whose `errors[].message` says the repository name is taken. Split out from `.api`
     /// so callers can offer a rename instead of showing a raw API message.
     case nameAlreadyExists
@@ -61,7 +62,9 @@ public struct HTTPGitHubClient: Sendable {
             throw GitHubRepoAPIError.network
         }
 
-        if http.statusCode == 401 || http.statusCode == 403 { throw GitHubRepoAPIError.unauthorized }
+        if http.statusCode == 401 || http.statusCode == 403 {
+            throw GitHubRepoAPIError.unauthorized(status: http.statusCode)
+        }
         if http.statusCode == 422 {
             let envelope = try? JSONDecoder().decode(GitHubErrorResponse.self, from: data)
             // The name-conflict detail lives in `errors[].message`, not the top-level `message`
@@ -91,8 +94,8 @@ public struct HTTPGitHubClient: Sendable {
     }
 
     /// Sends `request`, mapping transport and status failures the same way `createRepo` does.
-    /// Returns the body for callers that need to decode one.
-    private func send(_ request: URLRequest) async throws -> Data {
+    /// Returns the body and response for callers that need to decode one or inspect headers.
+    private func sendWithResponse(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let data: Data
         let http: HTTPURLResponse
         do {
@@ -100,9 +103,65 @@ public struct HTTPGitHubClient: Sendable {
         } catch {
             throw GitHubRepoAPIError.network
         }
-        if http.statusCode == 401 || http.statusCode == 403 { throw GitHubRepoAPIError.unauthorized }
+        if http.statusCode == 401 || http.statusCode == 403 {
+            throw GitHubRepoAPIError.unauthorized(status: http.statusCode)
+        }
         guard (200..<300).contains(http.statusCode) else { throw GitHubRepoAPIError.http(status: http.statusCode) }
-        return data
+        return (data, http)
+    }
+
+    /// Sends `request`, discarding the response headers. See ``sendWithResponse(_:)``.
+    private func send(_ request: URLRequest) async throws -> Data {
+        try await sendWithResponse(request).0
+    }
+
+    /// Fetches every page of a GitHub list endpoint, starting at `path` with `per_page=100` (the
+    /// API's max, to minimize round-trips) and following the `Link: rel="next"` response header
+    /// until GitHub stops sending one. Both `openSecurityAdvisories` and `openDependabotAlerts`
+    /// paginate at 30 items/page by default, so a repo with more open items than that would
+    /// otherwise silently under-report.
+    private func fetchAllPages<Item: Decodable>(path: String, token: String) async throws -> [Item] {
+        guard var url = URL(string: Self.base + path) else { throw GitHubRepoAPIError.malformedResponse }
+        url = Self.addingPerPage(url)
+
+        var items: [Item] = []
+        var nextURL: URL? = url
+        while let currentURL = nextURL {
+            var request = URLRequest(url: currentURL)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+
+            let (data, http) = try await sendWithResponse(request)
+            guard let page = try? JSONDecoder().decode([Item].self, from: data) else {
+                throw GitHubRepoAPIError.malformedResponse
+            }
+            items.append(contentsOf: page)
+            nextURL = Self.nextPageURL(from: http)
+        }
+        return items
+    }
+
+    private static func addingPerPage(_ url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var items = components.queryItems ?? []
+        items.append(URLQueryItem(name: "per_page", value: "100"))
+        components.queryItems = items
+        return components.url ?? url
+    }
+
+    /// Parses the `Link` response header (RFC 8288, as GitHub sends it) for a `rel="next"` entry,
+    /// e.g. `<https://api.github.com/repos/acme/site/dependabot/alerts?page=2>; rel="next"`.
+    private static func nextPageURL(from response: HTTPURLResponse) -> URL? {
+        guard let link = response.value(forHTTPHeaderField: "Link") else { return nil }
+        for entry in link.components(separatedBy: ",") {
+            let parts = entry.components(separatedBy: ";").map { $0.trimmingCharacters(in: .whitespaces) }
+            guard let urlPart = parts.first, urlPart.hasPrefix("<"), urlPart.hasSuffix(">"),
+                  parts.dropFirst().contains(where: { $0 == "rel=\"next\"" }) else { continue }
+            return URL(string: String(urlPart.dropFirst().dropLast()))
+        }
+        return nil
     }
 
     private struct RepositoryResponse: Decodable {
@@ -161,10 +220,79 @@ extension HTTPGitHubClient: RepoSecurityReading, RepoSecurityWriting {
     /// `PUT /repos/{owner}/{repo}/private-vulnerability-reporting` — enable only, per
     /// ``RepoSecurityWriting``'s contract (the app never disables a reporting channel it didn't
     /// create). Requires admin access; a token without it surfaces as
-    /// ``GitHubRepoAPIError/unauthorized``.
+    /// ``GitHubRepoAPIError/unauthorized(status:)``.
     public func enablePrivateVulnerabilityReporting(owner: String, name: String, token: String) async throws {
         // A 204 with an empty body is the documented success response — nothing to decode.
         _ = try await send(repoRequest(
             method: "PUT", path: "/repos/\(owner)/\(name)/private-vulnerability-reporting", token: token))
+    }
+}
+
+extension HTTPGitHubClient: RepoAdvisoryReading {
+    private struct AdvisoryResponse: Decodable {
+        let ghsaID: String
+        let summary: String
+        let severity: SecurityAdvisory.Severity
+        let htmlURL: String
+        let publishedAt: String?
+        let state: String
+        enum CodingKeys: String, CodingKey {
+            case ghsaID = "ghsa_id", summary, severity, htmlURL = "html_url"
+            case publishedAt = "published_at", state
+        }
+    }
+
+    private struct AlertResponse: Decodable {
+        struct Dependency: Decodable {
+            struct Package: Decodable { let name: String; let ecosystem: String }
+            let package: Package
+        }
+        struct SecurityAdvisoryInfo: Decodable { let severity: SecurityAdvisory.Severity }
+        struct SecurityVulnerability: Decodable {
+            struct FirstPatchedVersion: Decodable { let identifier: String }
+            let firstPatchedVersion: FirstPatchedVersion?
+            enum CodingKeys: String, CodingKey { case firstPatchedVersion = "first_patched_version" }
+        }
+        let number: Int
+        let dependency: Dependency
+        let securityAdvisory: SecurityAdvisoryInfo
+        let securityVulnerability: SecurityVulnerability
+        let htmlURL: String
+        enum CodingKeys: String, CodingKey {
+            case number, dependency
+            case securityAdvisory = "security_advisory"
+            case securityVulnerability = "security_vulnerability"
+            case htmlURL = "html_url"
+        }
+    }
+
+    /// `GET /repos/{owner}/{repo}/security-advisories` — fetched unfiltered (the endpoint's own
+    /// `state` query param isn't used) and filtered here to `triage`/`published`, matching
+    /// ``RepoAdvisoryReading/openSecurityAdvisories(owner:name:token:)``'s contract.
+    public func openSecurityAdvisories(owner: String, name: String, token: String) async throws -> [SecurityAdvisory] {
+        let items: [AdvisoryResponse] = try await fetchAllPages(
+            path: "/repos/\(owner)/\(name)/security-advisories", token: token)
+        let dateFormatter = ISO8601DateFormatter()
+        return items
+            .filter { $0.state == "triage" || $0.state == "published" }
+            .compactMap { item in
+                guard let url = URL(string: item.htmlURL) else { return nil }
+                return SecurityAdvisory(
+                    id: item.ghsaID, summary: item.summary, severity: item.severity, htmlURL: url,
+                    publishedAt: item.publishedAt.flatMap { dateFormatter.date(from: $0) })
+            }
+    }
+
+    /// `GET /repos/{owner}/{repo}/dependabot/alerts?state=open`.
+    public func openDependabotAlerts(owner: String, name: String, token: String) async throws -> [DependabotAlert] {
+        let items: [AlertResponse] = try await fetchAllPages(
+            path: "/repos/\(owner)/\(name)/dependabot/alerts?state=open", token: token)
+        return items.compactMap { item in
+            guard let url = URL(string: item.htmlURL) else { return nil }
+            return DependabotAlert(
+                id: item.number, packageName: item.dependency.package.name,
+                ecosystem: item.dependency.package.ecosystem, severity: item.securityAdvisory.severity,
+                patchedVersion: item.securityVulnerability.firstPatchedVersion?.identifier, htmlURL: url)
+        }
     }
 }

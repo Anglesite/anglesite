@@ -27,6 +27,7 @@ struct SiteToolbarItemIDTests {
             "inspector",
             "styleGuide",
             "sync",
+            "securityReports",
         ])
     }
 }
