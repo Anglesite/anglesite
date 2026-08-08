@@ -109,6 +109,52 @@ struct InboxSubmissionSyncTests {
         #expect(count == 0)
     }
 
+    @Test("pullAndCommitIfConfigured resolves the token via secretStore and pulls, commits, deletes")
+    func resolvesTokenAndCommits() async throws {
+        // Claim the env var cleared (#1289 review) so this positive path actually exercises
+        // `secretStore` rather than possibly getting a passing token from an ambient/leaked
+        // CLOUDFLARE_API_TOKEN (#1282) without ever going near `FakeSecretStore` — the Authorization
+        // header assertion below is what pins that this really came from the injected store.
+        let cfToken = await CloudflareAPITokenTestEnvironment.shared.claimClear()
+        defer { cfToken.release() }
+        let fm = FileManager.default
+        let configDir = fm.temporaryDirectory.appendingPathComponent("inbox-sync-config-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: configDir) }
+        try await SiteConfigStore(configDirectory: configDir).save(
+            SiteSettings(provisionedWorkerResources: .init(inboxKVNamespaceID: "ns1", inboxAccountID: "acct1")))
+
+        let siteDirectory = try Self.makeThrowawayGitRepo()
+        defer { try? FileManager.default.removeItem(at: siteDirectory) }
+
+        let keysBody = Data("""
+        {"success": true, "result": [{"name": "inbox:abc"}]}
+        """.utf8)
+        let submissionBody = Data("""
+        {"id": "abc", "subject": "Hello", "from": "a@example.com", "message": "Hi", "receivedAt": "2026-07-10T00:00:00Z"}
+        """.utf8)
+        let deleted = DeletedIDs()
+        let seenAuthorization = SeenHeader()
+
+        let count = await InboxSubmissionSync.pullAndCommitIfConfigured(
+            siteDirectory: siteDirectory,
+            configDirectory: configDir,
+            secretStore: FakeSecretStore(token: "token"),
+            transport: { request in
+                await seenAuthorization.record(request.value(forHTTPHeaderField: "Authorization"))
+                if request.httpMethod == "DELETE" {
+                    await deleted.append(String(request.url!.lastPathComponent.dropFirst("inbox:".count)))
+                    return (Data(), Self.response(200))
+                }
+                if request.url!.path.hasSuffix("/keys") { return (keysBody, Self.response(200)) }
+                if request.url!.path.hasSuffix("/values/inbox:abc") { return (submissionBody, Self.response(200)) }
+                return (Data(), Self.response(404))
+            })
+        #expect(count == 1)
+        let deletedIDs = await deleted.values
+        #expect(deletedIDs == ["abc"])
+        #expect(await seenAuthorization.value == "Bearer token")
+    }
+
     private static func makeThrowawayGitRepo() throws -> URL {
         let fm = FileManager.default
         let dir = fm.temporaryDirectory.appendingPathComponent("inbox-sync-repo-\(UUID().uuidString)", isDirectory: true)
@@ -154,4 +200,9 @@ private struct FakeSecretStore: SecretStore {
     func read(account: String) throws -> String? { account == SecretAccounts.cloudflareToken ? token : nil }
     func write(_ value: String, account: String) throws {}
     func delete(account: String) throws {}
+}
+
+private actor SeenHeader {
+    private(set) var value: String?
+    func record(_ value: String?) { self.value = value }
 }
