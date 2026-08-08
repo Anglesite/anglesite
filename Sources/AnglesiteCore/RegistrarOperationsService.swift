@@ -23,12 +23,12 @@ public protocol RegistrarOperationsService: Sendable {
 public struct RegistrarOperations: RegistrarOperationsService {
     private let reader: any CloudflareRegistrarReading
     private let writer: any CloudflareRegistrarWriting
-    private let tokenProvider: @Sendable () -> String?
+    private let tokenProvider: @Sendable () async -> String?
 
     public init(
         reader: any CloudflareRegistrarReading = HTTPCloudflareClient(),
         writer: any CloudflareRegistrarWriting = HTTPCloudflareClient(),
-        tokenProvider: @escaping @Sendable () -> String? = DomainOperations.defaultTokenProvider
+        tokenProvider: @escaping @Sendable () async -> String? = DomainOperations.defaultTokenProvider
     ) {
         self.reader = reader
         self.writer = writer
@@ -36,7 +36,7 @@ public struct RegistrarOperations: RegistrarOperationsService {
     }
 
     public func searchDomains(query: String) async -> Result<[String], RegistrarOperationError> {
-        guard let token = tokenProvider() else { return .failure(.noToken) }
+        guard let token = await tokenProvider() else { return .failure(.noToken) }
         do {
             return .success(try await reader.searchDomains(query: query, apiToken: token))
         } catch let error as CloudflareError {
@@ -47,7 +47,7 @@ public struct RegistrarOperations: RegistrarOperationsService {
     }
 
     public func checkDomainAvailability(domains: [String]) async -> Result<[RegistrarDomainCheck], RegistrarOperationError> {
-        guard let token = tokenProvider() else { return .failure(.noToken) }
+        guard let token = await tokenProvider() else { return .failure(.noToken) }
         do {
             return .success(try await reader.checkDomainAvailability(domains: domains, apiToken: token))
         } catch let error as CloudflareError {
@@ -58,7 +58,7 @@ public struct RegistrarOperations: RegistrarOperationsService {
     }
 
     public func registerDomain(name: String) async -> Result<RegistrarRegistrationOutcome, RegistrarOperationError> {
-        guard let token = tokenProvider() else { return .failure(.noToken) }
+        guard let token = await tokenProvider() else { return .failure(.noToken) }
         do {
             return .success(try await writer.registerDomain(name: name, apiToken: token))
         } catch let error as CloudflareError {

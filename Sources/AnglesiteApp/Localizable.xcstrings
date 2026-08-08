@@ -235,6 +235,9 @@
     "A full, growing catalog" : {
 
     },
+    "A legacy pasted token, read only if no OAuth credential above is connected. Stored in the macOS Keychain under `io.dwk.anglesite` and never written to logs. An exported `CLOUDFLARE_API_TOKEN` in the shell that launched Anglesite takes precedence over both." : {
+
+    },
     "A service or one-off" : {
 
     },
@@ -2094,6 +2097,9 @@
     "Not Set" : {
 
     },
+    "Not connected" : {
+
+    },
     "Not enabled." : {
 
     },
@@ -2976,6 +2982,9 @@
 
     },
     "Signed in as %@" : {
+
+    },
+    "Signing in to Cloudflare from a Deploy sheet stores this credential; it's what every Cloudflare-backed feature (deploy, Harden, Domain Config Audit, Onion Routing, Analytics, domain buy/transfer, and inbound Webmention/Micropub sync) uses first. Refreshed automatically when it expires." : {
 
     },
     "Signing in…" : {
