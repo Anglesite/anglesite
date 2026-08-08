@@ -224,6 +224,9 @@ jobs:
       - name: Test
         run: swift test -c debug --parallel
 
+      - name: Test install-swift-linux.sh retry/backoff loop
+        run: scripts/install-swift-linux.test.sh
+
   build-test:
     # macos-26, not macos-15: the macos-15 image's OS libswift_Concurrency (Swift 6.2.3-era,
     # no assertions) carries a task-allocator bug (swiftlang/swift#86204 class) that crashed

@@ -79,11 +79,18 @@ fi
 # `swiftly install` fetches swift.org's PGP keys itself (separate from
 # verify_swiftly_tarball above, which only covers the swiftly binary) before
 # verifying the toolchain download. That fetch has been observed to fail fast
-# and deterministically within a single run — gpg importing a 0-byte temp
-# file — without reproducing on a fresh container or under direct network
-# pressure (curl and a standalone URLSession loop against the same URL both
-# came back clean), so retrying the whole command is more effective than
-# trying to fix a root cause that doesn't hold still.
+# — gpg importing a 0-byte temp file — 3 times in a row, back-to-back with no
+# delay, within one container; a fresh container hit no failures at all,
+# including under repeated direct pressure on the same code path. Each
+# attempt used a distinct temp filename (not a replayed/cached one), so it's
+# a fresh fetch failing every time in that container, not a corrupted local
+# artifact being reused — retrying has a mechanism by which it could help.
+# Whether the backoff below is what actually clears it is unverified: the
+# only reproductions were immediate back-to-back retries, not delayed ones,
+# and the specific broken container is gone. Treat this as a bounded,
+# logged mitigation for a failure mode that isn't fully understood, not a
+# confirmed fix — see install-swift-linux.test.sh for what IS verified
+# (attempt count, backoff timing, and exit code of this loop itself).
 attempt=1
 max_attempts=3
 delay=5
