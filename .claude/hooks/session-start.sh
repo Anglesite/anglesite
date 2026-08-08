@@ -6,7 +6,8 @@
 # README.md#developing-on-linux) needs a Swift 6.3+ toolchain for
 # `swift build`/`swift test` to work, and web session containers don't ship
 # one. The preferred install path is the cloud environment's **setup script**
-# (`bash scripts/install-swift-linux.sh`, cached with the environment — see
+# (fetched from GitHub via curl since the setup script runs before the
+# session's repo clone exists, cached with the environment — see
 # README.md#developing-on-linux); this hook is the per-session fallback for
 # environments without that cache, and it owns the part a setup script can't
 # do: persisting the toolchain's PATH/LD_LIBRARY_PATH into the session via
