@@ -82,6 +82,12 @@ public struct CloudflareRUMAnalyticsClient: CloudflareRUMAnalyticsProviding {
             guard let date = Self.parseDate(group.dimensions.date) else { return nil }
             return DailyCount(date: date, pageviews: group.count)
         }.sorted { $0.date < $1.date }
+        // `groups` had real, nonzero data, but none of it had a date in either format
+        // `parseDate` understands — that's a parse failure, not "no traffic in this window," and
+        // must not be conflated with the genuinely-empty (`groups.isEmpty`) case below.
+        if !groups.isEmpty && daily.isEmpty {
+            throw CloudflareWebAnalyticsError.invalidResponse
+        }
         return RUMAnalyticsSummary(
             totalPageviews: groups.reduce(0) { $0 + $1.count },
             totalVisits: groups.reduce(0) { $0 + $1.sum.visits },

@@ -345,7 +345,7 @@ struct PlistEditorView: View {
             }
             rumSummarySection
         }
-        .task { await model.loadRUMSummary() }
+        .task(id: model.cloudflareAnalyticsEnabled) { await model.loadRUMSummary() }
         .popover(isPresented: $showingCustomAnalyticsHelp, arrowEdge: .trailing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Custom Analytics")
@@ -400,7 +400,7 @@ struct PlistEditorView: View {
     /// window to the second half (rather than just first-day-vs-last-day) so one noisy day doesn't flip
     /// the description.
     private func rumTrendDescription(for days: [DailyCount]) -> String {
-        guard days.count >= 2 else { return "holding steady" }
+        guard days.count >= 2 else { return String(localized: "holding steady") }
         let midpoint = days.count / 2
         let firstHalf = days[..<midpoint]
         let secondHalf = days[midpoint...]
@@ -408,11 +408,11 @@ struct PlistEditorView: View {
         let secondAverage = Double(secondHalf.reduce(0) { $0 + $1.pageviews }) / Double(secondHalf.count)
         let threshold = max(1.0, firstAverage * 0.1)
         if secondAverage - firstAverage > threshold {
-            return "trending up"
+            return String(localized: "trending up")
         } else if firstAverage - secondAverage > threshold {
-            return "trending down"
+            return String(localized: "trending down")
         } else {
-            return "holding steady"
+            return String(localized: "holding steady")
         }
     }
 

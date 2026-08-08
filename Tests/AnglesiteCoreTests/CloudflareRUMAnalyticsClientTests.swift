@@ -9,12 +9,18 @@ import Foundation
 private final class RUMAnalyticsStubURLProtocol: URLProtocol, @unchecked Sendable {
     struct Stub { let statusCode: Int; let body: String }
     nonisolated(unsafe) static var responses: [String: Stub] = [:]
+    /// Outgoing request bodies, keyed by URL — lets tests assert on what the client actually sent
+    /// (e.g. the GraphQL `variables`), not just what it received back.
+    nonisolated(unsafe) static var capturedBodies: [String: Data] = [:]
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let key = request.url?.absoluteString ?? ""
+        if let body = Self.bodyData(from: request) {
+            Self.capturedBodies[key] = body
+        }
         guard let stub = Self.responses[key] else {
             client?.urlProtocol(self, didFailWithError: URLError(.fileDoesNotExist))
             return
@@ -29,12 +35,39 @@ private final class RUMAnalyticsStubURLProtocol: URLProtocol, @unchecked Sendabl
 
     override func stopLoading() {}
 
-    static func reset() { responses = [:] }
+    static func reset() {
+        responses = [:]
+        capturedBodies = [:]
+    }
 
     static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [RUMAnalyticsStubURLProtocol.self]
         return URLSession(configuration: config)
+    }
+
+    /// `URLSession` moves a POST body set via `URLRequest.httpBody` into `httpBodyStream` for
+    /// requests routed through a custom `URLProtocol` — `request.httpBody` alone comes back `nil`
+    /// here even though the client set it, so fall back to draining the stream.
+    private static func bodyData(from request: URLRequest) -> Data? {
+        if let httpBody = request.httpBody {
+            return httpBody
+        }
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let bufferSize = 4096
+        var buffer = [UInt8](repeating: 0, count: bufferSize)
+        while stream.hasBytesAvailable {
+            let bytesRead = stream.read(&buffer, maxLength: bufferSize)
+            if bytesRead > 0 {
+                data.append(buffer, count: bytesRead)
+            } else {
+                break
+            }
+        }
+        return data
     }
 }
 
@@ -129,5 +162,49 @@ private final class RUMAnalyticsStubURLProtocol: URLProtocol, @unchecked Sendabl
         await #expect(throws: CloudflareWebAnalyticsError.invalidResponse) {
             try await client.summary(siteTag: "site-tag-1", apiToken: "token", days: 7)
         }
+    }
+
+    @Test("throws invalidResponse when every group's date fails to parse, rather than reporting empty traffic")
+    func throwsWhenAllDatesUnparseable() async throws {
+        RUMAnalyticsStubURLProtocol.reset()
+        RUMAnalyticsStubURLProtocol.responses[accountsURL] = .init(statusCode: 200, body: accountsJSON)
+        RUMAnalyticsStubURLProtocol.responses[graphqlURL] = .init(statusCode: 200, body: """
+            {"data":{"viewer":{"accounts":[{"rumPageloadEventsAdaptiveGroups":[
+                {"count":100,"sum":{"visits":40},"dimensions":{"date":"not-a-date"}}
+            ]}]}}}
+            """)
+        let client = CloudflareRUMAnalyticsClient(baseURL: baseURL, urlSession: RUMAnalyticsStubURLProtocol.makeSession())
+
+        await #expect(throws: CloudflareWebAnalyticsError.invalidResponse) {
+            try await client.summary(siteTag: "site-tag-1", apiToken: "token", days: 7)
+        }
+    }
+
+    @Test("sends the expected siteTag and a roughly 7-day since/until window")
+    func sendsExpectedSiteTagAndDateWindow() async throws {
+        RUMAnalyticsStubURLProtocol.reset()
+        RUMAnalyticsStubURLProtocol.responses[accountsURL] = .init(statusCode: 200, body: accountsJSON)
+        RUMAnalyticsStubURLProtocol.responses[graphqlURL] = .init(statusCode: 200, body: """
+            {"data":{"viewer":{"accounts":[{"rumPageloadEventsAdaptiveGroups":[]}]}}}
+            """)
+        let client = CloudflareRUMAnalyticsClient(baseURL: baseURL, urlSession: RUMAnalyticsStubURLProtocol.makeSession())
+
+        _ = try await client.summary(siteTag: "site-tag-1", apiToken: "token", days: 7)
+
+        let capturedBody = try #require(RUMAnalyticsStubURLProtocol.capturedBodies[graphqlURL])
+        let json = try #require(
+            try JSONSerialization.jsonObject(with: capturedBody) as? [String: Any])
+        let variables = try #require(json["variables"] as? [String: Any])
+
+        #expect(variables["siteTag"] as? String == "site-tag-1")
+
+        let isoFormatter = ISO8601DateFormatter()
+        let sinceString = try #require(variables["since"] as? String)
+        let untilString = try #require(variables["until"] as? String)
+        let since = try #require(isoFormatter.date(from: sinceString))
+        let until = try #require(isoFormatter.date(from: untilString))
+        let span = until.timeIntervalSince(since)
+        let sevenDays: TimeInterval = 7 * 24 * 60 * 60
+        #expect(abs(span - sevenDays) < 3600 * 4)
     }
 }
