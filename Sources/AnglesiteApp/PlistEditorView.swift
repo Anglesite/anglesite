@@ -376,6 +376,7 @@ struct PlistEditorView: View {
                             Text("No traffic recorded in the last 7 days.")
                                 .foregroundStyle(.secondary)
                         } else {
+                            let trend = rumTrendDescription(for: summary.dailyPageviews)
                             Text("Last 7 days: \(summary.totalPageviews) pageviews · \(summary.totalVisits) visits")
                             Chart(summary.dailyPageviews, id: \.date) { day in
                                 BarMark(
@@ -385,11 +386,33 @@ struct PlistEditorView: View {
                             }
                             .frame(height: 60)
                             .accessibilityLabel("7-day pageviews trend")
-                            .accessibilityValue("\(summary.totalPageviews) total pageviews over the last 7 days")
+                            .accessibilityValue("\(summary.totalPageviews) total pageviews over the last 7 days, \(trend)")
                         }
                     }
                 }
             }
+        }
+    }
+
+    /// Describes the shape of a 7-day pageviews trend in words, for the sparkline's
+    /// `accessibilityValue` — VoiceOver users get no benefit from the bar chart itself, so the totals
+    /// line needs to say in words what the bars show. Compares the average of the first half of the
+    /// window to the second half (rather than just first-day-vs-last-day) so one noisy day doesn't flip
+    /// the description.
+    private func rumTrendDescription(for days: [DailyCount]) -> String {
+        guard days.count >= 2 else { return "holding steady" }
+        let midpoint = days.count / 2
+        let firstHalf = days[..<midpoint]
+        let secondHalf = days[midpoint...]
+        let firstAverage = Double(firstHalf.reduce(0) { $0 + $1.pageviews }) / Double(firstHalf.count)
+        let secondAverage = Double(secondHalf.reduce(0) { $0 + $1.pageviews }) / Double(secondHalf.count)
+        let threshold = max(1.0, firstAverage * 0.1)
+        if secondAverage - firstAverage > threshold {
+            return "trending up"
+        } else if firstAverage - secondAverage > threshold {
+            return "trending down"
+        } else {
+            return "holding steady"
         }
     }
 
