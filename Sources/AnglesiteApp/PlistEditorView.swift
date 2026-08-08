@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Charts
 import AnglesiteCore
 
 /// Website Settings' tab identity (#975 follow-up: internal, not `private`, so
@@ -354,7 +355,9 @@ struct PlistEditorView: View {
                         .font(.callout)
                 }
             }
+            rumSummarySection
         }
+        .task(id: model.cloudflareAnalyticsEnabled) { await model.loadRUMSummary() }
         .popover(isPresented: $showingCustomAnalyticsHelp, arrowEdge: .trailing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Custom Analytics")
@@ -365,6 +368,63 @@ struct PlistEditorView: View {
                     .frame(width: 280, alignment: .leading)
             }
             .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var rumSummarySection: some View {
+        if model.cloudflareAnalyticsEnabled {
+            SettingsBox(title: "Traffic") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if model.isLoadingRUMSummary {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else if let rumSummaryError = model.rumSummaryError {
+                        Label(rumSummaryError, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.callout)
+                    } else if let summary = model.rumSummary {
+                        if summary.dailyPageviews.isEmpty {
+                            Text("No traffic recorded in the last 7 days.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            let trend = rumTrendDescription(for: summary.dailyPageviews)
+                            Text("Last 7 days: \(summary.totalPageviews) pageviews · \(summary.totalVisits) visits")
+                            Chart(summary.dailyPageviews, id: \.date) { day in
+                                BarMark(
+                                    x: .value("Day", day.date, unit: .day),
+                                    y: .value("Pageviews", day.pageviews)
+                                )
+                            }
+                            .frame(height: 60)
+                            .accessibilityLabel("7-day pageviews trend")
+                            .accessibilityValue("\(summary.totalPageviews) total pageviews over the last 7 days, \(trend)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Describes the shape of a 7-day pageviews trend in words, for the sparkline's
+    /// `accessibilityValue` — VoiceOver users get no benefit from the bar chart itself, so the totals
+    /// line needs to say in words what the bars show. Compares the average of the first half of the
+    /// window to the second half (rather than just first-day-vs-last-day) so one noisy day doesn't flip
+    /// the description.
+    private func rumTrendDescription(for days: [DailyCount]) -> String {
+        guard days.count >= 2 else { return String(localized: "holding steady") }
+        let midpoint = days.count / 2
+        let firstHalf = days[..<midpoint]
+        let secondHalf = days[midpoint...]
+        let firstAverage = Double(firstHalf.reduce(0) { $0 + $1.pageviews }) / Double(firstHalf.count)
+        let secondAverage = Double(secondHalf.reduce(0) { $0 + $1.pageviews }) / Double(secondHalf.count)
+        let threshold = max(1.0, firstAverage * 0.1)
+        if secondAverage - firstAverage > threshold {
+            return String(localized: "trending up")
+        } else if firstAverage - secondAverage > threshold {
+            return String(localized: "trending down")
+        } else {
+            return String(localized: "holding steady")
         }
     }
 

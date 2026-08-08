@@ -323,8 +323,13 @@ private struct AdvancedSettingsView: View {
             }
 
             Section("Credentials") {
+                CloudflareOAuthStatusRow()
+                Text("Signing in to Cloudflare from a Deploy sheet stores this credential; it's what every Cloudflare-backed feature (deploy, Harden, Domain Config Audit, Onion Routing, Analytics, domain buy/transfer, and inbound Webmention/Micropub sync) uses first. Refreshed automatically when it expires.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 CloudflareTokenRow()
-                Text("Stored in the macOS Keychain under `io.dwk.anglesite`. The token is passed to `wrangler deploy` as `CLOUDFLARE_API_TOKEN` and never written to logs. An exported `CLOUDFLARE_API_TOKEN` in the shell that launched Anglesite takes precedence over this entry.")
+                Text("A legacy pasted token, read only if no OAuth credential above is connected. Stored in the macOS Keychain under `io.dwk.anglesite` and never written to logs. An exported `CLOUDFLARE_API_TOKEN` in the shell that launched Anglesite takes precedence over both.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -397,6 +402,74 @@ private struct AdvancedSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+/// Cloudflare OAuth connection status (#1211) — the sibling of `CloudflareTokenRow` for the
+/// OAuth credential that every production Cloudflare call site now tries first (env var, then
+/// this, then the legacy pasted token — see `CloudflareAPICredentials.resolve()`). Read-only
+/// status + sign-out: sign-in itself only happens from a Deploy sheet's "Sign in with Cloudflare"
+/// flow (`CloudflareOAuthSignInView`), since Settings has nowhere to present the required
+/// `ASWebAuthenticationSession` browser sheet outside a deploy attempt today. Local-only (no
+/// network call) — shows whether a credential is stored and whether it still carries a refresh
+/// token, not a live-verified account name.
+private struct CloudflareOAuthStatusRow: View {
+    /// Deliberately *not* the raw `CloudflareOAuthCredential` — this row only ever needs
+    /// "connected?" and "has a refresh token?", so it derives those two booleans in
+    /// `refreshStatus()` instead of retaining the credential's plaintext access/refresh tokens in
+    /// view state, matching `KeychainTokenRow`'s existing "don't hold secret bytes you don't need"
+    /// posture in this same file.
+    @State private var isConnected = false
+    @State private var canAutoRefresh = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        LabeledContent("Cloudflare (OAuth)") {
+            VStack(alignment: .trailing, spacing: 6) {
+                statusLabel
+                Button("Sign Out") { signOut() }
+                    .disabled(!isConnected)
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .onAppear { refreshStatus() }
+    }
+
+    @ViewBuilder
+    private var statusLabel: some View {
+        if isConnected {
+            Label(
+                canAutoRefresh ? "Connected" : "Connected (won't auto-refresh)",
+                systemImage: "checkmark.circle.fill"
+            )
+            .font(.footnote)
+            .foregroundStyle(.green)
+        } else {
+            Text("Not connected")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func refreshStatus() {
+        let credential = try? KeychainStore().readCloudflareOAuthCredential()
+        isConnected = credential != nil
+        canAutoRefresh = credential?.refreshToken != nil
+    }
+
+    private func signOut() {
+        do {
+            try KeychainStore().clearCloudflareOAuthCredential()
+            isConnected = false
+            canAutoRefresh = false
+            errorMessage = nil
+        } catch {
+            errorMessage = "Couldn't clear the stored credential."
+        }
     }
 }
 

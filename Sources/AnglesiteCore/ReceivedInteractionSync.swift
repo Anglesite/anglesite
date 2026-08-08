@@ -83,8 +83,9 @@ public enum ReceivedInteractionSync {
         transport: @escaping CloudflareTransport = HTTPCloudflareClient.defaultTransport
     ) async -> Int {
         guard let settings = try? SiteConfigStore.read(from: configDirectory),
-              let databaseID = settings.provisionedWorkerResources?.d1DatabaseID, !databaseID.isEmpty,
-              let token = try? secretStore.readCloudflareToken(), !token.isEmpty
+              let databaseID = settings.provisionedWorkerResources?.d1DatabaseID, !databaseID.isEmpty
+        else { return 0 }
+        guard let token = try? await CloudflareAPICredentials.resolve(secretStore: secretStore), !token.isEmpty
         else { return 0 }
         guard let accountID = await Self.resolveAccountID(apiToken: token, baseURL: baseURL, transport: transport)
         else { return 0 }
